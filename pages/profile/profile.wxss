@@ -53,6 +53,18 @@
   align-items: center;
 }
 
+.login-btn {
+  height: 58rpx;
+  padding: 0 24rpx;
+  border-radius: 30rpx;
+  color: #fff;
+  background: linear-gradient(90deg, #ff7b00, #ff1712);
+  font-size: 25rpx;
+  font-weight: 900;
+  display: flex;
+  align-items: center;
+}
+
 .stats-card {
   margin: 0 30rpx;
   padding: 26rpx 0;

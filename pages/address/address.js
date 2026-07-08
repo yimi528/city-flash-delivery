@@ -18,25 +18,36 @@ Page({
       title: type === 'pickup' ? '选择发货地址' : '选择收货地址',
       addresses: app.globalData.addresses
     })
+  },
+
+  onShow() {
     this.loadAddresses()
   },
 
   loadAddresses() {
-    if (!app.globalData.useBackend) return
+    if (!app.globalData.useBackend) {
+      this.applySearch(app.globalData.addresses)
+      return
+    }
     api.getAddresses(app.globalData.userId).then((addresses) => {
       app.globalData.addresses = addresses
-      this.setData({ addresses })
+      this.applySearch(addresses)
     }).catch(() => {
+      this.applySearch(app.globalData.addresses)
       wx.showToast({ title: '后端未启动，使用本地地址', icon: 'none' })
     })
   },
 
-  onSearch(event) {
-    const keyword = event.detail.value.trim()
-    const addresses = app.globalData.addresses.filter((item) => {
-      return !keyword || item.name.indexOf(keyword) > -1 || item.detail.indexOf(keyword) > -1
+  applySearch(source) {
+    const keyword = this.data.keyword.trim()
+    const addresses = source.filter((item) => {
+      return !keyword || item.name.indexOf(keyword) > -1 || item.detail.indexOf(keyword) > -1 || (item.tag || '').indexOf(keyword) > -1
     })
-    this.setData({ keyword, addresses })
+    this.setData({ addresses })
+  },
+
+  onSearch(event) {
+    this.setData({ keyword: event.detail.value.trim() }, () => this.applySearch(app.globalData.addresses))
   },
 
   chooseAddress(event) {
@@ -49,18 +60,34 @@ Page({
     setTimeout(() => wx.navigateBack(), 350)
   },
 
-  addMockAddress() {
-    const next = {
-      id: `a${Date.now()}`,
-      name: '临时收货点',
-      detail: '蕉城区万安西路 88 号楼下',
-      contact: '新用户',
-      phone: '13500008888',
-      distance: '1.7km'
+  addAddress() {
+    wx.navigateTo({ url: `/pages/address-edit/address-edit?type=${this.data.type}` })
+  },
+
+  editAddress(event) {
+    const id = event.currentTarget.dataset.id
+    wx.navigateTo({ url: `/pages/address-edit/address-edit?type=${this.data.type}&id=${id}` })
+  },
+
+  deleteAddress(event) {
+    const id = event.currentTarget.dataset.id
+    const removeLocal = () => {
+      app.globalData.addresses = app.globalData.addresses.filter((item) => item.id !== id)
+      this.applySearch(app.globalData.addresses)
     }
-    app.globalData.addresses.unshift(next)
-    this.setData({ addresses: app.globalData.addresses, keyword: '' })
-    wx.showToast({ title: '已添加演示地址', icon: 'none' })
+
+    if (!app.globalData.useBackend) {
+      removeLocal()
+      wx.showToast({ title: '已删除地址', icon: 'none' })
+      return
+    }
+
+    api.deleteAddress(id).then(() => {
+      removeLocal()
+      wx.showToast({ title: '已删除地址', icon: 'none' })
+    }).catch(() => {
+      wx.showToast({ title: '删除失败，请稍后重试', icon: 'none' })
+    })
   },
 
   goBack() {

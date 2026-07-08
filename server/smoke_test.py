@@ -51,6 +51,9 @@ def main():
         status, health = request("GET", f"{base}/health")
         assert_true(status == 200 and health["status"] == "ok", "health endpoint failed")
 
+        status, login = request("POST", f"{base}/auth/wechat-login", {"code": "smoke-code", "userInfo": {"nickName": "烟测用户"}})
+        assert_true(status == 200 and login["user"]["nickname"] == "烟测用户", f"login failed: {login}")
+
         status, vehicles = request("GET", f"{base}/vehicle-types")
         assert_true(status == 200 and len(vehicles) >= 2, "vehicle-types endpoint failed")
 
@@ -63,6 +66,25 @@ def main():
 
         status, addresses = request("GET", f"{base}/addresses?userId=demo-user")
         assert_true(status == 200 and len(addresses) >= 2, "addresses endpoint failed")
+
+        status, created_address = request(
+            "POST",
+            f"{base}/addresses",
+            {
+                "userId": "demo-user",
+                "name": "烟测地址",
+                "detail": "测试路 88 号",
+                "contact": "测试员",
+                "phone": "13500001111",
+                "tag": "测试",
+                "distanceKm": 1.6,
+            },
+        )
+        assert_true(status == 201 and created_address["tag"] == "测试", f"create address failed: {created_address}")
+        status, updated_address = request("PUT", f"{base}/addresses/{created_address['id']}", {"name": "烟测地址2", "isDefault": True})
+        assert_true(status == 200 and updated_address["name"] == "烟测地址2" and updated_address["isDefault"], "update address failed")
+        status, deleted_address = request("DELETE", f"{base}/addresses/{created_address['id']}")
+        assert_true(status == 200 and deleted_address["ok"], "delete address failed")
 
         status, order = request(
             "POST",
@@ -98,6 +120,8 @@ def main():
 
 def run_direct_smoke():
     with app.connect() as conn:
+        login = app.login_or_create_user(conn, {"code": "direct-code", "userInfo": {"nickName": "直测用户"}})
+        assert_true(login["nickname"] == "直测用户", f"login failed: {login}")
         estimate = app.estimate_price(conn, {"service": "送货", "distanceKm": 2.4, "weightKg": 15, "vehicleId": "car"})
         assert_true(estimate["total"] == 61.1, f"unexpected estimate: {estimate}")
         addresses = conn.execute("SELECT * FROM addresses ORDER BY id").fetchall()

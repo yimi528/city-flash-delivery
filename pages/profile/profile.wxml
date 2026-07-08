@@ -1,12 +1,14 @@
 <view class="profile-page">
   <view style="height: {{statusBarHeight}}px"></view>
   <view class="profile-head">
-    <view class="avatar">速</view>
+    <view class="avatar">{{isLoggedIn ? '速' : '登'}}</view>
     <view class="user-main">
-      <view class="username">微信用户</view>
-      <view class="user-sub">宁德市 · 同城速送会员</view>
+      <view class="username">{{isLoggedIn ? currentUser.nickname : '点击登录'}}</view>
+      <view class="user-sub" wx:if="{{isLoggedIn}}">宁德市 · {{currentUser.memberLevel}} · {{currentUser.phone}}</view>
+      <view class="user-sub" wx:else>登录后同步地址、订单和优惠券</view>
     </view>
-    <view class="vip">VIP</view>
+    <view class="vip" wx:if="{{isLoggedIn}}">VIP</view>
+    <view class="login-btn" wx:else bindtap="login">登录</view>
   </view>
 
   <view class="stats-card">
@@ -30,7 +32,7 @@
     <view class="section-title">常用服务</view>
     <view class="tool-grid">
       <block wx:for="{{tools}}" wx:key="name">
-        <view class="tool-item" data-name="{{item.name}}" bindtap="openTool">
+        <view class="tool-item" data-name="{{item.name}}" data-action="{{item.action}}" bindtap="openTool">
           <view class="tool-icon">{{item.icon}}</view>
           <view>{{item.name}}</view>
         </view>

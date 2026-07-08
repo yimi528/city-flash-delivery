@@ -3,7 +3,7 @@
   <view class="page-nav">
     <view class="back" bindtap="goBack">‹</view>
     <view class="nav-title">{{title}}</view>
-    <view class="nav-action" bindtap="addMockAddress">新增</view>
+    <view class="nav-action" bindtap="addAddress">新增</view>
   </view>
 
   <view class="search-card">
@@ -21,11 +21,14 @@
       <view class="address-item" data-id="{{item.id}}" bindtap="chooseAddress">
         <view class="pin {{type === 'pickup' ? 'pickup' : 'dropoff'}}">{{type === 'pickup' ? '发' : '收'}}</view>
         <view class="info">
-          <view class="name">{{item.name}} <text>{{item.distance}}</text></view>
+          <view class="name">{{item.name}} <text>{{item.distance}}</text> <text wx:if="{{item.isDefault}}" class="default-badge">默认</text></view>
           <view class="detail">{{item.detail}}</view>
-          <view class="person">{{item.contact}}  {{item.phone}}</view>
+          <view class="person"><text wx:if="{{item.tag}}">[{{item.tag}}] </text>{{item.contact}}  {{item.phone}}</view>
         </view>
-        <view class="select">选择</view>
+        <view class="item-actions">
+          <view class="edit" data-id="{{item.id}}" catchtap="editAddress">编辑</view>
+          <view class="delete" data-id="{{item.id}}" catchtap="deleteAddress">删除</view>
+        </view>
       </view>
     </block>
   </view>

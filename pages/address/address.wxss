@@ -128,6 +128,15 @@
   font-size: 23rpx;
 }
 
+.name .default-badge {
+  padding: 3rpx 10rpx;
+  border-radius: 14rpx;
+  background: #fff0ed;
+  color: #ff1d16;
+  font-size: 20rpx;
+  font-weight: 900;
+}
+
 .detail,
 .person {
   margin-top: 9rpx;
@@ -138,14 +147,29 @@
   white-space: nowrap;
 }
 
-.select {
-  width: 90rpx;
-  height: 52rpx;
+.item-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12rpx;
+}
+
+.edit,
+.delete {
+  width: 86rpx;
+  height: 46rpx;
   border-radius: 14rpx;
-  border: 2rpx solid #dfe5f1;
-  color: #5d6b83;
-  font-size: 25rpx;
+  font-size: 23rpx;
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.edit {
+  border: 2rpx solid #dfe5f1;
+  color: #5d6b83;
+}
+
+.delete {
+  color: #ff1d16;
+  background: #fff0ed;
 }

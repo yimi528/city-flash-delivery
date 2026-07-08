@@ -4,6 +4,7 @@
     "pages/cargo-options/cargo-options",
     "pages/order-create/order-create",
     "pages/address/address",
+    "pages/address-edit/address-edit",
     "pages/order-detail/order-detail",
     "pages/orders/orders",
     "pages/message/message",

@@ -3,12 +3,35 @@ App({
     const systemInfo = wx.getSystemInfoSync ? wx.getSystemInfoSync() : {}
     this.globalData.statusBarHeight = systemInfo.statusBarHeight || 24
     this.globalData.windowWidth = systemInfo.windowWidth || 375
+    try {
+      const savedUser = wx.getStorageSync ? wx.getStorageSync('currentUser') : null
+      if (savedUser && savedUser.id) {
+        this.setCurrentUser(savedUser)
+      }
+    } catch (error) {}
+  },
+
+  setCurrentUser(user) {
+    this.globalData.currentUser = user
+    this.globalData.userId = user.id || 'demo-user'
+    this.globalData.isLoggedIn = true
+    try {
+      if (wx.setStorageSync) wx.setStorageSync('currentUser', user)
+    } catch (error) {}
   },
 
   globalData: {
     statusBarHeight: 24,
     windowWidth: 375,
     userId: 'demo-user',
+    isLoggedIn: false,
+    currentUser: {
+      id: 'demo-user',
+      phone: '138****4581',
+      nickname: '微信用户',
+      avatarUrl: '',
+      memberLevel: '青铜会员'
+    },
     useBackend: true,
     apiBaseUrl: 'http://127.0.0.1:8000/api',
     city: '宁德市',

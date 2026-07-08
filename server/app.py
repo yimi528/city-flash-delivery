@@ -66,10 +66,14 @@ def connect() -> sqlite3.Connection:
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS users (
   id TEXT PRIMARY KEY,
+  openid TEXT UNIQUE,
+  session_key TEXT,
   phone TEXT NOT NULL,
   nickname TEXT NOT NULL,
+  avatar_url TEXT NOT NULL DEFAULT '',
   member_level TEXT NOT NULL DEFAULT '普通会员',
-  created_at TEXT NOT NULL
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS addresses (
@@ -79,8 +83,12 @@ CREATE TABLE IF NOT EXISTS addresses (
   detail TEXT NOT NULL,
   contact TEXT NOT NULL,
   phone TEXT NOT NULL,
+  tag TEXT NOT NULL DEFAULT '',
   distance_km REAL NOT NULL DEFAULT 1,
+  is_default INTEGER NOT NULL DEFAULT 0,
+  is_deleted INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
   FOREIGN KEY (user_id) REFERENCES users(id)
 );
 
@@ -173,28 +181,53 @@ CREATE TABLE IF NOT EXISTS coupons (
 def init_db() -> None:
     with connect() as conn:
         conn.executescript(SCHEMA)
+        migrate_schema(conn)
         seed_db(conn)
+
+
+def ensure_column(conn: sqlite3.Connection, table: str, name: str, ddl: str) -> None:
+    columns = {row["name"] for row in conn.execute(f"PRAGMA table_info({table})").fetchall()}
+    if name not in columns:
+        conn.execute(f"ALTER TABLE {table} ADD COLUMN {ddl}")
+
+
+def migrate_schema(conn: sqlite3.Connection) -> None:
+    # SQLite CREATE TABLE IF NOT EXISTS will not add columns for existing dev DBs.
+    ensure_column(conn, "users", "openid", "openid TEXT")
+    ensure_column(conn, "users", "session_key", "session_key TEXT")
+    ensure_column(conn, "users", "avatar_url", "avatar_url TEXT NOT NULL DEFAULT ''")
+    ensure_column(conn, "users", "updated_at", "updated_at TEXT NOT NULL DEFAULT ''")
+    ensure_column(conn, "addresses", "tag", "tag TEXT NOT NULL DEFAULT ''")
+    ensure_column(conn, "addresses", "is_default", "is_default INTEGER NOT NULL DEFAULT 0")
+    ensure_column(conn, "addresses", "is_deleted", "is_deleted INTEGER NOT NULL DEFAULT 0")
+    ensure_column(conn, "addresses", "updated_at", "updated_at TEXT NOT NULL DEFAULT ''")
+    now = now_iso()
+    conn.execute("UPDATE users SET updated_at = ? WHERE updated_at = ''", (now,))
+    conn.execute("UPDATE addresses SET updated_at = ? WHERE updated_at = ''", (now,))
 
 
 def seed_db(conn: sqlite3.Connection) -> None:
     created_at = now_iso()
     conn.execute(
-        "INSERT OR IGNORE INTO users(id, phone, nickname, member_level, created_at) VALUES (?, ?, ?, ?, ?)",
-        (DEFAULT_USER_ID, "138****4581", "微信用户", "青铜会员", created_at),
+        """
+        INSERT OR IGNORE INTO users(id, openid, session_key, phone, nickname, avatar_url, member_level, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (DEFAULT_USER_ID, "mock-openid-demo-user", "mock-session-demo", "138****4581", "微信用户", "", "青铜会员", created_at, created_at),
     )
 
     addresses = [
-        ("a1", DEFAULT_USER_ID, "恒生一品苑", "东侨经济技术开发区福宁北路 6 号", "陈先生", "13809574581", 0.3),
-        ("a2", DEFAULT_USER_ID, "宁德万达广场", "天湖东路 1 号 2 号门", "林女士", "13600001234", 2.4),
-        ("a3", DEFAULT_USER_ID, "宁德市医院", "蕉城区蕉城北路 7 号住院部", "周先生", "13900005678", 3.1),
-        ("a4", DEFAULT_USER_ID, "华润便利店", "福宁北路与梦龙路交叉口", "门店前台", "0593-0000000", 0.8),
+        ("a1", DEFAULT_USER_ID, "恒生一品苑", "东侨经济技术开发区福宁北路 6 号", "陈先生", "13809574581", "家", 0.3, 1),
+        ("a2", DEFAULT_USER_ID, "宁德万达广场", "天湖东路 1 号 2 号门", "林女士", "13600001234", "商圈", 2.4, 0),
+        ("a3", DEFAULT_USER_ID, "宁德市医院", "蕉城区蕉城北路 7 号住院部", "周先生", "13900005678", "医院", 3.1, 0),
+        ("a4", DEFAULT_USER_ID, "华润便利店", "福宁北路与梦龙路交叉口", "门店前台", "0593-0000000", "门店", 0.8, 0),
     ]
     conn.executemany(
         """
-        INSERT OR IGNORE INTO addresses(id, user_id, name, detail, contact, phone, distance_km, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT OR IGNORE INTO addresses(id, user_id, name, detail, contact, phone, tag, distance_km, is_default, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
-        [row + (created_at,) for row in addresses],
+        [row + (created_at, created_at) for row in addresses],
     )
 
     vehicle_types = [
@@ -227,6 +260,64 @@ def seed_db(conn: sqlite3.Connection) -> None:
         "INSERT OR IGNORE INTO coupons(id, user_id, title, amount, min_spend, status, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
         coupons,
     )
+
+
+def format_user(row: sqlite3.Row) -> dict:
+    user = dict(row)
+    return {
+        "id": user["id"],
+        "openid": user.get("openid") if hasattr(user, "get") else user["openid"],
+        "phone": user["phone"],
+        "nickname": user["nickname"],
+        "avatarUrl": user["avatar_url"],
+        "memberLevel": user["member_level"],
+        "createdAt": user["created_at"],
+    }
+
+
+def format_address(row: sqlite3.Row) -> dict:
+    address = dict(row)
+    return {
+        "id": address["id"],
+        "userId": address["user_id"],
+        "name": address["name"],
+        "detail": address["detail"],
+        "contact": address["contact"],
+        "phone": address["phone"],
+        "tag": address["tag"],
+        "distance": f"{address['distance_km']:g}km",
+        "distanceKm": address["distance_km"],
+        "isDefault": bool(address["is_default"]),
+    }
+
+
+def login_or_create_user(conn: sqlite3.Connection, payload: dict) -> dict:
+    code = (payload.get("code") or "").strip()
+    user_info = payload.get("userInfo") if isinstance(payload.get("userInfo"), dict) else {}
+    openid = payload.get("openid") or ("mock-openid-" + code[-12:] if code else "mock-openid-demo-user")
+    user_id = DEFAULT_USER_ID if openid == "mock-openid-demo-user" else "user-" + uuid.uuid5(uuid.NAMESPACE_URL, openid).hex[:16]
+    now = now_iso()
+    nickname = user_info.get("nickName") or user_info.get("nickname") or payload.get("nickname") or "微信用户"
+    avatar_url = user_info.get("avatarUrl") or payload.get("avatarUrl") or ""
+    phone = payload.get("phone") or ("138****4581" if user_id == DEFAULT_USER_ID else "未绑定")
+    session_key = "mock-session-" + uuid.uuid4().hex[:16]
+
+    conn.execute(
+        """
+        INSERT INTO users(id, openid, session_key, phone, nickname, avatar_url, member_level, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET
+          openid = excluded.openid,
+          session_key = excluded.session_key,
+          phone = excluded.phone,
+          nickname = excluded.nickname,
+          avatar_url = excluded.avatar_url,
+          updated_at = excluded.updated_at
+        """,
+        (user_id, openid, session_key, phone, nickname, avatar_url, "青铜会员", now, now),
+    )
+    row = conn.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+    return format_user(row)
 
 
 def get_vehicle(conn: sqlite3.Connection, vehicle_id: str | None) -> dict:
@@ -284,7 +375,7 @@ def estimate_price(conn: sqlite3.Connection, payload: dict) -> dict:
 def get_address(conn: sqlite3.Connection, address_id: str | None) -> dict | None:
     if not address_id:
         return None
-    return dict_from_row(conn.execute("SELECT * FROM addresses WHERE id = ?", (address_id,)).fetchone())
+    return dict_from_row(conn.execute("SELECT * FROM addresses WHERE id = ? AND is_deleted = 0", (address_id,)).fetchone())
 
 
 def normalize_address(conn: sqlite3.Connection, payload: dict, prefix: str) -> dict:
@@ -484,7 +575,7 @@ class ApiHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Methods", "GET, POST, PATCH, OPTIONS")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
         self.end_headers()
         self.wfile.write(body)
@@ -516,11 +607,25 @@ class ApiHandler(BaseHTTPRequestHandler):
         except Exception as exc:  # pragma: no cover - defensive API boundary
             self.send_error_json(500, str(exc))
 
+    def do_PUT(self) -> None:
+        try:
+            self.handle_put()
+        except json.JSONDecodeError:
+            self.send_error_json(400, "Invalid JSON body")
+        except Exception as exc:  # pragma: no cover - defensive API boundary
+            self.send_error_json(500, str(exc))
+
     def do_PATCH(self) -> None:
         try:
             self.handle_patch()
         except json.JSONDecodeError:
             self.send_error_json(400, "Invalid JSON body")
+        except Exception as exc:  # pragma: no cover - defensive API boundary
+            self.send_error_json(500, str(exc))
+
+    def do_DELETE(self) -> None:
+        try:
+            self.handle_delete()
         except Exception as exc:  # pragma: no cover - defensive API boundary
             self.send_error_json(500, str(exc))
 
@@ -540,24 +645,31 @@ class ApiHandler(BaseHTTPRequestHandler):
                 self.send_json(200, [dict(row) for row in rows])
                 return
 
+            match = re.fullmatch(r"/api/users/([^/]+)", path)
+            if match:
+                row = conn.execute("SELECT * FROM users WHERE id = ?", (match.group(1),)).fetchone()
+                if not row:
+                    self.send_error_json(404, "User not found")
+                    return
+                self.send_json(200, format_user(row))
+                return
+
             if path == "/api/addresses":
                 user_id = query.get("userId", [DEFAULT_USER_ID])[0]
-                rows = conn.execute("SELECT * FROM addresses WHERE user_id = ? ORDER BY created_at, id", (user_id,)).fetchall()
-                self.send_json(
-                    200,
-                    [
-                        {
-                            "id": row["id"],
-                            "name": row["name"],
-                            "detail": row["detail"],
-                            "contact": row["contact"],
-                            "phone": row["phone"],
-                            "distance": f"{row['distance_km']:g}km",
-                            "distanceKm": row["distance_km"],
-                        }
-                        for row in rows
-                    ],
-                )
+                rows = conn.execute(
+                    "SELECT * FROM addresses WHERE user_id = ? AND is_deleted = 0 ORDER BY is_default DESC, updated_at DESC, id",
+                    (user_id,),
+                ).fetchall()
+                self.send_json(200, [format_address(row) for row in rows])
+                return
+
+            match = re.fullmatch(r"/api/addresses/([^/]+)", path)
+            if match:
+                row = conn.execute("SELECT * FROM addresses WHERE id = ? AND is_deleted = 0", (match.group(1),)).fetchone()
+                if not row:
+                    self.send_error_json(404, "Address not found")
+                    return
+                self.send_json(200, format_address(row))
                 return
 
             if path == "/api/coupons":
@@ -597,6 +709,11 @@ class ApiHandler(BaseHTTPRequestHandler):
         path, _ = self.parsed()
         payload = self.read_json()
         with connect() as conn:
+            if path == "/api/auth/wechat-login":
+                user = login_or_create_user(conn, payload)
+                self.send_json(200, {"token": "mock-token-" + user["id"], "user": user})
+                return
+
             if path == "/api/pricing/estimate":
                 self.send_json(200, estimate_price(conn, payload))
                 return
@@ -604,10 +721,14 @@ class ApiHandler(BaseHTTPRequestHandler):
             if path == "/api/addresses":
                 user_id = payload.get("userId") or DEFAULT_USER_ID
                 aid = payload.get("id") or "addr-" + uuid.uuid4().hex[:10]
+                is_default = 1 if payload.get("isDefault") else 0
+                now = now_iso()
+                if is_default:
+                    conn.execute("UPDATE addresses SET is_default = 0 WHERE user_id = ?", (user_id,))
                 conn.execute(
                     """
-                    INSERT INTO addresses(id, user_id, name, detail, contact, phone, distance_km, created_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    INSERT INTO addresses(id, user_id, name, detail, contact, phone, tag, distance_km, is_default, created_at, updated_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         aid,
@@ -616,12 +737,15 @@ class ApiHandler(BaseHTTPRequestHandler):
                         payload.get("detail") or "未填写详细地址",
                         payload.get("contact") or "微信用户",
                         payload.get("phone") or "13800000000",
+                        payload.get("tag") or "",
                         parse_float(payload.get("distanceKm") or payload.get("distance"), 1),
-                        now_iso(),
+                        is_default,
+                        now,
+                        now,
                     ),
                 )
                 row = conn.execute("SELECT * FROM addresses WHERE id = ?", (aid,)).fetchone()
-                self.send_json(201, dict(row))
+                self.send_json(201, format_address(row))
                 return
 
             if path == "/api/orders":
@@ -648,6 +772,47 @@ class ApiHandler(BaseHTTPRequestHandler):
 
         self.send_error_json(404, "Not found")
 
+    def handle_put(self) -> None:
+        path, _ = self.parsed()
+        payload = self.read_json()
+        match = re.fullmatch(r"/api/addresses/([^/]+)", path)
+        if not match:
+            self.send_error_json(404, "Not found")
+            return
+
+        aid = match.group(1)
+        with connect() as conn:
+            row = conn.execute("SELECT * FROM addresses WHERE id = ? AND is_deleted = 0", (aid,)).fetchone()
+            if not row:
+                self.send_error_json(404, "Address not found")
+                return
+            current = dict(row)
+            user_id = payload.get("userId") or current["user_id"]
+            is_default = 1 if payload.get("isDefault") else 0
+            now = now_iso()
+            if is_default:
+                conn.execute("UPDATE addresses SET is_default = 0 WHERE user_id = ? AND id <> ?", (user_id, aid))
+            conn.execute(
+                """
+                UPDATE addresses
+                SET name = ?, detail = ?, contact = ?, phone = ?, tag = ?, distance_km = ?, is_default = ?, updated_at = ?
+                WHERE id = ?
+                """,
+                (
+                    payload.get("name") or current["name"],
+                    payload.get("detail") or current["detail"],
+                    payload.get("contact") or current["contact"],
+                    payload.get("phone") or current["phone"],
+                    payload.get("tag") if payload.get("tag") is not None else current["tag"],
+                    parse_float(payload.get("distanceKm") or payload.get("distance"), current["distance_km"]),
+                    is_default,
+                    now,
+                    aid,
+                ),
+            )
+            updated = conn.execute("SELECT * FROM addresses WHERE id = ?", (aid,)).fetchone()
+            self.send_json(200, format_address(updated))
+
     def handle_patch(self) -> None:
         path, _ = self.parsed()
         payload = self.read_json()
@@ -661,6 +826,23 @@ class ApiHandler(BaseHTTPRequestHandler):
                 self.send_error_json(404, "Order not found")
                 return
             self.send_json(200, order)
+
+    def handle_delete(self) -> None:
+        path, _ = self.parsed()
+        match = re.fullmatch(r"/api/addresses/([^/]+)", path)
+        if not match:
+            self.send_error_json(404, "Not found")
+            return
+        with connect() as conn:
+            row = conn.execute("SELECT * FROM addresses WHERE id = ? AND is_deleted = 0", (match.group(1),)).fetchone()
+            if not row:
+                self.send_error_json(404, "Address not found")
+                return
+            conn.execute(
+                "UPDATE addresses SET is_deleted = 1, is_default = 0, updated_at = ? WHERE id = ?",
+                (now_iso(), match.group(1)),
+            )
+            self.send_json(200, {"ok": True, "id": match.group(1)})
 
 
 def run(host: str = "127.0.0.1", port: int = 8000) -> None:

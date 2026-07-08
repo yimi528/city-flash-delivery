@@ -38,6 +38,33 @@ function getAddresses(userId) {
   return request(`/addresses?userId=${encodeURIComponent(userId || 'demo-user')}`)
 }
 
+function wechatLogin(payload) {
+  return request('/auth/wechat-login', {
+    method: 'POST',
+    data: payload || {}
+  })
+}
+
+function createAddress(payload) {
+  return request('/addresses', {
+    method: 'POST',
+    data: payload
+  })
+}
+
+function updateAddress(id, payload) {
+  return request(`/addresses/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    data: payload
+  })
+}
+
+function deleteAddress(id) {
+  return request(`/addresses/${encodeURIComponent(id)}`, {
+    method: 'DELETE'
+  })
+}
+
 function getVehicleTypes() {
   return request('/vehicle-types')
 }
@@ -73,7 +100,11 @@ function updateOrderStatus(id, payload) {
 
 module.exports = {
   request,
+  wechatLogin,
   getAddresses,
+  createAddress,
+  updateAddress,
+  deleteAddress,
   getVehicleTypes,
   estimatePrice,
   createOrder,

@@ -30,8 +30,12 @@ python3 smoke_test.py
 ## 已有接口
 
 - `GET /api/health` 健康检查
+- `POST /api/auth/wechat-login` 模拟微信登录，返回用户和 mock token
+- `GET /api/users/:id` 用户详情
 - `GET /api/addresses?userId=demo-user` 地址列表
 - `POST /api/addresses` 新增地址
+- `PUT /api/addresses/:id` 编辑地址
+- `DELETE /api/addresses/:id` 删除地址
 - `GET /api/vehicle-types` 车型/配送工具列表
 - `POST /api/pricing/estimate` 费用预估
 - `GET /api/orders?userId=demo-user` 订单列表
