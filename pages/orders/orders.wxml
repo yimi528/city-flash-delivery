@@ -1,18 +1,24 @@
 <view class="orders-page">
   <view style="height: {{statusBarHeight}}px"></view>
-  <view class="topbar">
-    <view>
-      <view class="title">我的订单</view>
-      <view class="subtitle">实时查看同城配送进度</view>
-    </view>
-    <view class="top-pill" bindtap="goHome">再下一单</view>
+
+  <view class="nav-shell">
+    <view class="nav-title">订单列表</view>
+    <view class="menu-pill"><text>•••</text><view class="pill-dot"></view></view>
   </view>
 
-  <view class="filter-bar">
-    <block wx:for="{{filters}}" wx:key="*this">
-      <view class="filter {{filter === item ? 'active' : ''}}" data-filter="{{item}}" bindtap="changeFilter">{{item}}</view>
-    </block>
+  <view class="mode-row">
+    <view class="mode {{mode === '寄' ? 'active' : ''}}" data-mode="寄" bindtap="changeMode">我寄的</view>
+    <view class="mode {{mode === '收' ? 'active' : ''}}" data-mode="收" bindtap="changeMode">我收的</view>
+    <view class="invoice" bindtap="openInvoice">开发票</view>
   </view>
+
+  <scroll-view class="status-scroll" scroll-x="true" show-scrollbar="false">
+    <view class="status-row">
+      <block wx:for="{{filters}}" wx:key="*this">
+        <view class="status-filter {{filter === item ? 'active' : ''}}" data-filter="{{item}}" bindtap="changeFilter">{{item}}</view>
+      </block>
+    </view>
+  </scroll-view>
 
   <view class="order-list" wx:if="{{orders.length}}">
     <block wx:for="{{orders}}" wx:key="id">
@@ -37,10 +43,16 @@
     </block>
   </view>
 
-  <view class="empty" wx:else>
-    <view class="empty-icon">📦</view>
-    <view class="empty-title">暂无订单</view>
-    <view class="empty-sub">选择地址后，第一单会出现在这里。</view>
-    <button class="primary-btn" bindtap="goHome">去下单</button>
+  <view class="empty-panel" wx:else>
+    <view class="sign-art">
+      <view class="post"></view>
+      <view class="board top"></view>
+      <view class="board mid"></view>
+      <view class="board bot"></view>
+      <view class="leaf"></view>
+      <view class="shadow"></view>
+    </view>
+    <view class="empty-copy">轻按查看2026年订单</view>
+    <button class="empty-btn" bindtap="goHome">去下一单</button>
   </view>
 </view>

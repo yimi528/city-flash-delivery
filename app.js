@@ -35,6 +35,7 @@ App({
     useBackend: true,
     apiBaseUrl: 'http://127.0.0.1:8000/api',
     city: '宁德市',
+    orderFilter: '',
     draftOrder: {
       service: '帮送',
       pickup: {

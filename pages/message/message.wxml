@@ -1,31 +1,38 @@
 <view class="message-page">
   <view style="height: {{statusBarHeight}}px"></view>
-  <view class="topbar">
-    <view>
-      <view class="title">消息中心</view>
-      <view class="subtitle">订单、优惠、客服通知</view>
-    </view>
-    <view class="bell">铃</view>
+
+  <view class="nav-shell">
+    <view class="back" bindtap="goBack">‹</view>
+    <view class="nav-title">我的消息</view>
+    <view class="menu-pill" bindtap="openMenu"><text>•••</text><view class="pill-dot"></view></view>
   </view>
 
-  <view class="notice-card">
-    <view class="notice-title">实时履约通知</view>
-    <view class="notice-sub">后续接入订阅消息后，可给用户推送接单、取件、送达提醒。</view>
-  </view>
-
-  <view class="message-list">
+  <view class="message-list" wx:if="{{messages.length}}">
     <block wx:for="{{messages}}" wx:key="title">
       <view class="message-item" data-index="{{index}}" bindtap="openMessage">
-        <view class="icon">{{item.icon}}</view>
-        <view class="msg-main">
-          <view class="msg-head">
-            <view class="msg-title">{{item.title}}</view>
-            <view class="time">{{item.time}}</view>
+        <view class="message-icon {{item.unread ? 'hot' : ''}}">{{item.icon}}</view>
+        <view class="message-main">
+          <view class="message-head">
+            <view class="message-title">{{item.title}}</view>
+            <view class="message-time">{{item.time}}</view>
           </view>
-          <view class="msg-body">{{item.body}}</view>
+          <view class="message-body">{{item.body}}</view>
         </view>
         <view class="unread" wx:if="{{item.unread}}"></view>
       </view>
     </block>
+  </view>
+
+  <view class="empty-panel" wx:else>
+    <view class="sign-art">
+      <view class="post"></view>
+      <view class="board board-a"></view>
+      <view class="board board-b"></view>
+      <view class="board board-c"></view>
+      <view class="green-stroke stroke-a"></view>
+      <view class="green-stroke stroke-b"></view>
+      <view class="shadow"></view>
+    </view>
+    <view class="empty-copy">暂无消息</view>
   </view>
 </view>

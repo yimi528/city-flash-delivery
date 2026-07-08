@@ -1,47 +1,67 @@
 <view class="profile-page">
   <view style="height: {{statusBarHeight}}px"></view>
-  <view class="profile-head">
-    <view class="avatar">{{isLoggedIn ? '速' : '登'}}</view>
-    <view class="user-main">
-      <view class="username">{{isLoggedIn ? currentUser.nickname : '点击登录'}}</view>
-      <view class="user-sub" wx:if="{{isLoggedIn}}">宁德市 · {{currentUser.memberLevel}} · {{currentUser.phone}}</view>
-      <view class="user-sub" wx:else>登录后同步地址、订单和优惠券</view>
-    </view>
-    <view class="vip" wx:if="{{isLoggedIn}}">VIP</view>
-    <view class="login-btn" wx:else bindtap="login">登录</view>
+
+  <view class="nav-shell">
+    <view class="nav-title">个人中心</view>
+    <view class="menu-pill"><text>•••</text><view class="pill-dot"></view></view>
   </view>
 
-  <view class="stats-card">
+  <view class="member-card" bindtap="openMember">
+    <view class="member-main">
+      <view class="member-phone">{{displayPhone}}</view>
+      <view class="member-level">{{memberLevel}}</view>
+      <view class="member-desc">升级后享受多项权益</view>
+    </view>
+    <view class="member-more">查看更多›</view>
+    <view class="diamond">
+      <view class="diamond-top"></view>
+      <view class="diamond-core"></view>
+      <view class="diamond-side"></view>
+    </view>
+  </view>
+
+  <view class="balance-card">
     <block wx:for="{{stats}}" wx:key="label">
-      <view class="stat-item">
-        <view class="stat-value">{{item.value}}</view>
-        <view class="stat-label">{{item.label}}</view>
+      <view class="balance-item" bindtap="openCoupons">
+        <view class="badge" wx:if="{{item.badge}}">{{item.badge}}</view>
+        <view class="balance-value">{{item.value}}</view>
+        <view class="balance-label">{{item.label}}</view>
       </view>
     </block>
   </view>
 
-  <view class="card wallet-card">
-    <view>
-      <view class="wallet-title">新人保障包</view>
-      <view class="wallet-sub">优惠券、保价、客服赔付规则集中展示。</view>
+  <view class="panel order-panel">
+    <view class="panel-head">
+      <view class="panel-title">我的订单</view>
+      <view class="panel-link" bindtap="openOrders">全部订单›</view>
     </view>
-    <view class="wallet-btn">去领取</view>
-  </view>
-
-  <view class="card tool-card">
-    <view class="section-title">常用服务</view>
-    <view class="tool-grid">
-      <block wx:for="{{tools}}" wx:key="name">
-        <view class="tool-item" data-name="{{item.name}}" data-action="{{item.action}}" bindtap="openTool">
-          <view class="tool-icon">{{item.icon}}</view>
+    <view class="status-grid">
+      <block wx:for="{{orderStatus}}" wx:key="name">
+        <view class="status-item" data-filter="{{item.filter}}" bindtap="openOrderStatus">
+          <view class="order-icon {{item.iconClass}}"></view>
           <view>{{item.name}}</view>
         </view>
       </block>
     </view>
   </view>
 
-  <view class="ops-card">
-    <view class="ops-title">商家/骑手管理入口</view>
-    <view class="ops-sub">正式版建议拆分“骑手端”和“管理后台”，这里先保留入口占位。</view>
+  <view class="panel service-panel">
+    <view class="panel-title">我的服务</view>
+    <view class="service-grid">
+      <block wx:for="{{services}}" wx:key="name">
+        <view class="service-item" data-name="{{item.name}}" data-action="{{item.action}}" bindtap="openTool">
+          <view class="service-icon {{item.iconClass}}"></view>
+          <view class="service-name">{{item.name}}</view>
+        </view>
+      </block>
+    </view>
+  </view>
+
+  <view class="promo-strip">
+    <view>
+      <view class="promo-title">送加享专属福利官</view>
+      <view class="promo-sub">邀请好友注册得优惠券</view>
+    </view>
+    <view class="rider-face">速</view>
   </view>
 </view>

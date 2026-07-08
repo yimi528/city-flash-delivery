@@ -1,65 +1,61 @@
 .message-page {
   min-height: 100vh;
   padding-bottom: 140rpx;
-  background: linear-gradient(180deg, #fff0f0 0%, #f4f6fb 330rpx, #f4f6fb 100%);
-}
-
-.topbar {
-  padding: 34rpx 30rpx 18rpx;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.title {
-  color: #111c34;
-  font-size: 44rpx;
-  font-weight: 950;
-}
-
-.subtitle {
-  margin-top: 8rpx;
-  color: #7b8497;
-  font-size: 25rpx;
-}
-
-.bell {
-  width: 72rpx;
-  height: 72rpx;
-  border-radius: 24rpx;
   background: #fff;
-  color: #ff1d16;
-  font-size: 28rpx;
-  font-weight: 900;
+}
+
+.nav-shell {
+  position: relative;
+  height: 128rpx;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 10rpx 30rpx rgba(20, 28, 50, 0.06);
 }
 
-.notice-card {
-  margin: 18rpx 30rpx 0;
-  padding: 34rpx;
-  border-radius: 30rpx;
-  background: linear-gradient(130deg, #111d37, #284b8d 68%, #ff3b2f 100%);
-  color: #fff;
-  box-shadow: 0 18rpx 42rpx rgba(20, 32, 64, 0.14);
+.back {
+  position: absolute;
+  left: 34rpx;
+  top: 20rpx;
+  width: 72rpx;
+  height: 76rpx;
+  color: #111;
+  font-size: 82rpx;
+  font-weight: 300;
+  line-height: 66rpx;
 }
 
-.notice-title {
-  font-size: 36rpx;
+.nav-title {
+  color: #05070c;
+  font-size: 40rpx;
   font-weight: 950;
 }
 
-.notice-sub {
-  margin-top: 12rpx;
-  color: #dce6ff;
-  font-size: 26rpx;
-  line-height: 1.55;
+.menu-pill {
+  position: absolute;
+  right: 30rpx;
+  top: 30rpx;
+  width: 168rpx;
+  height: 66rpx;
+  padding: 0 24rpx;
+  border-radius: 40rpx;
+  background: rgba(255, 255, 255, 0.88);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: inset 0 0 0 2rpx rgba(18, 20, 31, 0.06);
+  color: #111;
+  font-size: 34rpx;
+}
+
+.pill-dot {
+  width: 42rpx;
+  height: 42rpx;
+  border: 8rpx solid #161922;
+  border-radius: 50%;
 }
 
 .message-list {
-  margin-top: 12rpx;
+  margin-top: 18rpx;
 }
 
 .message-item {
@@ -71,44 +67,51 @@
   display: flex;
   align-items: center;
   gap: 22rpx;
-  box-shadow: 0 14rpx 34rpx rgba(20, 28, 50, 0.05);
+  box-shadow: 0 14rpx 34rpx rgba(20, 28, 50, 0.06);
 }
 
-.icon {
-  width: 70rpx;
-  height: 70rpx;
-  border-radius: 22rpx;
-  background: #fff0ed;
+.message-icon {
+  width: 72rpx;
+  height: 72rpx;
+  border-radius: 24rpx;
+  background: #f2f5fb;
+  color: #0e1d38;
+  font-size: 36rpx;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 38rpx;
   flex-shrink: 0;
 }
 
-.msg-main {
+.message-icon.hot {
+  background: #fff0ed;
+  color: #ff1712;
+}
+
+.message-main {
   flex: 1;
   min-width: 0;
 }
 
-.msg-head {
+.message-head {
   display: flex;
+  align-items: center;
   justify-content: space-between;
   gap: 18rpx;
 }
 
-.msg-title {
-  color: #111c34;
+.message-title {
+  color: #0e1d38;
   font-size: 30rpx;
   font-weight: 900;
 }
 
-.time {
+.message-time {
   color: #a0a8b9;
   font-size: 23rpx;
 }
 
-.msg-body {
+.message-body {
   margin-top: 10rpx;
   color: #758096;
   font-size: 25rpx;
@@ -126,4 +129,98 @@
   height: 14rpx;
   border-radius: 50%;
   background: #ff1712;
+}
+
+.empty-panel {
+  min-height: 1180rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.sign-art {
+  position: relative;
+  width: 330rpx;
+  height: 330rpx;
+  opacity: 0.9;
+}
+
+.post {
+  position: absolute;
+  left: 151rpx;
+  top: 42rpx;
+  width: 26rpx;
+  height: 232rpx;
+  border-radius: 8rpx;
+  background: linear-gradient(180deg, #ffe7eb, #ffc8cf);
+}
+
+.board {
+  position: absolute;
+  left: 52rpx;
+  width: 218rpx;
+  height: 58rpx;
+  border-radius: 8rpx;
+  background: linear-gradient(180deg, #fff4f5, #ffd5db);
+  box-shadow: 0 8rpx 18rpx rgba(255, 186, 196, 0.08);
+}
+
+.board::before,
+.board::after {
+  content: '';
+  position: absolute;
+  top: 16rpx;
+  width: 10rpx;
+  height: 10rpx;
+  border-radius: 50%;
+  background: #ffb8c2;
+}
+
+.board::before { left: 16rpx; }
+.board::after { right: 16rpx; }
+
+.board-a { top: 96rpx; transform: rotate(2deg); }
+.board-b { top: 146rpx; transform: rotate(-8deg); }
+.board-c { top: 194rpx; transform: rotate(1deg); }
+
+.green-stroke {
+  position: absolute;
+  right: 18rpx;
+  border-radius: 100% 0 100% 0;
+  border-right: 8rpx solid #16d39a;
+  border-top: 8rpx solid transparent;
+  transform: rotate(20deg);
+  opacity: 0.86;
+}
+
+.stroke-a {
+  top: 86rpx;
+  width: 84rpx;
+  height: 124rpx;
+}
+
+.stroke-b {
+  top: 118rpx;
+  right: 42rpx;
+  width: 58rpx;
+  height: 90rpx;
+  opacity: 0.45;
+}
+
+.shadow {
+  position: absolute;
+  left: 48rpx;
+  right: 48rpx;
+  bottom: 34rpx;
+  height: 34rpx;
+  border-radius: 50%;
+  background: rgba(255, 224, 228, 0.55);
+}
+
+.empty-copy {
+  margin-top: 34rpx;
+  color: #8f9bb5;
+  font-size: 34rpx;
+  font-weight: 600;
 }
