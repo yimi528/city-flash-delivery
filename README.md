@@ -28,6 +28,25 @@
 - 选择结果会带回首页和确认订单页，并参与费用预估。
 - 当前为前端原型计价：汽车空间会增加车型费，距离费和重量费也会按送货规则计算。
 
+
+## 后端 MVP
+
+项目已新增本地后端：`server/`。
+
+```bash
+cd /Users/Admin1/Documents/Codex/2026-07-09/xian/server
+python3 app.py --host 127.0.0.1 --port 8000
+```
+
+后端使用 SQLite 保存用户、地址、车型、订单、骑手和优惠券数据。小程序端默认请求 `http://127.0.0.1:8000/api`，如果后端未启动会回退到本地模拟数据。
+
+后端烟测：
+
+```bash
+cd /Users/Admin1/Documents/Codex/2026-07-09/xian/server
+python3 smoke_test.py
+```
+
 ## 下一阶段建议
 
 - 接入腾讯位置服务：真实定位、地址解析、距离计算、路线规划。

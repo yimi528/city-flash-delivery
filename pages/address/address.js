@@ -1,4 +1,5 @@
 const app = getApp()
+const api = require('../../utils/api')
 
 Page({
   data: {
@@ -16,6 +17,17 @@ Page({
       type,
       title: type === 'pickup' ? '选择发货地址' : '选择收货地址',
       addresses: app.globalData.addresses
+    })
+    this.loadAddresses()
+  },
+
+  loadAddresses() {
+    if (!app.globalData.useBackend) return
+    api.getAddresses(app.globalData.userId).then((addresses) => {
+      app.globalData.addresses = addresses
+      this.setData({ addresses })
+    }).catch(() => {
+      wx.showToast({ title: '后端未启动，使用本地地址', icon: 'none' })
     })
   },
 

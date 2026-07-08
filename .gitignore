@@ -16,6 +16,14 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
+# Python backend local artifacts
+__pycache__/
+*.pyc
+server/data/*.db
+server/data/*.sqlite
+server/data/*.db-*
+server/data/*.sqlite-*
+
 # Codex/projectless scratch folders
 work/
 outputs/

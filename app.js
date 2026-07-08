@@ -8,14 +8,19 @@ App({
   globalData: {
     statusBarHeight: 24,
     windowWidth: 375,
+    userId: 'demo-user',
+    useBackend: true,
+    apiBaseUrl: 'http://127.0.0.1:8000/api',
     city: '宁德市',
     draftOrder: {
       service: '帮送',
       pickup: {
+        id: 'a1',
         name: '恒生一品苑',
         detail: '东侨经济技术开发区福宁北路',
         contact: '陈先生',
         phone: '13809574581',
+        distance: '0.3km',
         tag: '发'
       },
       dropoff: null,

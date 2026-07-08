@@ -1,4 +1,5 @@
 const app = getApp()
+const api = require('../../utils/api')
 
 function toNumberDistance(address) {
   if (!address || !address.distance) return 2.6
@@ -34,6 +35,53 @@ function getWeightLabel(weight) {
   if (weight <= 1) return '≤1公斤'
   if (weight < 10) return `${weight}公斤`
   return `${weight}公斤以上`
+}
+
+function buildLocalOrder(draft, estimate) {
+  return {
+    id: `S${Date.now()}`,
+    status: '待接单',
+    statusIndex: 0,
+    service: draft.service,
+    pickupName: draft.pickup.name,
+    dropoffName: draft.dropoff.name,
+    item: draft.item,
+    vehicleName: draft.cargoOptions ? draft.cargoOptions.vehicleName : '电动车空间',
+    weightLabel: draft.cargoOptions ? draft.cargoOptions.weightLabel : getWeightLabel(Number(draft.weight || 1)),
+    fee: Number(estimate.total),
+    distance: Number(estimate.distance),
+    eta: '约 20 分钟',
+    rider: '等待骑手接单',
+    createTime: '刚刚',
+    remark: draft.remark
+  }
+}
+
+function buildBackendPayload(draft) {
+  const cargoOptions = draft.cargoOptions || {}
+  return {
+    userId: app.globalData.userId,
+    service: draft.service,
+    item: draft.item,
+    pickupAddressId: draft.pickup.id,
+    dropoffAddressId: draft.dropoff.id,
+    pickup: draft.pickup,
+    dropoff: draft.dropoff,
+    distanceKm: toNumberDistance(draft.dropoff),
+    weightKg: Number(draft.weight || 1),
+    vehicleId: cargoOptions.vehicleId || 'ebike',
+    cargoOptions,
+    remark: draft.remark || ''
+  }
+}
+
+function cacheOrder(order) {
+  const index = app.globalData.orders.findIndex((item) => item.id === order.id)
+  if (index > -1) {
+    app.globalData.orders.splice(index, 1, order)
+  } else {
+    app.globalData.orders.unshift(order)
+  }
 }
 
 Page({
@@ -89,30 +137,30 @@ Page({
       return
     }
 
-    const id = `S${Date.now()}`
     const estimate = estimateFee(draft)
-    const order = {
-      id,
-      status: '待接单',
-      statusIndex: 0,
-      service: draft.service,
-      pickupName: draft.pickup.name,
-      dropoffName: draft.dropoff.name,
-      item: draft.item,
-      vehicleName: draft.cargoOptions ? draft.cargoOptions.vehicleName : '电动车空间',
-      weightLabel: draft.cargoOptions ? draft.cargoOptions.weightLabel : getWeightLabel(draft.weight),
-      fee: Number(estimate.total),
-      distance: Number(estimate.distance),
-      eta: '约 20 分钟',
-      rider: '等待骑手接单',
-      createTime: '刚刚',
-      remark: draft.remark
+    const submitLocal = (toastTitle) => {
+      const order = buildLocalOrder(draft, estimate)
+      cacheOrder(order)
+      wx.showToast({ title: toastTitle || '下单成功', icon: 'success' })
+      setTimeout(() => {
+        wx.redirectTo({ url: `/pages/order-detail/order-detail?id=${order.id}` })
+      }, 450)
     }
-    app.globalData.orders.unshift(order)
-    wx.showToast({ title: '下单成功', icon: 'success' })
-    setTimeout(() => {
-      wx.redirectTo({ url: `/pages/order-detail/order-detail?id=${id}` })
-    }, 450)
+
+    if (!app.globalData.useBackend) {
+      submitLocal('下单成功')
+      return
+    }
+
+    api.createOrder(buildBackendPayload(draft)).then((order) => {
+      cacheOrder(order)
+      wx.showToast({ title: '后端下单成功', icon: 'success' })
+      setTimeout(() => {
+        wx.redirectTo({ url: `/pages/order-detail/order-detail?id=${order.id}` })
+      }, 450)
+    }).catch(() => {
+      submitLocal('已用本地模拟下单')
+    })
   },
 
   goBack() {

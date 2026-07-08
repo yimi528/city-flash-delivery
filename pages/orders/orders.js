@@ -1,4 +1,5 @@
 const app = getApp()
+const api = require('../../utils/api')
 
 Page({
   data: {
@@ -9,19 +10,28 @@ Page({
   },
 
   onShow() {
-    this.refresh()
+    this.setData({ statusBarHeight: app.globalData.statusBarHeight })
+    if (!app.globalData.useBackend) {
+      this.refresh()
+      return
+    }
+    api.getOrders(app.globalData.userId).then((orders) => {
+      app.globalData.orders = orders
+      this.refresh(orders)
+    }).catch(() => {
+      this.refresh()
+    })
   },
 
-  refresh() {
+  refresh(sourceOrders) {
     const filter = this.data.filter
-    const allOrders = app.globalData.orders
+    const allOrders = sourceOrders || app.globalData.orders
     const orders = allOrders.filter((item) => {
       if (filter === '进行中') return item.status !== '已完成' && item.status !== '已取消'
       if (filter === '已完成') return item.status === '已完成'
       return true
     })
     this.setData({
-      statusBarHeight: app.globalData.statusBarHeight,
       orders
     })
   },

@@ -1,4 +1,5 @@
 const app = getApp()
+const api = require('../../utils/api')
 
 const statusFlow = ['待接单', '已接单', '配送中', '已完成']
 
@@ -21,12 +22,41 @@ Page({
       order,
       activeIndex: order ? order.statusIndex : 0
     })
+    if (app.globalData.useBackend && this.orderId) {
+      api.getOrder(this.orderId).then((remoteOrder) => {
+        this.cacheOrder(remoteOrder)
+        this.setData({ order: remoteOrder, activeIndex: remoteOrder.statusIndex })
+      }).catch(() => {})
+    }
+  },
+
+  cacheOrder(order) {
+    const index = app.globalData.orders.findIndex((item) => item.id === order.id)
+    if (index > -1) {
+      app.globalData.orders.splice(index, 1, order)
+    } else {
+      app.globalData.orders.unshift(order)
+    }
   },
 
   nextStatus() {
     const order = this.data.order
     if (!order || order.status === '已完成' || order.status === '已取消') return
 
+    if (app.globalData.useBackend) {
+      api.updateOrderStatus(order.id, { action: 'next' }).then((remoteOrder) => {
+        this.cacheOrder(remoteOrder)
+        this.setData({ order: remoteOrder, activeIndex: remoteOrder.statusIndex })
+      }).catch(() => {
+        this.nextStatusLocal(order)
+      })
+      return
+    }
+
+    this.nextStatusLocal(order)
+  },
+
+  nextStatusLocal(order) {
     const nextIndex = Math.min(order.statusIndex + 1, statusFlow.length - 1)
     order.statusIndex = nextIndex
     order.status = statusFlow[nextIndex]
