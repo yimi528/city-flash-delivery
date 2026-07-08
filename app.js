@@ -21,6 +21,17 @@ App({
       dropoff: null,
       item: '文件/小件',
       weight: 1,
+      cargoOptions: {
+        categoryId: 'express',
+        categoryName: '快递',
+        vehicleId: 'ebike',
+        vehicleName: '电动车空间',
+        vehicleShortName: '电动车',
+        vehicleCapacity: '56cm × 44cm × 38cm',
+        vehicleFee: 0,
+        weight: 1,
+        weightLabel: '≤1公斤'
+      },
       remark: ''
     },
     addresses: [
@@ -66,6 +77,8 @@ App({
         pickupName: '恒生一品苑',
         dropoffName: '宁德万达广场',
         item: '文件/小件',
+        vehicleName: '电动车空间',
+        weightLabel: '≤1公斤',
         fee: 14.8,
         distance: 2.4,
         eta: '约 18 分钟',
@@ -80,6 +93,8 @@ App({
         pickupName: '华润便利店',
         dropoffName: '恒生一品苑',
         item: '饮料/日用品',
+        vehicleName: '电动车空间',
+        weightLabel: '≤1公斤',
         fee: 9.9,
         distance: 0.8,
         eta: '已送达',

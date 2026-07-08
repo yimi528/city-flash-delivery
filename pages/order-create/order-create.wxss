@@ -89,7 +89,8 @@
 }
 
 .option-card,
-.price-card {
+.price-card,
+.cargo-card {
   padding: 30rpx;
 }
 
@@ -165,6 +166,98 @@ textarea {
   background: #f6f8fc;
   color: #111c34;
   font-size: 26rpx;
+}
+
+.edit-link {
+  color: #ff1d16;
+  font-size: 25rpx;
+  font-weight: 850;
+}
+
+.cargo-summary {
+  min-height: 116rpx;
+  padding: 18rpx 20rpx;
+  border-radius: 22rpx;
+  background: #f7f9fd;
+  display: flex;
+  align-items: center;
+  gap: 18rpx;
+}
+
+.cargo-visual {
+  position: relative;
+  width: 118rpx;
+  height: 86rpx;
+  border-radius: 18rpx;
+  background: #fff;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.cargo-body {
+  position: absolute;
+  left: 12rpx;
+  bottom: 20rpx;
+  width: 82rpx;
+  height: 36rpx;
+  border-radius: 22rpx;
+  background: rgba(205, 216, 232, 0.68);
+}
+
+.car .cargo-body {
+  width: 96rpx;
+  height: 42rpx;
+  border-radius: 20rpx 30rpx 14rpx 14rpx;
+}
+
+.cargo-box {
+  position: absolute;
+  right: 16rpx;
+  bottom: 32rpx;
+  width: 38rpx;
+  height: 34rpx;
+  border-radius: 6rpx;
+  background: linear-gradient(135deg, #ff877e, #ff2118);
+}
+
+.car .cargo-box {
+  right: 10rpx;
+  width: 44rpx;
+  height: 44rpx;
+}
+
+.cargo-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.cargo-name {
+  color: #101b36;
+  font-size: 30rpx;
+  font-weight: 950;
+}
+
+.cargo-desc {
+  margin-top: 8rpx;
+  color: #7d879b;
+  font-size: 23rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cargo-fee {
+  min-width: 76rpx;
+  height: 46rpx;
+  padding: 0 14rpx;
+  border-radius: 24rpx;
+  background: #fff0ed;
+  color: #ff1d16;
+  font-size: 23rpx;
+  font-weight: 900;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .arrival {

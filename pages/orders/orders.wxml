@@ -30,7 +30,7 @@
           <view class="route-name">{{item.dropoffName}}</view>
         </view>
         <view class="order-foot">
-          <text>{{item.item}} · {{item.distance}}km · {{item.createTime}}</text>
+          <text>{{item.item}} · {{item.vehicleName || '电动车空间'}} · {{item.distance}}km · {{item.createTime}}</text>
           <text class="fee">￥{{item.fee}}</text>
         </view>
       </view>

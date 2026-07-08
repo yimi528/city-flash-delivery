@@ -40,6 +40,8 @@
     <view class="info-row"><text>订单编号</text><text>{{order.id}}</text></view>
     <view class="info-row"><text>服务类型</text><text>{{order.service}}</text></view>
     <view class="info-row"><text>物品类型</text><text>{{order.item}}</text></view>
+    <view class="info-row" wx:if="{{order.vehicleName}}"><text>配送工具</text><text>{{order.vehicleName}}</text></view>
+    <view class="info-row" wx:if="{{order.weightLabel}}"><text>物品重量</text><text>{{order.weightLabel}}</text></view>
     <view class="info-row"><text>配送距离</text><text>{{order.distance}}km</text></view>
     <view class="info-row"><text>下单时间</text><text>{{order.createTime}}</text></view>
   </view>

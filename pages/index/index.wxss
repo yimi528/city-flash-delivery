@@ -309,6 +309,56 @@
   align-items: center;
 }
 
+.cargo-entry {
+  min-height: 98rpx;
+  margin: -6rpx 0 26rpx;
+  padding: 20rpx 22rpx;
+  border-radius: 20rpx;
+  background: linear-gradient(90deg, #fff7f3, #fff);
+  display: flex;
+  align-items: center;
+  gap: 18rpx;
+  box-shadow: inset 0 0 0 2rpx rgba(255, 31, 22, 0.08);
+}
+
+.cargo-icon {
+  width: 58rpx;
+  height: 58rpx;
+  border-radius: 18rpx;
+  background: #fff0ed;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 34rpx;
+  flex-shrink: 0;
+}
+
+.cargo-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.cargo-title {
+  color: #101b36;
+  font-size: 28rpx;
+  font-weight: 900;
+}
+
+.cargo-sub {
+  margin-top: 8rpx;
+  color: #7d879b;
+  font-size: 23rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cargo-change {
+  color: #ff1d16;
+  font-size: 24rpx;
+  font-weight: 850;
+}
+
 .ticket {
   width: 42rpx;
   height: 32rpx;

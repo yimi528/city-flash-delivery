@@ -5,11 +5,11 @@ Page({
     statusBarHeight: 24,
     city: '宁德市',
     draft: {},
-    services: ['帮送', '帮取', '1对1急送', '帮买'],
+    services: ['帮送', '帮取', '送货', '帮买'],
     quickServices: [
       { icon: '🥤', name: '取送饮料' },
       { icon: '📄', name: '取送文件' },
-      { icon: '⌛', name: '代排队' },
+      { icon: '🚚', name: '送货搬运' },
       { icon: '📷', name: '取送数码' },
       { icon: '✣', name: '更多服务' }
     ],
@@ -28,6 +28,9 @@ Page({
     const service = event.currentTarget.dataset.service
     app.globalData.draftOrder.service = service
     this.setData({ 'draft.service': service })
+    if (service === '送货') {
+      wx.navigateTo({ url: '/pages/cargo-options/cargo-options?from=index' })
+    }
   },
 
   openCity() {
@@ -46,12 +49,24 @@ Page({
 
   useQuick(event) {
     const name = event.currentTarget.dataset.name
+    if (name === '送货搬运') {
+      app.globalData.draftOrder.service = '送货'
+      this.setData({ draft: app.globalData.draftOrder })
+      wx.navigateTo({ url: '/pages/cargo-options/cargo-options?from=index' })
+      return
+    }
     app.globalData.draftOrder.item = name
     if (name.indexOf('取送') === 0) {
       app.globalData.draftOrder.service = '帮送'
     }
     this.setData({ draft: app.globalData.draftOrder })
     wx.showToast({ title: `已选择${name}`, icon: 'none' })
+  },
+
+  openCargoOptions() {
+    app.globalData.draftOrder.service = '送货'
+    this.setData({ draft: app.globalData.draftOrder })
+    wx.navigateTo({ url: '/pages/cargo-options/cargo-options?from=index' })
   },
 
   goOrder() {
