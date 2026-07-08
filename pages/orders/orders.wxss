@@ -1,0 +1,161 @@
+.orders-page {
+  min-height: 100vh;
+  padding-bottom: 140rpx;
+  background: linear-gradient(180deg, #fff0f0 0%, #f4f6fb 330rpx, #f4f6fb 100%);
+}
+
+.topbar {
+  padding: 34rpx 30rpx 18rpx;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.title {
+  color: #111c34;
+  font-size: 44rpx;
+  font-weight: 950;
+}
+
+.subtitle {
+  margin-top: 8rpx;
+  color: #7b8497;
+  font-size: 25rpx;
+}
+
+.top-pill {
+  height: 58rpx;
+  padding: 0 22rpx;
+  border-radius: 32rpx;
+  background: #fff;
+  color: #ff1d16;
+  font-size: 25rpx;
+  font-weight: 850;
+  display: flex;
+  align-items: center;
+  box-shadow: 0 10rpx 30rpx rgba(20, 28, 50, 0.06);
+}
+
+.filter-bar {
+  height: 84rpx;
+  margin: 12rpx 30rpx 0;
+  padding: 10rpx;
+  border-radius: 26rpx;
+  background: #fff;
+  display: flex;
+  gap: 8rpx;
+  box-shadow: 0 12rpx 32rpx rgba(20, 28, 50, 0.05);
+}
+
+.filter {
+  flex: 1;
+  border-radius: 20rpx;
+  color: #69748a;
+  font-size: 27rpx;
+  font-weight: 850;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.filter.active {
+  color: #ff1d16;
+  background: #fff0ed;
+}
+
+.order-list {
+  margin-top: 10rpx;
+}
+
+.order-card {
+  margin: 20rpx 30rpx 0;
+  padding: 30rpx;
+  border-radius: 28rpx;
+  background: #fff;
+  box-shadow: 0 14rpx 34rpx rgba(20, 28, 50, 0.05);
+}
+
+.order-head,
+.order-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.service {
+  font-size: 30rpx;
+  color: #111c34;
+  font-weight: 950;
+}
+
+.status {
+  color: #ff1d16;
+  font-size: 25rpx;
+  font-weight: 850;
+}
+
+.status.done {
+  color: #10b775;
+}
+
+.route {
+  margin-top: 22rpx;
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+}
+
+.dot {
+  width: 18rpx;
+  height: 18rpx;
+  border-radius: 50%;
+}
+
+.red { background: #ff1712; }
+.green { background: #10c779; }
+
+.route-name {
+  color: #111c34;
+  font-size: 29rpx;
+  font-weight: 800;
+}
+
+.order-foot {
+  margin-top: 28rpx;
+  padding-top: 24rpx;
+  border-top: 2rpx solid #f1f3f8;
+  color: #7c879c;
+  font-size: 24rpx;
+}
+
+.fee {
+  color: #111c34;
+  font-size: 31rpx;
+  font-weight: 950;
+}
+
+.empty {
+  margin: 80rpx 30rpx 0;
+  padding: 60rpx 44rpx;
+  border-radius: 32rpx;
+  background: #fff;
+  text-align: center;
+  box-shadow: 0 14rpx 34rpx rgba(20, 28, 50, 0.05);
+}
+
+.empty-icon {
+  font-size: 74rpx;
+}
+
+.empty-title {
+  margin-top: 18rpx;
+  color: #111c34;
+  font-size: 34rpx;
+  font-weight: 950;
+}
+
+.empty-sub {
+  margin: 12rpx 0 34rpx;
+  color: #7b8497;
+  font-size: 26rpx;
+}

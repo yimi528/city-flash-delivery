@@ -1,0 +1,31 @@
+<view class="message-page">
+  <view style="height: {{statusBarHeight}}px"></view>
+  <view class="topbar">
+    <view>
+      <view class="title">消息中心</view>
+      <view class="subtitle">订单、优惠、客服通知</view>
+    </view>
+    <view class="bell">铃</view>
+  </view>
+
+  <view class="notice-card">
+    <view class="notice-title">实时履约通知</view>
+    <view class="notice-sub">后续接入订阅消息后，可给用户推送接单、取件、送达提醒。</view>
+  </view>
+
+  <view class="message-list">
+    <block wx:for="{{messages}}" wx:key="title">
+      <view class="message-item" data-index="{{index}}" bindtap="openMessage">
+        <view class="icon">{{item.icon}}</view>
+        <view class="msg-main">
+          <view class="msg-head">
+            <view class="msg-title">{{item.title}}</view>
+            <view class="time">{{item.time}}</view>
+          </view>
+          <view class="msg-body">{{item.body}}</view>
+        </view>
+        <view class="unread" wx:if="{{item.unread}}"></view>
+      </view>
+    </block>
+  </view>
+</view>

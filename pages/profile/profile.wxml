@@ -1,0 +1,45 @@
+<view class="profile-page">
+  <view style="height: {{statusBarHeight}}px"></view>
+  <view class="profile-head">
+    <view class="avatar">速</view>
+    <view class="user-main">
+      <view class="username">微信用户</view>
+      <view class="user-sub">宁德市 · 同城速送会员</view>
+    </view>
+    <view class="vip">VIP</view>
+  </view>
+
+  <view class="stats-card">
+    <block wx:for="{{stats}}" wx:key="label">
+      <view class="stat-item">
+        <view class="stat-value">{{item.value}}</view>
+        <view class="stat-label">{{item.label}}</view>
+      </view>
+    </block>
+  </view>
+
+  <view class="card wallet-card">
+    <view>
+      <view class="wallet-title">新人保障包</view>
+      <view class="wallet-sub">优惠券、保价、客服赔付规则集中展示。</view>
+    </view>
+    <view class="wallet-btn">去领取</view>
+  </view>
+
+  <view class="card tool-card">
+    <view class="section-title">常用服务</view>
+    <view class="tool-grid">
+      <block wx:for="{{tools}}" wx:key="name">
+        <view class="tool-item" data-name="{{item.name}}" bindtap="openTool">
+          <view class="tool-icon">{{item.icon}}</view>
+          <view>{{item.name}}</view>
+        </view>
+      </block>
+    </view>
+  </view>
+
+  <view class="ops-card">
+    <view class="ops-title">商家/骑手管理入口</view>
+    <view class="ops-sub">正式版建议拆分“骑手端”和“管理后台”，这里先保留入口占位。</view>
+  </view>
+</view>

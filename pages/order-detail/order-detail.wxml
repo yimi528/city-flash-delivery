@@ -1,0 +1,52 @@
+<view class="detail-page" wx:if="{{order}}">
+  <view style="height: {{statusBarHeight}}px"></view>
+  <view class="page-nav">
+    <view class="back" bindtap="goBack">‹</view>
+    <view class="nav-title">订单详情</view>
+    <view class="nav-action">客服</view>
+  </view>
+
+  <view class="status-hero">
+    <view>
+      <view class="status-name">{{order.status}}</view>
+      <view class="status-sub">{{order.rider}} · {{order.eta}}</view>
+    </view>
+    <view class="status-price">￥{{order.fee}}</view>
+  </view>
+
+  <view class="mini-map card">
+    <view class="route-road road-one"></view>
+    <view class="route-road road-two"></view>
+    <view class="point start">发</view>
+    <view class="point end">收</view>
+    <view class="bike">骑</view>
+    <view class="map-mask">{{order.pickupName}} → {{order.dropoffName}}</view>
+  </view>
+
+  <view class="card timeline-card">
+    <view class="section-title">配送进度</view>
+    <view class="timeline">
+      <block wx:for="{{statusFlow}}" wx:key="*this">
+        <view class="step {{activeIndex >= index && order.status !== '已取消' ? 'active' : ''}}">
+          <view class="dot">{{activeIndex > index ? '✓' : index + 1}}</view>
+          <view class="step-text">{{item}}</view>
+        </view>
+      </block>
+    </view>
+    <view class="cancel-tip" wx:if="{{order.status === '已取消'}}">该订单已取消，可返回首页重新下单。</view>
+  </view>
+
+  <view class="card info-card">
+    <view class="info-row"><text>订单编号</text><text>{{order.id}}</text></view>
+    <view class="info-row"><text>服务类型</text><text>{{order.service}}</text></view>
+    <view class="info-row"><text>物品类型</text><text>{{order.item}}</text></view>
+    <view class="info-row"><text>配送距离</text><text>{{order.distance}}km</text></view>
+    <view class="info-row"><text>下单时间</text><text>{{order.createTime}}</text></view>
+  </view>
+
+  <view class="action-bar">
+    <button class="outline" bindtap="cancelOrder" wx:if="{{order.status !== '已完成' && order.status !== '已取消'}}">取消订单</button>
+    <button class="outline" bindtap="callRider">联系骑手</button>
+    <button class="solid" bindtap="nextStatus" wx:if="{{order.status !== '已完成' && order.status !== '已取消'}}">模拟推进</button>
+  </view>
+</view>

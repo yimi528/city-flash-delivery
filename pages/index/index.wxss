@@ -1,0 +1,453 @@
+.home-page {
+  padding-bottom: 140rpx;
+}
+
+.topbar {
+  height: 138rpx;
+  padding: 22rpx 30rpx 16rpx;
+  display: flex;
+  align-items: center;
+  gap: 26rpx;
+}
+
+.brand {
+  color: #f20707;
+  font-size: 48rpx;
+  font-weight: 950;
+  letter-spacing: -3rpx;
+  flex: 1;
+}
+
+.city {
+  color: #14233f;
+  font-size: 29rpx;
+  font-weight: 700;
+  padding-top: 8rpx;
+}
+
+.down {
+  font-size: 22rpx;
+}
+
+.menu-pill {
+  width: 168rpx;
+  height: 66rpx;
+  padding: 0 24rpx;
+  border-radius: 40rpx;
+  background: rgba(255, 255, 255, 0.74);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: inset 0 0 0 2rpx rgba(18, 20, 31, 0.05);
+  color: #111;
+  font-size: 34rpx;
+}
+
+.pill-dot {
+  width: 42rpx;
+  height: 42rpx;
+  border: 8rpx solid #161922;
+  border-radius: 50%;
+}
+
+.map-card {
+  height: 410rpx;
+  margin: 0 30rpx;
+  position: relative;
+  overflow: hidden;
+  border: 8rpx solid rgba(255, 255, 255, 0.9);
+  border-radius: 28rpx 28rpx 0 0;
+  background: #eaf0f7;
+}
+
+.road {
+  position: absolute;
+  height: 44rpx;
+  border-radius: 26rpx;
+  background: #fff;
+  border: 4rpx solid #dce5f2;
+  opacity: 0.86;
+}
+
+.road-a {
+  width: 780rpx;
+  top: 58rpx;
+  left: -130rpx;
+  transform: rotate(-38deg);
+}
+
+.road-b {
+  width: 900rpx;
+  top: 230rpx;
+  left: -86rpx;
+  transform: rotate(12deg);
+}
+
+.road-c {
+  width: 540rpx;
+  top: 120rpx;
+  right: -210rpx;
+  transform: rotate(104deg);
+}
+
+.block {
+  position: absolute;
+  border-radius: 18rpx;
+  background: #f8fbff;
+  border: 3rpx solid #dbe3ee;
+}
+
+.block-a { width: 170rpx; height: 70rpx; top: 142rpx; left: 150rpx; transform: rotate(-12deg); }
+.block-b { width: 230rpx; height: 92rpx; top: 90rpx; right: 146rpx; transform: rotate(16deg); }
+.block-c { width: 180rpx; height: 88rpx; bottom: 64rpx; left: 248rpx; transform: rotate(10deg); }
+
+.map-label {
+  position: absolute;
+  color: #a9b5c6;
+  font-size: 28rpx;
+  font-weight: 800;
+}
+
+.label-a { top: 70rpx; left: 206rpx; }
+.label-b { top: 188rpx; left: 340rpx; }
+.label-c { bottom: 76rpx; right: 180rpx; }
+
+.accept-bubble {
+  position: absolute;
+  top: 126rpx;
+  left: 314rpx;
+  min-width: 206rpx;
+  height: 70rpx;
+  padding: 0 24rpx;
+  border-radius: 40rpx;
+  background: #fff;
+  color: #16213a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28rpx;
+  font-weight: 900;
+  box-shadow: 0 10rpx 24rpx rgba(16, 36, 66, 0.08);
+}
+
+.accept-bubble text {
+  color: #ff1610;
+}
+
+.pin {
+  position: absolute;
+  top: 210rpx;
+  left: 394rpx;
+  width: 70rpx;
+  height: 98rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.pin-head {
+  width: 70rpx;
+  height: 70rpx;
+  border-radius: 50%;
+  background: #12213d;
+  border: 10rpx solid #fff;
+  box-shadow: 0 8rpx 18rpx rgba(18, 33, 61, 0.22);
+}
+
+.pin-tail {
+  width: 10rpx;
+  height: 34rpx;
+  background: #12213d;
+  border-radius: 8rpx;
+}
+
+.locate {
+  position: absolute;
+  left: 18rpx;
+  bottom: 102rpx;
+  width: 70rpx;
+  height: 70rpx;
+  border-radius: 50%;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #13213d;
+  font-size: 48rpx;
+  box-shadow: 0 10rpx 26rpx rgba(16, 36, 66, 0.08);
+}
+
+.safe-tip {
+  position: absolute;
+  left: 22rpx;
+  bottom: 18rpx;
+  height: 62rpx;
+  padding: 0 28rpx 0 14rpx;
+  border-radius: 20rpx;
+  background: rgba(243, 255, 250, 0.95);
+  color: #10c779;
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  font-size: 27rpx;
+  font-weight: 800;
+  box-shadow: inset 0 0 0 3rpx rgba(36, 201, 136, 0.09);
+}
+
+.shield {
+  width: 46rpx;
+  height: 46rpx;
+  border-radius: 15rpx;
+  background: #fff;
+  color: #10c779;
+  font-size: 20rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.coupon-float {
+  position: absolute;
+  right: 18rpx;
+  bottom: 26rpx;
+  width: 104rpx;
+  height: 110rpx;
+  border-radius: 14rpx;
+  background: linear-gradient(180deg, #ff5d55, #ff170f);
+  color: #fff7bf;
+  border: 5rpx solid rgba(255, 255, 255, 0.8);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  box-shadow: 0 8rpx 18rpx rgba(255, 23, 15, 0.26);
+}
+
+.coupon-float .small { font-size: 18rpx; color: #fff; }
+.coupon-float .money { font-size: 44rpx; font-weight: 950; margin-top: 6rpx; }
+.coupon-float .unit { font-size: 19rpx; }
+.coupon-float .get { margin-top: 8rpx; padding: 4rpx 10rpx; border-radius: 20rpx; background: #ffe65c; color: #f5140e; font-size: 18rpx; font-weight: 800; }
+
+.new-coupon {
+  height: 108rpx;
+  margin: 0 30rpx;
+  padding: 0 64rpx;
+  border-radius: 0 0 28rpx 28rpx;
+  background: #ffe3e3;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  overflow: hidden;
+}
+
+.coupon-text {
+  font-size: 39rpx;
+  color: #05070c;
+  font-weight: 950;
+}
+
+.coupon-text text {
+  color: #ff1610;
+}
+
+.coupon-pocket {
+  min-width: 126rpx;
+  height: 78rpx;
+  padding-top: 12rpx;
+  border-radius: 18rpx 18rpx 0 0;
+  color: #ff1712;
+  background: linear-gradient(180deg, #fff 0%, #ffb4b4 42%, #ff2b22 100%);
+  text-align: center;
+  font-size: 32rpx;
+  font-weight: 950;
+}
+
+.order-panel {
+  margin: -2rpx 30rpx 0;
+  padding: 34rpx 30rpx 30rpx;
+  border-radius: 26rpx;
+  background: #fff;
+  box-shadow: 0 20rpx 42rpx rgba(20, 28, 50, 0.06);
+}
+
+.service-tabs {
+  height: 78rpx;
+  display: flex;
+  align-items: flex-start;
+  gap: 42rpx;
+}
+
+.tab {
+  position: relative;
+  color: #14233f;
+  font-size: 31rpx;
+  font-weight: 800;
+  padding-bottom: 20rpx;
+}
+
+.tab.active::after {
+  content: '';
+  position: absolute;
+  left: 18rpx;
+  bottom: 0;
+  width: 36rpx;
+  height: 8rpx;
+  border-radius: 8rpx;
+  background: #ff1712;
+}
+
+.discount-line {
+  height: 76rpx;
+  padding: 0 28rpx;
+  margin-bottom: 26rpx;
+  border-radius: 14rpx;
+  background: #fff4f4;
+  color: #677087;
+  font-size: 28rpx;
+  display: flex;
+  align-items: center;
+}
+
+.ticket {
+  width: 42rpx;
+  height: 32rpx;
+  margin-right: 18rpx;
+  border-radius: 8rpx;
+  background: #ff332b;
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20rpx;
+  font-weight: 800;
+}
+
+.route-row {
+  min-height: 84rpx;
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+  margin-bottom: 22rpx;
+}
+
+.route-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.route-title {
+  color: #14213d;
+  font-size: 30rpx;
+  font-weight: 850;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.route-sub {
+  margin-top: 8rpx;
+  color: #8b95aa;
+  font-size: 26rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.arrow {
+  color: #14213d;
+}
+
+.dropoff {
+  min-height: 104rpx;
+  padding: 0 0 0 0;
+}
+
+.big-input {
+  height: 104rpx;
+  padding: 0 28rpx;
+  border: 3rpx solid #14213d;
+  border-radius: 18rpx;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.big-input .route-title {
+  font-size: 38rpx;
+  font-weight: 950;
+}
+
+.big-input .placeholder {
+  color: #121c34;
+}
+
+.order-btn {
+  margin-top: 22rpx;
+}
+
+.shortcut-card {
+  height: 158rpx;
+  padding: 22rpx 14rpx 18rpx;
+  display: flex;
+  justify-content: space-around;
+}
+
+.quick-item {
+  min-width: 112rpx;
+  color: #68738a;
+  text-align: center;
+  font-size: 25rpx;
+}
+
+.quick-icon {
+  height: 58rpx;
+  color: #fb5066;
+  font-size: 48rpx;
+  line-height: 58rpx;
+  margin-bottom: 10rpx;
+}
+
+.promo-card {
+  height: 154rpx;
+  margin: 24rpx 30rpx 0;
+  padding: 28rpx 34rpx;
+  border-radius: 28rpx;
+  background: linear-gradient(118deg, #0751c3 0%, #0f78ff 52%, #ffe069 52%, #ff3222 100%);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  overflow: hidden;
+}
+
+.promo-kicker {
+  font-size: 22rpx;
+  color: #d5e5ff;
+}
+
+.promo-title {
+  margin-top: 6rpx;
+  font-size: 34rpx;
+  font-weight: 950;
+}
+
+.promo-desc {
+  margin-top: 8rpx;
+  font-size: 24rpx;
+  color: #e5efff;
+}
+
+.rider-helmet {
+  width: 96rpx;
+  height: 96rpx;
+  border-radius: 50%;
+  background: #fff;
+  color: #ff2119;
+  font-size: 38rpx;
+  font-weight: 950;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 16rpx 28rpx rgba(0, 0, 0, 0.14);
+}

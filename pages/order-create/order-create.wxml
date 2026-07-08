@@ -1,0 +1,75 @@
+<view class="confirm-page">
+  <view style="height: {{statusBarHeight}}px"></view>
+  <view class="page-nav">
+    <view class="back" bindtap="goBack">‹</view>
+    <view class="nav-title">确认订单</view>
+    <view class="nav-action">明细</view>
+  </view>
+
+  <view class="route-card card">
+    <view class="service-badge">{{draft.service}} · 预计 {{estimate.distance}}km</view>
+    <view class="route-line">
+      <view class="tag-red">发</view>
+      <view class="route-info">
+        <view class="title">{{draft.pickup.name}}</view>
+        <view class="sub">{{draft.pickup.detail}} · {{draft.pickup.phone}}</view>
+      </view>
+    </view>
+    <view class="connector"></view>
+    <view class="route-line">
+      <view class="tag-green">收</view>
+      <view class="route-info">
+        <view class="title">{{draft.dropoff.name}}</view>
+        <view class="sub">{{draft.dropoff.detail}} · {{draft.dropoff.phone}}</view>
+      </view>
+    </view>
+  </view>
+
+  <view class="card option-card">
+    <view class="section-head">
+      <view class="section-title">物品信息</view>
+      <view class="muted">用于骑手判断车辆和保价</view>
+    </view>
+    <view class="chips">
+      <block wx:for="{{itemTypes}}" wx:key="*this">
+        <view class="chip {{draft.item === item ? 'active' : ''}}" data-item="{{item}}" bindtap="selectItem">{{item}}</view>
+      </block>
+    </view>
+    <view class="weight-row">
+      <text>重量</text>
+      <view class="weight-list">
+        <block wx:for="{{weights}}" wx:key="*this">
+          <view class="weight {{draft.weight === item ? 'active' : ''}}" data-weight="{{item}}" bindtap="selectWeight">{{item}}kg</view>
+        </block>
+      </view>
+    </view>
+    <textarea placeholder="备注：如取件码、门牌号、是否需要电话联系" auto-height maxlength="80" bindinput="inputRemark" />
+  </view>
+
+  <view class="card price-card">
+    <view class="section-head">
+      <view class="section-title">费用预估</view>
+      <view class="arrival">{{draft.service === '1对1急送' ? '专人直送' : '约20分钟达'}}</view>
+    </view>
+    <view class="price-row"><text>起步价</text><text>￥{{estimate.base}}</text></view>
+    <view class="price-row"><text>距离费</text><text>￥{{estimate.distanceFee}}</text></view>
+    <view class="price-row"><text>重量费</text><text>￥{{estimate.weightFee}}</text></view>
+    <view class="price-row" wx:if="{{draft.service === '1对1急送'}}"><text>急送费</text><text>￥{{estimate.urgentFee}}</text></view>
+    <view class="price-row discount"><text>新人优惠</text><text>-￥{{estimate.discount}}</text></view>
+    <view class="guarantee" bindtap="toggleGuarantee">
+      <view class="check {{guarantee ? 'checked' : ''}}">✓</view>
+      <view>
+        <view class="guarantee-title">购买保价服务</view>
+        <view class="guarantee-sub">演示版默认展示，可接入真实保价规则。</view>
+      </view>
+    </view>
+  </view>
+
+  <view class="submit-bar">
+    <view class="amount">
+      <view class="muted">需支付</view>
+      <view class="money">￥{{estimate.total}}</view>
+    </view>
+    <button class="pay-btn" bindtap="submitOrder">微信支付并下单</button>
+  </view>
+</view>

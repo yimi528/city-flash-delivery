@@ -1,0 +1,32 @@
+<view class="address-page">
+  <view style="height: {{statusBarHeight}}px"></view>
+  <view class="page-nav">
+    <view class="back" bindtap="goBack">‹</view>
+    <view class="nav-title">{{title}}</view>
+    <view class="nav-action" bindtap="addMockAddress">新增</view>
+  </view>
+
+  <view class="search-card">
+    <text class="search-icon">⌕</text>
+    <input placeholder="搜索小区、写字楼、门店" value="{{keyword}}" bindinput="onSearch" confirm-type="search" />
+  </view>
+
+  <view class="hint-card">
+    <view class="hint-title">智能推荐</view>
+    <view class="hint-sub">已按当前位置与历史下单地址排序，点击即可带回首页。</view>
+  </view>
+
+  <view class="address-list">
+    <block wx:for="{{addresses}}" wx:key="id">
+      <view class="address-item" data-id="{{item.id}}" bindtap="chooseAddress">
+        <view class="pin {{type === 'pickup' ? 'pickup' : 'dropoff'}}">{{type === 'pickup' ? '发' : '收'}}</view>
+        <view class="info">
+          <view class="name">{{item.name}} <text>{{item.distance}}</text></view>
+          <view class="detail">{{item.detail}}</view>
+          <view class="person">{{item.contact}}  {{item.phone}}</view>
+        </view>
+        <view class="select">选择</view>
+      </view>
+    </block>
+  </view>
+</view>

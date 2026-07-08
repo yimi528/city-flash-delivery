@@ -1,0 +1,162 @@
+.profile-page {
+  min-height: 100vh;
+  padding-bottom: 140rpx;
+  background: linear-gradient(180deg, #fff0f0 0%, #f4f6fb 330rpx, #f4f6fb 100%);
+}
+
+.profile-head {
+  padding: 42rpx 30rpx 28rpx;
+  display: flex;
+  align-items: center;
+  gap: 22rpx;
+}
+
+.avatar {
+  width: 96rpx;
+  height: 96rpx;
+  border-radius: 32rpx;
+  background: linear-gradient(135deg, #ff7b00, #ff1712);
+  color: #fff;
+  font-size: 40rpx;
+  font-weight: 950;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 14rpx 30rpx rgba(255, 31, 22, 0.2);
+}
+
+.user-main {
+  flex: 1;
+}
+
+.username {
+  color: #111c34;
+  font-size: 38rpx;
+  font-weight: 950;
+}
+
+.user-sub {
+  margin-top: 8rpx;
+  color: #7b8497;
+  font-size: 25rpx;
+}
+
+.vip {
+  height: 48rpx;
+  padding: 0 18rpx;
+  border-radius: 24rpx;
+  color: #8b4f00;
+  background: linear-gradient(90deg, #fff0b6, #ffd76d);
+  font-size: 23rpx;
+  font-weight: 950;
+  display: flex;
+  align-items: center;
+}
+
+.stats-card {
+  margin: 0 30rpx;
+  padding: 26rpx 0;
+  border-radius: 30rpx;
+  background: #fff;
+  display: flex;
+  box-shadow: 0 14rpx 34rpx rgba(20, 28, 50, 0.05);
+}
+
+.stat-item {
+  flex: 1;
+  text-align: center;
+  border-right: 2rpx solid #f1f3f8;
+}
+
+.stat-item:last-child {
+  border-right: 0;
+}
+
+.stat-value {
+  color: #111c34;
+  font-size: 38rpx;
+  font-weight: 950;
+}
+
+.stat-label {
+  margin-top: 6rpx;
+  color: #7b8497;
+  font-size: 24rpx;
+}
+
+.wallet-card {
+  padding: 32rpx;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: linear-gradient(130deg, #111d37, #284b8d 68%, #ff3b2f 100%);
+  color: #fff;
+}
+
+.wallet-title {
+  font-size: 34rpx;
+  font-weight: 950;
+}
+
+.wallet-sub {
+  margin-top: 10rpx;
+  color: #dce6ff;
+  font-size: 24rpx;
+  max-width: 430rpx;
+}
+
+.wallet-btn {
+  height: 58rpx;
+  padding: 0 22rpx;
+  border-radius: 30rpx;
+  background: #fff;
+  color: #ff1d16;
+  font-size: 25rpx;
+  font-weight: 900;
+  display: flex;
+  align-items: center;
+}
+
+.tool-card {
+  padding: 30rpx;
+}
+
+.tool-grid {
+  margin-top: 20rpx;
+  display: flex;
+  flex-wrap: wrap;
+  row-gap: 30rpx;
+}
+
+.tool-item {
+  width: 33.333%;
+  color: #68738a;
+  text-align: center;
+  font-size: 25rpx;
+}
+
+.tool-icon {
+  height: 58rpx;
+  margin-bottom: 10rpx;
+  font-size: 44rpx;
+  line-height: 58rpx;
+}
+
+.ops-card {
+  margin: 24rpx 30rpx 0;
+  padding: 32rpx;
+  border-radius: 28rpx;
+  background: #fff9e8;
+  color: #6d4d08;
+}
+
+.ops-title {
+  font-size: 31rpx;
+  font-weight: 950;
+}
+
+.ops-sub {
+  margin-top: 10rpx;
+  font-size: 25rpx;
+  line-height: 1.5;
+}

@@ -1,0 +1,82 @@
+<view class="safe-page home-page">
+  <view style="height: {{statusBarHeight}}px"></view>
+
+  <view class="topbar">
+    <view class="brand">同城速送</view>
+    <view class="city" bindtap="openCity">{{city}} <text class="down">▾</text></view>
+    <view class="menu-pill">
+      <text>•••</text>
+      <view class="pill-dot"></view>
+    </view>
+  </view>
+
+  <view class="map-card">
+    <view class="road road-a"></view>
+    <view class="road road-b"></view>
+    <view class="road road-c"></view>
+    <view class="block block-a"></view>
+    <view class="block block-b"></view>
+    <view class="block block-c"></view>
+    <view class="map-label label-a">福鼎高铁站</view>
+    <view class="map-label label-b">华润便利店</view>
+    <view class="map-label label-c">4栋</view>
+    <view class="accept-bubble"><text>1分钟</text>内接单</view>
+    <view class="pin"><view class="pin-head"></view><view class="pin-tail"></view></view>
+    <view class="locate" bindtap="refreshLocation">⌖</view>
+    <view class="safe-tip"><text class="shield">盾</text> 购买保价，若发生物损，最高全额赔</view>
+    <view class="coupon-float"><text class="small">社群券包</text><text class="money">300</text><text class="unit">元</text><text class="get">点击领取</text></view>
+  </view>
+
+  <view class="new-coupon">
+    <view class="coupon-text">新人首单低至<text>2折起</text></view>
+    <view class="coupon-pocket">2折起</view>
+  </view>
+
+  <view class="order-panel">
+    <view class="service-tabs">
+      <block wx:for="{{services}}" wx:key="*this">
+        <view class="tab {{draft.service === item ? 'active' : ''}}" data-service="{{item}}" bindtap="chooseService">{{item}}</view>
+      </block>
+    </view>
+
+    <view class="discount-line"><text class="ticket">券</text> 本单最高优惠<text class="price-red">9元</text>，下单立减!</view>
+
+    <view class="route-row" data-type="pickup" bindtap="chooseAddress">
+      <view class="tag-red">发</view>
+      <view class="route-main">
+        <view class="route-title">{{draft.pickup.name}} <text class="arrow">›</text></view>
+        <view class="route-sub">{{draft.pickup.phone}}</view>
+      </view>
+      <button class="ghost-btn">地址簿</button>
+    </view>
+
+    <view class="route-row dropoff" data-type="dropoff" bindtap="chooseAddress">
+      <view class="tag-green">收</view>
+      <view class="route-main big-input">
+        <view class="route-title {{draft.dropoff ? '' : 'placeholder'}}">{{draft.dropoff ? draft.dropoff.name : '送到哪里？'}}</view>
+        <view class="route-sub" wx:if="{{draft.dropoff}}">{{draft.dropoff.detail}}</view>
+      </view>
+      <button class="ghost-btn">地址簿</button>
+    </view>
+
+    <button class="primary-btn order-btn" bindtap="goOrder">去下单</button>
+  </view>
+
+  <view class="card shortcut-card">
+    <block wx:for="{{quickServices}}" wx:key="name">
+      <view class="quick-item" data-name="{{item.name}}" bindtap="useQuick">
+        <view class="quick-icon">{{item.icon}}</view>
+        <view>{{item.name}}</view>
+      </view>
+    </block>
+  </view>
+
+  <view class="promo-card">
+    <view>
+      <view class="promo-kicker">夏日加速计划</view>
+      <view class="promo-title">邀请好友下单，赢免单红包</view>
+      <view class="promo-desc">附近 {{nearbyRiders}} 位骑手在线，可接急送单</view>
+    </view>
+    <view class="rider-helmet">骑</view>
+  </view>
+</view>
