@@ -1,0 +1,83 @@
+<view class="edit-page">
+  <view style="height: {{statusBarHeight}}px"></view>
+  <view class="page-nav">
+    <view class="back" bindtap="goBack">‹</view>
+    <view class="nav-title">{{title}}</view>
+    <view class="nav-action" bindtap="submit">保存</view>
+  </view>
+
+  <view class="map-card">
+    <view class="map-head">
+      <view>
+        <view class="map-title">腾讯地图定位</view>
+        <view class="map-sub">搜索小区/门店，或一键填入当前位置</view>
+      </view>
+      <view class="locate-action" bindtap="useCurrentLocation">{{isLocating ? '定位中' : '当前位置'}}</view>
+    </view>
+    <view class="map-search">
+      <text>⌕</text>
+      <input value="{{mapKeyword}}" placeholder="输入小区、写字楼、门店名称" bindinput="inputMapKeyword" confirm-type="search" />
+    </view>
+    <view class="map-loading" wx:if="{{isSearching}}">正在搜索腾讯地图...</view>
+    <view class="map-results" wx:if="{{mapResults.length}}">
+      <block wx:for="{{mapResults}}" wx:key="id">
+        <view class="map-result" data-id="{{item.id}}" bindtap="chooseMapResult">
+          <view class="map-pin">图</view>
+          <view class="map-info">
+            <view class="map-name">{{item.name}} <text>{{item.distance}}</text></view>
+            <view class="map-detail">{{item.detail}}</view>
+          </view>
+          <view class="map-use">填入</view>
+        </view>
+      </block>
+    </view>
+  </view>
+
+  <view class="form-card">
+    <view class="field">
+      <view class="label">地址名称</view>
+      <input value="{{form.name}}" placeholder="如：恒生一品苑" data-field="name" bindinput="inputField" />
+    </view>
+    <view class="field">
+      <view class="label">详细地址</view>
+      <input value="{{form.detail}}" placeholder="楼栋、门牌号、附近地标" data-field="detail" bindinput="inputField" />
+    </view>
+    <view class="field two-col">
+      <view class="col">
+        <view class="label">联系人</view>
+        <input value="{{form.contact}}" placeholder="联系人" data-field="contact" bindinput="inputField" />
+      </view>
+      <view class="col">
+        <view class="label">手机号</view>
+        <input value="{{form.phone}}" placeholder="手机号" type="number" data-field="phone" bindinput="inputField" />
+      </view>
+    </view>
+    <view class="field two-col">
+      <view class="col">
+        <view class="label">预估距离(km)</view>
+        <input value="{{form.distanceKm}}" placeholder="1.5" type="digit" data-field="distanceKm" bindinput="inputField" />
+      </view>
+      <view class="col">
+        <view class="label">标签</view>
+        <input value="{{form.tag}}" placeholder="家/公司/门店" data-field="tag" bindinput="inputField" />
+      </view>
+    </view>
+    <view class="coordinate-row" wx:if="{{form.latitude && form.longitude}}">坐标 {{form.latitude}}，{{form.longitude}}</view>
+
+    <view class="tags">
+      <block wx:for="{{tags}}" wx:key="*this">
+        <view class="tag {{form.tag === item ? 'active' : ''}}" data-tag="{{item}}" bindtap="selectTag">{{item}}</view>
+      </block>
+    </view>
+
+    <view class="default-row" bindtap="toggleDefault">
+      <view>
+        <view class="default-title">设为默认地址</view>
+        <view class="default-sub">下次下单优先展示这个地址</view>
+      </view>
+      <view class="switch {{form.isDefault ? 'on' : ''}}"><view></view></view>
+    </view>
+  </view>
+
+  <button class="save-btn" bindtap="submit">保存地址</button>
+</view>

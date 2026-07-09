@@ -1,0 +1,61 @@
+<view class="address-page">
+  <view style="height: {{statusBarHeight}}px"></view>
+  <view class="page-nav">
+    <view class="back" bindtap="goBack">‹</view>
+    <view class="nav-title">{{title}}</view>
+    <view class="nav-action" bindtap="addAddress">新增</view>
+  </view>
+
+  <view class="search-card">
+    <text class="search-icon">⌕</text>
+    <input placeholder="搜索小区、写字楼、门店" value="{{keyword}}" bindinput="onSearch" confirm-type="search" />
+    <view class="locate-btn" bindtap="locateCurrent">{{isLocating ? '定位中' : '定位'}}</view>
+  </view>
+
+  <view class="hint-card">
+    <view>
+      <view class="hint-title">腾讯地图地址搜索</view>
+      <view class="hint-sub">{{locationTip}}，搜索结果可直接带回下单页。</view>
+    </view>
+    <view class="hint-action" bindtap="locateCurrent">重新定位</view>
+  </view>
+
+  <view class="current-card" wx:if="{{currentAddress}}" bindtap="chooseCurrent">
+    <view class="pin current">定</view>
+    <view class="info">
+      <view class="name">{{currentAddress.name}} <text>{{currentAddress.distance}}</text></view>
+      <view class="detail">{{currentAddress.detail}}</view>
+      <view class="person">点击使用当前位置作为{{type === 'pickup' ? '发货' : (type === 'purchase' ? '购买' : '收货')}}地址</view>
+    </view>
+    <view class="use-current">使用</view>
+  </view>
+
+  <view class="list-header">
+    <view>{{keyword ? '搜索结果' : '我的地址'}}</view>
+    <view class="list-sub" wx:if="{{isSearching}}">正在搜索腾讯地图...</view>
+    <view class="list-sub" wx:elif="{{keyword}}">包含地址簿和地图建议</view>
+  </view>
+
+  <view class="address-list">
+    <block wx:for="{{addresses}}" wx:key="id">
+      <view class="address-item {{item.isMapResult ? 'map-result' : ''}}" data-id="{{item.id}}" bindtap="chooseAddress">
+        <view class="pin {{item.isMapResult ? 'map' : pinClass}}">{{item.isMapResult ? '图' : pinLabel}}</view>
+        <view class="info">
+          <view class="name">{{item.name}} <text>{{item.distance}}</text> <text wx:if="{{item.isDefault}}" class="default-badge">默认</text></view>
+          <view class="detail">{{item.detail}}</view>
+          <view class="person"><text wx:if="{{item.sourceLabel}}">[{{item.sourceLabel}}] </text>{{item.contact}}  {{item.phone}}</view>
+        </view>
+        <view class="use-map" wx:if="{{item.isMapResult}}">使用</view>
+        <view class="item-actions" wx:else>
+          <view class="edit" data-id="{{item.id}}" catchtap="editAddress">编辑</view>
+          <view class="delete" data-id="{{item.id}}" catchtap="deleteAddress">删除</view>
+        </view>
+      </view>
+    </block>
+  </view>
+
+  <view class="empty-card" wx:if="{{!addresses.length && !isSearching}}">
+    <view class="empty-title">没有找到地址</view>
+    <view class="empty-sub">换个关键词搜索，或点击“新增”保存一个常用地址。</view>
+  </view>
+</view>

@@ -1,8 +1,8 @@
 {
   "appid": "wx9243db2c195c61b6",
   "compileType": "miniprogram",
-  "miniprogramRoot": "apps/customer-mp/",
-  "projectname": "city-flash-delivery-customer",
+  "miniprogramRoot": "./",
+  "projectname": "city-flash-customer-mp",
   "setting": {
     "urlCheck": false,
     "es6": true,

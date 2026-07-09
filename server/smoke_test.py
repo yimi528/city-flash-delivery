@@ -18,10 +18,18 @@ os.environ["CITY_FLASH_DB"] = os.path.join(tempfile.mkdtemp(prefix="city-flash-"
 import app  # noqa: E402  pylint: disable=wrong-import-position
 
 
-def request(method: str, url: str, body: dict | None = None):
+CUSTOMER_HEADERS = {"Authorization": "Bearer mock-token:customer:demo-user", "X-App-Role": "customer"}
+MERCHANT_HEADERS = {"Authorization": "Bearer mock-token:merchant:merchant-demo", "X-App-Role": "merchant"}
+RIDER_HEADERS = {"Authorization": "Bearer mock-token:rider:rider-1", "X-App-Role": "rider"}
+ADMIN_HEADERS = {"Authorization": "Bearer mock-token:admin:platform-admin", "X-App-Role": "admin"}
+
+
+def request(method: str, url: str, body: dict | None = None, headers: dict | None = None):
     data = json.dumps(body, ensure_ascii=False).encode("utf-8") if body is not None else None
     req = urllib.request.Request(url, data=data, method=method)
     req.add_header("Content-Type", "application/json")
+    for key, value in (headers or {}).items():
+        req.add_header(key, value)
     try:
         with urllib.request.urlopen(req, timeout=5) as resp:
             raw = resp.read().decode("utf-8")
@@ -38,6 +46,8 @@ def assert_true(condition: bool, message: str):
 
 def main():
     app.init_db()
+    merchant_token = app.make_token(app.ROLE_MERCHANT, "merchant-demo")
+    assert_true(app.parse_token("Bearer " + merchant_token)["role"] == "merchant", "mock auth token parse failed")
     try:
         server = ThreadingHTTPServer(("127.0.0.1", 0), app.ApiHandler)
     except PermissionError:
@@ -52,7 +62,9 @@ def main():
         assert_true(status == 200 and health["status"] == "ok", "health endpoint failed")
 
         status, login = request("POST", f"{base}/auth/wechat-login", {"code": "smoke-code", "userInfo": {"nickName": "烟测用户"}})
-        assert_true(status == 200 and login["user"]["nickname"] == "烟测用户", f"login failed: {login}")
+        assert_true(status == 200 and login["user"]["nickname"] == "烟测用户" and login["role"] == "customer", f"login failed: {login}")
+        status, merchant_login = request("POST", f"{base}/auth/merchant-login", {"merchantId": "merchant-demo"})
+        assert_true(status == 200 and merchant_login["role"] == "merchant" and merchant_login["merchant"]["id"] == "merchant-demo", f"merchant login failed: {merchant_login}")
 
         status, vehicles = request("GET", f"{base}/vehicle-types")
         assert_true(status == 200 and len(vehicles) >= 2, "vehicle-types endpoint failed")
@@ -70,7 +82,7 @@ def main():
         )
         assert_true(status == 200 and buy_estimate["total"] == 58.9 and buy_estimate["serviceFee"] == 8.9, f"unexpected buy estimate: {buy_estimate}")
 
-        status, addresses = request("GET", f"{base}/addresses?userId=demo-user")
+        status, addresses = request("GET", f"{base}/addresses?userId=demo-user", headers=CUSTOMER_HEADERS)
         assert_true(status == 200 and len(addresses) >= 2, "addresses endpoint failed")
 
         status, created_address = request(
@@ -84,12 +96,18 @@ def main():
                 "phone": "13500001111",
                 "tag": "测试",
                 "distanceKm": 1.6,
+                "latitude": 26.66,
+                "longitude": 119.55,
+                "city": "宁德市",
+                "district": "蕉城区",
+                "mapPoiId": "smoke-map-poi",
             },
+            headers=CUSTOMER_HEADERS,
         )
-        assert_true(status == 201 and created_address["tag"] == "测试", f"create address failed: {created_address}")
-        status, updated_address = request("PUT", f"{base}/addresses/{created_address['id']}", {"name": "烟测地址2", "isDefault": True})
+        assert_true(status == 201 and created_address["tag"] == "测试" and created_address["mapPoiId"] == "smoke-map-poi", f"create address failed: {created_address}")
+        status, updated_address = request("PUT", f"{base}/addresses/{created_address['id']}", {"name": "烟测地址2", "isDefault": True}, headers=CUSTOMER_HEADERS)
         assert_true(status == 200 and updated_address["name"] == "烟测地址2" and updated_address["isDefault"], "update address failed")
-        status, deleted_address = request("DELETE", f"{base}/addresses/{created_address['id']}")
+        status, deleted_address = request("DELETE", f"{base}/addresses/{created_address['id']}", headers=CUSTOMER_HEADERS)
         assert_true(status == 200 and deleted_address["ok"], "delete address failed")
 
         status, order = request(
@@ -105,6 +123,7 @@ def main():
                 "vehicleId": "car",
                 "remark": "后端烟测订单",
             },
+            headers=CUSTOMER_HEADERS,
         )
         assert_true(status == 201 and order["vehicleName"] == "汽车空间", f"create order failed: {order}")
 
@@ -121,34 +140,40 @@ def main():
                 "dropoffAddressId": addresses[1]["id"],
                 "remark": "帮买烟测订单",
             },
+            headers=CUSTOMER_HEADERS,
         )
         assert_true(status == 201 and buy_order["buyItems"].startswith("帮我买") and buy_order["budget"] == 50, f"create buy order failed: {buy_order}")
         assert_true(buy_order["merchantStatus"] == "待接单", f"buy order merchant status missing: {buy_order}")
 
-        status, dashboard = request("GET", f"{base}/merchant/dashboard?merchantId=merchant-demo")
+        status, dashboard = request("GET", f"{base}/merchant/dashboard?merchantId=merchant-demo", headers=MERCHANT_HEADERS)
         assert_true(status == 200 and dashboard["stats"]["pending"] >= 1, f"merchant dashboard failed: {dashboard}")
+        status, forbidden_dashboard = request("GET", f"{base}/merchant/dashboard?merchantId=merchant-demo", headers=CUSTOMER_HEADERS)
+        assert_true(status == 403, f"customer should not access merchant dashboard: {forbidden_dashboard}")
 
-        status, merchant_updated = request("PATCH", f"{base}/merchant/orders/{buy_order['id']}/status", {"status": "备货中"})
+        status, merchant_updated = request("PATCH", f"{base}/merchant/orders/{buy_order['id']}/status", {"status": "备货中"}, headers=MERCHANT_HEADERS)
         assert_true(status == 200 and merchant_updated["merchantStatus"] == "备货中" and merchant_updated["status"] == "已接单", f"merchant update failed: {merchant_updated}")
-        status, merchant_ready = request("PATCH", f"{base}/merchant/orders/{buy_order['id']}/status", {"status": "待骑手取货"})
+        status, merchant_ready = request("PATCH", f"{base}/merchant/orders/{buy_order['id']}/status", {"status": "待骑手取货"}, headers=MERCHANT_HEADERS)
         assert_true(status == 200 and merchant_ready["merchantStatus"] == "待骑手取货" and merchant_ready["status"] == "已接单", f"merchant ready update failed: {merchant_ready}")
 
-        status, rider_dashboard = request("GET", f"{base}/rider/dashboard?riderId=rider-1")
+        status, rider_dashboard = request("GET", f"{base}/rider/dashboard?riderId=rider-1", headers=RIDER_HEADERS)
         assert_true(status == 200 and rider_dashboard["stats"]["available"] >= 1, f"rider dashboard failed: {rider_dashboard}")
-        status, rider_accepted = request("POST", f"{base}/rider/orders/{buy_order['id']}/accept", {"riderId": "rider-1"})
+        status, rider_accepted = request("POST", f"{base}/rider/orders/{buy_order['id']}/accept", {"riderId": "rider-1"}, headers=RIDER_HEADERS)
         assert_true(status == 200 and rider_accepted["status"] == "已接单" and rider_accepted["riderId"] == "rider-1", f"rider accept failed: {rider_accepted}")
-        status, rider_picked = request("PATCH", f"{base}/rider/orders/{buy_order['id']}/status", {"riderId": "rider-1", "action": "pickup"})
+        status, rider_picked = request("PATCH", f"{base}/rider/orders/{buy_order['id']}/status", {"riderId": "rider-1", "action": "pickup"}, headers=RIDER_HEADERS)
         assert_true(status == 200 and rider_picked["status"] == "配送中" and rider_picked["merchantStatus"] == "已交付", f"rider pickup failed: {rider_picked}")
-        status, rider_completed = request("PATCH", f"{base}/rider/orders/{buy_order['id']}/status", {"riderId": "rider-1", "action": "complete"})
+        status, rider_completed = request("PATCH", f"{base}/rider/orders/{buy_order['id']}/status", {"riderId": "rider-1", "action": "complete"}, headers=RIDER_HEADERS)
         assert_true(status == 200 and rider_completed["status"] == "已完成" and rider_completed["eta"] == "已送达", f"rider complete failed: {rider_completed}")
 
-        status, fetched = request("GET", f"{base}/orders/{order['id']}")
+        status, fetched = request("GET", f"{base}/orders/{order['id']}", headers=CUSTOMER_HEADERS)
         assert_true(status == 200 and fetched["id"] == order["id"], "get order failed")
 
-        status, updated = request("PATCH", f"{base}/orders/{order['id']}/status", {"action": "next"})
+        status, forbidden_update = request("PATCH", f"{base}/orders/{order['id']}/status", {"action": "next"}, headers=CUSTOMER_HEADERS)
+        assert_true(status == 403, f"customer should not manually update order status: {forbidden_update}")
+
+        status, updated = request("PATCH", f"{base}/orders/{order['id']}/status", {"action": "next"}, headers=ADMIN_HEADERS)
         assert_true(status == 200 and updated["status"] == "已接单", f"status update failed: {updated}")
 
-        status, orders = request("GET", f"{base}/orders?userId=demo-user")
+        status, orders = request("GET", f"{base}/orders?userId=demo-user", headers=CUSTOMER_HEADERS)
         assert_true(status == 200 and any(item["id"] == order["id"] for item in orders), "list orders failed")
 
         print(json.dumps({"ok": True, "base": base, "order": updated}, ensure_ascii=False, indent=2))

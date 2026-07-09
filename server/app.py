@@ -27,6 +27,29 @@ DEFAULT_MERCHANT_ID = "merchant-demo"
 DEFAULT_RIDER_ID = "rider-1"
 STATUS_FLOW = ["待接单", "已接单", "配送中", "已完成"]
 MERCHANT_STATUS_FLOW = ["待接单", "备货中", "待骑手取货", "已交付"]
+ROLE_CUSTOMER = "customer"
+ROLE_MERCHANT = "merchant"
+ROLE_RIDER = "rider"
+ROLE_ADMIN = "admin"
+
+
+def make_token(role: str, subject_id: str) -> str:
+    return f"mock-token:{role}:{subject_id}"
+
+
+def parse_token(token: str) -> dict | None:
+    if not token:
+        return None
+    if token.startswith("Bearer "):
+        token = token[7:].strip()
+    if token.startswith("mock-token:"):
+        parts = token.split(":", 2)
+        if len(parts) == 3 and parts[1] and parts[2]:
+            return {"role": parts[1], "subjectId": parts[2], "token": token}
+    if token.startswith("mock-token-"):
+        # Backward compatible token from the first MVP login endpoint.
+        return {"role": ROLE_CUSTOMER, "subjectId": token[len("mock-token-"):], "token": token}
+    return None
 
 
 def now_iso() -> str:
@@ -40,6 +63,13 @@ def parse_float(value, default=0.0) -> float:
         return float(value)
     match = re.search(r"-?\d+(?:\.\d+)?", str(value))
     return float(match.group(0)) if match else default
+
+
+def read_lat_lng(payload: dict) -> tuple[float | None, float | None]:
+    location = payload.get("location") if isinstance(payload.get("location"), dict) else {}
+    latitude = parse_float(payload.get("latitude") or payload.get("lat") or location.get("latitude") or location.get("lat"), None)
+    longitude = parse_float(payload.get("longitude") or payload.get("lng") or location.get("longitude") or location.get("lng"), None)
+    return latitude, longitude
 
 
 def weight_label(weight: float) -> str:
@@ -88,6 +118,11 @@ CREATE TABLE IF NOT EXISTS addresses (
   phone TEXT NOT NULL,
   tag TEXT NOT NULL DEFAULT '',
   distance_km REAL NOT NULL DEFAULT 1,
+  latitude REAL,
+  longitude REAL,
+  city TEXT NOT NULL DEFAULT '',
+  district TEXT NOT NULL DEFAULT '',
+  map_poi_id TEXT NOT NULL DEFAULT '',
   is_default INTEGER NOT NULL DEFAULT 0,
   is_deleted INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL,
@@ -226,6 +261,11 @@ def migrate_schema(conn: sqlite3.Connection) -> None:
     ensure_column(conn, "users", "avatar_url", "avatar_url TEXT NOT NULL DEFAULT ''")
     ensure_column(conn, "users", "updated_at", "updated_at TEXT NOT NULL DEFAULT ''")
     ensure_column(conn, "addresses", "tag", "tag TEXT NOT NULL DEFAULT ''")
+    ensure_column(conn, "addresses", "latitude", "latitude REAL")
+    ensure_column(conn, "addresses", "longitude", "longitude REAL")
+    ensure_column(conn, "addresses", "city", "city TEXT NOT NULL DEFAULT ''")
+    ensure_column(conn, "addresses", "district", "district TEXT NOT NULL DEFAULT ''")
+    ensure_column(conn, "addresses", "map_poi_id", "map_poi_id TEXT NOT NULL DEFAULT ''")
     ensure_column(conn, "addresses", "is_default", "is_default INTEGER NOT NULL DEFAULT 0")
     ensure_column(conn, "addresses", "is_deleted", "is_deleted INTEGER NOT NULL DEFAULT 0")
     ensure_column(conn, "addresses", "updated_at", "updated_at TEXT NOT NULL DEFAULT ''")
@@ -251,6 +291,19 @@ def migrate_schema(conn: sqlite3.Connection) -> None:
     )
     conn.execute("UPDATE users SET updated_at = ? WHERE updated_at = ''", (now,))
     conn.execute("UPDATE addresses SET updated_at = ? WHERE updated_at = ''", (now,))
+    conn.executemany(
+        """
+        UPDATE addresses
+        SET latitude = ?, longitude = ?, city = ?, district = ?, map_poi_id = ?
+        WHERE id = ? AND (latitude IS NULL OR longitude IS NULL OR map_poi_id = '')
+        """,
+        [
+            (26.6824, 119.5558, "宁德市", "东侨经济技术开发区", "mock-hengsheng", "a1"),
+            (26.6659, 119.5476, "宁德市", "蕉城区", "mock-nd-wanda", "a2"),
+            (26.6711, 119.5326, "宁德市", "蕉城区", "mock-nd-hospital", "a3"),
+            (26.6794, 119.5532, "宁德市", "东侨经济技术开发区", "mock-huarun-store", "a4"),
+        ],
+    )
     conn.execute("UPDATE orders SET service_fee = total_fee WHERE service_fee = 0")
     conn.execute(
         """
@@ -273,15 +326,18 @@ def seed_db(conn: sqlite3.Connection) -> None:
     )
 
     addresses = [
-        ("a1", DEFAULT_USER_ID, "恒生一品苑", "东侨经济技术开发区福宁北路 6 号", "陈先生", "13809574581", "家", 0.3, 1),
-        ("a2", DEFAULT_USER_ID, "宁德万达广场", "天湖东路 1 号 2 号门", "林女士", "13600001234", "商圈", 2.4, 0),
-        ("a3", DEFAULT_USER_ID, "宁德市医院", "蕉城区蕉城北路 7 号住院部", "周先生", "13900005678", "医院", 3.1, 0),
-        ("a4", DEFAULT_USER_ID, "华润便利店", "福宁北路与梦龙路交叉口", "门店前台", "0593-0000000", "门店", 0.8, 0),
+        ("a1", DEFAULT_USER_ID, "恒生一品苑", "东侨经济技术开发区福宁北路 6 号", "陈先生", "13809574581", "家", 0.3, 26.6824, 119.5558, "宁德市", "东侨经济技术开发区", "mock-hengsheng", 1),
+        ("a2", DEFAULT_USER_ID, "宁德万达广场", "天湖东路 1 号 2 号门", "林女士", "13600001234", "商圈", 2.4, 26.6659, 119.5476, "宁德市", "蕉城区", "mock-nd-wanda", 0),
+        ("a3", DEFAULT_USER_ID, "宁德市医院", "蕉城区蕉城北路 7 号住院部", "周先生", "13900005678", "医院", 3.1, 26.6711, 119.5326, "宁德市", "蕉城区", "mock-nd-hospital", 0),
+        ("a4", DEFAULT_USER_ID, "华润便利店", "福宁北路与梦龙路交叉口", "门店前台", "0593-0000000", "门店", 0.8, 26.6794, 119.5532, "宁德市", "东侨经济技术开发区", "mock-huarun-store", 0),
     ]
     conn.executemany(
         """
-        INSERT OR IGNORE INTO addresses(id, user_id, name, detail, contact, phone, tag, distance_km, is_default, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT OR IGNORE INTO addresses(
+          id, user_id, name, detail, contact, phone, tag, distance_km,
+          latitude, longitude, city, district, map_poi_id, is_default, created_at, updated_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         [row + (created_at, created_at) for row in addresses],
     )
@@ -345,6 +401,11 @@ def format_user(row: sqlite3.Row) -> dict:
 
 def format_address(row: sqlite3.Row) -> dict:
     address = dict(row)
+    latitude = address.get("latitude")
+    longitude = address.get("longitude")
+    location = None
+    if latitude is not None and longitude is not None:
+        location = {"latitude": latitude, "longitude": longitude, "lat": latitude, "lng": longitude}
     return {
         "id": address["id"],
         "userId": address["user_id"],
@@ -355,6 +416,12 @@ def format_address(row: sqlite3.Row) -> dict:
         "tag": address["tag"],
         "distance": f"{address['distance_km']:g}km",
         "distanceKm": address["distance_km"],
+        "latitude": latitude if latitude is not None else "",
+        "longitude": longitude if longitude is not None else "",
+        "location": location,
+        "city": address.get("city") or "",
+        "district": address.get("district") or "",
+        "mapPoiId": address.get("map_poi_id") or "",
         "isDefault": bool(address["is_default"]),
     }
 
@@ -490,6 +557,8 @@ def normalize_address(conn: sqlite3.Connection, payload: dict, prefix: str) -> d
     address = get_address(conn, address_id)
     incoming = payload.get(prefix) if isinstance(payload.get(prefix), dict) else {}
     if address:
+        latitude = address.get("latitude")
+        longitude = address.get("longitude")
         return {
             "id": address["id"],
             "name": address["name"],
@@ -497,14 +566,24 @@ def normalize_address(conn: sqlite3.Connection, payload: dict, prefix: str) -> d
             "contact": address["contact"],
             "phone": address["phone"],
             "distanceKm": address["distance_km"],
+            "latitude": latitude,
+            "longitude": longitude,
+            "location": {"latitude": latitude, "longitude": longitude} if latitude is not None and longitude is not None else None,
         }
+
+    location = incoming.get("location") if isinstance(incoming.get("location"), dict) else {}
+    latitude = parse_float(incoming.get("latitude") or incoming.get("lat") or location.get("latitude") or location.get("lat"), None)
+    longitude = parse_float(incoming.get("longitude") or incoming.get("lng") or location.get("longitude") or location.get("lng"), None)
     return {
         "id": incoming.get("id") or address_id,
         "name": incoming.get("name") or payload.get(f"{prefix}Name") or "临时地址",
         "detail": incoming.get("detail") or payload.get(f"{prefix}Detail") or "未填写详细地址",
         "contact": incoming.get("contact") or payload.get(f"{prefix}Contact") or "微信用户",
         "phone": incoming.get("phone") or payload.get(f"{prefix}Phone") or "13800000000",
-        "distanceKm": parse_float(incoming.get("distance") or incoming.get("distanceKm"), 2.6),
+        "distanceKm": parse_float(incoming.get("distanceKm") or incoming.get("distance"), 2.6),
+        "latitude": latitude,
+        "longitude": longitude,
+        "location": {"latitude": latitude, "longitude": longitude} if latitude is not None and longitude is not None else None,
     }
 
 
@@ -949,7 +1028,7 @@ class ApiHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-App-Role, X-Auth-Token")
         self.end_headers()
         self.wfile.write(body)
 
@@ -962,6 +1041,51 @@ class ApiHandler(BaseHTTPRequestHandler):
             return {}
         raw = self.rfile.read(length).decode("utf-8")
         return json.loads(raw or "{}")
+
+    def auth_context(self) -> dict | None:
+        token = self.headers.get("Authorization", "")
+        if not token:
+            token = self.headers.get("X-Auth-Token", "")
+        context = parse_token(token)
+        if not context:
+            return None
+        context["appRole"] = (self.headers.get("X-App-Role", "") or "").lower()
+        return context
+
+    def require_auth(self, *roles: str) -> dict | None:
+        context = self.auth_context()
+        if not context:
+            self.send_error_json(401, "Unauthorized")
+            return None
+        allowed = set(roles)
+        if context["role"] != ROLE_ADMIN and allowed and context["role"] not in allowed:
+            self.send_error_json(403, "Forbidden")
+            return None
+        return context
+
+    def require_subject(self, context: dict, subject_id: str, label: str = "resource") -> bool:
+        if context["role"] == ROLE_ADMIN or not subject_id:
+            return True
+        if context["subjectId"] == subject_id:
+            return True
+        self.send_error_json(403, f"Forbidden {label}")
+        return False
+
+    def require_order_access(self, row: sqlite3.Row) -> dict | None:
+        context = self.require_auth(ROLE_CUSTOMER, ROLE_MERCHANT, ROLE_RIDER, ROLE_ADMIN)
+        if not context:
+            return None
+        if context["role"] == ROLE_ADMIN:
+            return context
+        order = dict(row)
+        if context["role"] == ROLE_CUSTOMER and order["user_id"] == context["subjectId"]:
+            return context
+        if context["role"] == ROLE_MERCHANT and order.get("merchant_id") == context["subjectId"]:
+            return context
+        if context["role"] == ROLE_RIDER and (not order.get("rider_id") or order.get("rider_id") == context["subjectId"]):
+            return context
+        self.send_error_json(403, "Forbidden order")
+        return None
 
     def do_OPTIONS(self) -> None:
         self.send_json(204, {})
@@ -1020,7 +1144,11 @@ class ApiHandler(BaseHTTPRequestHandler):
 
             match = re.fullmatch(r"/api/users/([^/]+)", path)
             if match:
-                row = conn.execute("SELECT * FROM users WHERE id = ?", (match.group(1),)).fetchone()
+                user_id = match.group(1)
+                context = self.require_auth(ROLE_CUSTOMER, ROLE_ADMIN)
+                if not context or not self.require_subject(context, user_id, "user"):
+                    return
+                row = conn.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
                 if not row:
                     self.send_error_json(404, "User not found")
                     return
@@ -1029,6 +1157,9 @@ class ApiHandler(BaseHTTPRequestHandler):
 
             if path == "/api/addresses":
                 user_id = query.get("userId", [DEFAULT_USER_ID])[0]
+                context = self.require_auth(ROLE_CUSTOMER, ROLE_ADMIN)
+                if not context or not self.require_subject(context, user_id, "addresses"):
+                    return
                 rows = conn.execute(
                     "SELECT * FROM addresses WHERE user_id = ? AND is_deleted = 0 ORDER BY is_default DESC, updated_at DESC, id",
                     (user_id,),
@@ -1042,17 +1173,26 @@ class ApiHandler(BaseHTTPRequestHandler):
                 if not row:
                     self.send_error_json(404, "Address not found")
                     return
+                context = self.require_auth(ROLE_CUSTOMER, ROLE_ADMIN)
+                if not context or not self.require_subject(context, row["user_id"], "address"):
+                    return
                 self.send_json(200, format_address(row))
                 return
 
             if path == "/api/coupons":
                 user_id = query.get("userId", [DEFAULT_USER_ID])[0]
+                context = self.require_auth(ROLE_CUSTOMER, ROLE_ADMIN)
+                if not context or not self.require_subject(context, user_id, "coupons"):
+                    return
                 rows = conn.execute("SELECT * FROM coupons WHERE user_id = ? ORDER BY expires_at", (user_id,)).fetchall()
                 self.send_json(200, [dict(row) for row in rows])
                 return
 
             if path == "/api/merchant/dashboard":
                 merchant_id = query.get("merchantId", [DEFAULT_MERCHANT_ID])[0]
+                context = self.require_auth(ROLE_MERCHANT, ROLE_ADMIN)
+                if not context or not self.require_subject(context, merchant_id, "merchant"):
+                    return
                 dashboard = merchant_dashboard(conn, merchant_id)
                 if not dashboard:
                     self.send_error_json(404, "Merchant not found")
@@ -1062,12 +1202,18 @@ class ApiHandler(BaseHTTPRequestHandler):
 
             if path == "/api/merchant/orders":
                 merchant_id = query.get("merchantId", [DEFAULT_MERCHANT_ID])[0]
+                context = self.require_auth(ROLE_MERCHANT, ROLE_ADMIN)
+                if not context or not self.require_subject(context, merchant_id, "merchant"):
+                    return
                 status = query.get("status", [""])[0]
                 self.send_json(200, list_merchant_orders(conn, merchant_id, status))
                 return
 
             if path == "/api/rider/dashboard":
                 rider_id = query.get("riderId", [DEFAULT_RIDER_ID])[0]
+                context = self.require_auth(ROLE_RIDER, ROLE_ADMIN)
+                if not context or not self.require_subject(context, rider_id, "rider"):
+                    return
                 dashboard = rider_dashboard(conn, rider_id)
                 if not dashboard:
                     self.send_error_json(404, "Rider not found")
@@ -1077,12 +1223,18 @@ class ApiHandler(BaseHTTPRequestHandler):
 
             if path == "/api/rider/orders":
                 rider_id = query.get("riderId", [DEFAULT_RIDER_ID])[0]
+                context = self.require_auth(ROLE_RIDER, ROLE_ADMIN)
+                if not context or not self.require_subject(context, rider_id, "rider"):
+                    return
                 status = query.get("status", [""])[0]
                 self.send_json(200, list_rider_orders(conn, rider_id, status))
                 return
 
             if path == "/api/orders":
                 user_id = query.get("userId", [DEFAULT_USER_ID])[0]
+                context = self.require_auth(ROLE_CUSTOMER, ROLE_ADMIN)
+                if not context or not self.require_subject(context, user_id, "orders"):
+                    return
                 status = query.get("status", [""])[0]
                 if status:
                     rows = conn.execute(
@@ -1103,6 +1255,8 @@ class ApiHandler(BaseHTTPRequestHandler):
                 if not row:
                     self.send_error_json(404, "Order not found")
                     return
+                if not self.require_order_access(row):
+                    return
                 self.send_json(200, format_order(row))
                 return
 
@@ -1114,7 +1268,23 @@ class ApiHandler(BaseHTTPRequestHandler):
         with connect() as conn:
             if path == "/api/auth/wechat-login":
                 user = login_or_create_user(conn, payload)
-                self.send_json(200, {"token": "mock-token-" + user["id"], "user": user})
+                self.send_json(200, {"token": make_token(ROLE_CUSTOMER, user["id"]), "role": ROLE_CUSTOMER, "user": user})
+                return
+
+            if path == "/api/auth/merchant-login":
+                merchant_id = payload.get("merchantId") or DEFAULT_MERCHANT_ID
+                merchant = conn.execute("SELECT * FROM merchants WHERE id = ?", (merchant_id,)).fetchone()
+                if not merchant:
+                    self.send_error_json(404, "Merchant not found")
+                    return
+                self.send_json(
+                    200,
+                    {
+                        "token": make_token(ROLE_MERCHANT, merchant_id),
+                        "role": ROLE_MERCHANT,
+                        "merchant": format_merchant(merchant),
+                    },
+                )
                 return
 
             if path == "/api/pricing/estimate":
@@ -1123,15 +1293,22 @@ class ApiHandler(BaseHTTPRequestHandler):
 
             if path == "/api/addresses":
                 user_id = payload.get("userId") or DEFAULT_USER_ID
+                context = self.require_auth(ROLE_CUSTOMER, ROLE_ADMIN)
+                if not context or not self.require_subject(context, user_id, "addresses"):
+                    return
                 aid = payload.get("id") or "addr-" + uuid.uuid4().hex[:10]
                 is_default = 1 if payload.get("isDefault") else 0
+                latitude, longitude = read_lat_lng(payload)
                 now = now_iso()
                 if is_default:
                     conn.execute("UPDATE addresses SET is_default = 0 WHERE user_id = ?", (user_id,))
                 conn.execute(
                     """
-                    INSERT INTO addresses(id, user_id, name, detail, contact, phone, tag, distance_km, is_default, created_at, updated_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    INSERT INTO addresses(
+                      id, user_id, name, detail, contact, phone, tag, distance_km,
+                      latitude, longitude, city, district, map_poi_id, is_default, created_at, updated_at
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         aid,
@@ -1142,6 +1319,11 @@ class ApiHandler(BaseHTTPRequestHandler):
                         payload.get("phone") or "13800000000",
                         payload.get("tag") or "",
                         parse_float(payload.get("distanceKm") or payload.get("distance"), 1),
+                        latitude,
+                        longitude,
+                        payload.get("city") or "",
+                        payload.get("district") or "",
+                        payload.get("mapPoiId") or payload.get("map_poi_id") or "",
                         is_default,
                         now,
                         now,
@@ -1152,11 +1334,19 @@ class ApiHandler(BaseHTTPRequestHandler):
                 return
 
             if path == "/api/orders":
+                user_id = payload.get("userId") or DEFAULT_USER_ID
+                context = self.require_auth(ROLE_CUSTOMER, ROLE_ADMIN)
+                if not context or not self.require_subject(context, user_id, "orders"):
+                    return
                 self.send_json(201, create_order(conn, payload))
                 return
 
             match = re.fullmatch(r"/api/rider/orders/([^/]+)/accept", path)
             if match:
+                rider_id = payload.get("riderId") or DEFAULT_RIDER_ID
+                context = self.require_auth(ROLE_RIDER, ROLE_ADMIN)
+                if not context or not self.require_subject(context, rider_id, "rider"):
+                    return
                 payload["action"] = "accept"
                 order = update_rider_order_status(conn, match.group(1), payload)
                 if not order:
@@ -1183,14 +1373,22 @@ class ApiHandler(BaseHTTPRequestHandler):
                 return
             current = dict(row)
             user_id = payload.get("userId") or current["user_id"]
+            context = self.require_auth(ROLE_CUSTOMER, ROLE_ADMIN)
+            if not context or not self.require_subject(context, current["user_id"], "address"):
+                return
+            if current["user_id"] != user_id and not self.require_subject(context, user_id, "address"):
+                return
             is_default = 1 if payload.get("isDefault") else 0
+            latitude, longitude = read_lat_lng(payload)
             now = now_iso()
             if is_default:
                 conn.execute("UPDATE addresses SET is_default = 0 WHERE user_id = ? AND id <> ?", (user_id, aid))
             conn.execute(
                 """
                 UPDATE addresses
-                SET name = ?, detail = ?, contact = ?, phone = ?, tag = ?, distance_km = ?, is_default = ?, updated_at = ?
+                SET name = ?, detail = ?, contact = ?, phone = ?, tag = ?, distance_km = ?,
+                    latitude = ?, longitude = ?, city = ?, district = ?, map_poi_id = ?,
+                    is_default = ?, updated_at = ?
                 WHERE id = ?
                 """,
                 (
@@ -1200,6 +1398,11 @@ class ApiHandler(BaseHTTPRequestHandler):
                     payload.get("phone") or current["phone"],
                     payload.get("tag") if payload.get("tag") is not None else current["tag"],
                     parse_float(payload.get("distanceKm") or payload.get("distance"), current["distance_km"]),
+                    latitude if latitude is not None else current.get("latitude"),
+                    longitude if longitude is not None else current.get("longitude"),
+                    payload.get("city") if payload.get("city") is not None else current.get("city", ""),
+                    payload.get("district") if payload.get("district") is not None else current.get("district", ""),
+                    payload.get("mapPoiId") or payload.get("map_poi_id") or current.get("map_poi_id", ""),
                     is_default,
                     now,
                     aid,
@@ -1214,6 +1417,16 @@ class ApiHandler(BaseHTTPRequestHandler):
         merchant_match = re.fullmatch(r"/api/merchant/orders/([^/]+)/status", path)
         if merchant_match:
             with connect() as conn:
+                row = conn.execute("SELECT * FROM orders WHERE id = ?", (merchant_match.group(1),)).fetchone()
+                if not row:
+                    self.send_error_json(404, "Order not found")
+                    return
+                context = self.require_auth(ROLE_MERCHANT, ROLE_ADMIN)
+                if not row["merchant_id"]:
+                    self.send_error_json(403, "Forbidden merchant order")
+                    return
+                if not context or not self.require_subject(context, row["merchant_id"], "merchant order"):
+                    return
                 order = update_merchant_order_status(conn, merchant_match.group(1), payload)
                 if not order:
                     self.send_error_json(404, "Order not found")
@@ -1224,6 +1437,10 @@ class ApiHandler(BaseHTTPRequestHandler):
         rider_match = re.fullmatch(r"/api/rider/orders/([^/]+)/status", path)
         if rider_match:
             with connect() as conn:
+                rider_id = payload.get("riderId") or DEFAULT_RIDER_ID
+                context = self.require_auth(ROLE_RIDER, ROLE_ADMIN)
+                if not context or not self.require_subject(context, rider_id, "rider"):
+                    return
                 order = update_rider_order_status(conn, rider_match.group(1), payload)
                 if not order:
                     self.send_error_json(404, "Order or rider not found")
@@ -1236,10 +1453,25 @@ class ApiHandler(BaseHTTPRequestHandler):
             self.send_error_json(404, "Not found")
             return
         with connect() as conn:
-            order = update_order_status(conn, match.group(1), payload)
-            if not order:
+            row = conn.execute("SELECT * FROM orders WHERE id = ?", (match.group(1),)).fetchone()
+            if not row:
                 self.send_error_json(404, "Order not found")
                 return
+            context = self.require_auth(ROLE_MERCHANT, ROLE_RIDER, ROLE_ADMIN)
+            if not context:
+                return
+            order_row = dict(row)
+            if context["role"] == ROLE_MERCHANT:
+                if not order_row.get("merchant_id") or order_row["merchant_id"] != context["subjectId"]:
+                    self.send_error_json(403, "Forbidden merchant order")
+                    return
+                if payload.get("status") and payload.get("status") != "已完成":
+                    self.send_error_json(403, "Merchant can only complete delivered orders")
+                    return
+            if context["role"] == ROLE_RIDER and order_row.get("rider_id") and order_row["rider_id"] != context["subjectId"]:
+                self.send_error_json(403, "Forbidden rider order")
+                return
+            order = update_order_status(conn, match.group(1), payload)
             self.send_json(200, order)
 
     def handle_delete(self) -> None:
@@ -1252,6 +1484,9 @@ class ApiHandler(BaseHTTPRequestHandler):
             row = conn.execute("SELECT * FROM addresses WHERE id = ? AND is_deleted = 0", (match.group(1),)).fetchone()
             if not row:
                 self.send_error_json(404, "Address not found")
+                return
+            context = self.require_auth(ROLE_CUSTOMER, ROLE_ADMIN)
+            if not context or not self.require_subject(context, row["user_id"], "address"):
                 return
             conn.execute(
                 "UPDATE addresses SET is_deleted = 1, is_default = 0, updated_at = ? WHERE id = ?",

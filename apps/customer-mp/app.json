@@ -1,0 +1,63 @@
+{
+  "pages": [
+    "pages/index/index",
+    "pages/quick-service/quick-service",
+    "pages/city-buy/city-buy",
+    "pages/cargo-options/cargo-options",
+    "pages/order-create/order-create",
+    "pages/address/address",
+    "pages/address-edit/address-edit",
+    "pages/order-detail/order-detail",
+    "pages/orders/orders",
+    "pages/message/message",
+    "pages/profile/profile"
+  ],
+  "window": {
+    "navigationStyle": "custom",
+    "backgroundColor": "#f5f6fa",
+    "backgroundTextStyle": "dark"
+  },
+  "permission": {
+    "scope.userLocation": {
+      "desc": "用于定位当前位置、搜索附近地址并计算配送距离"
+    }
+  },
+  "requiredPrivateInfos": [
+    "getLocation"
+  ],
+  "tabBar": {
+    "color": "#6f7788",
+    "selectedColor": "#ff1f16",
+    "backgroundColor": "#ffffff",
+    "borderStyle": "white",
+    "list": [
+      {
+        "pagePath": "pages/index/index",
+        "text": "同城速送",
+        "iconPath": "assets/tab/home.png",
+        "selectedIconPath": "assets/tab/home_active.png"
+      },
+      {
+        "pagePath": "pages/orders/orders",
+        "text": "订单",
+        "iconPath": "assets/tab/orders.png",
+        "selectedIconPath": "assets/tab/orders_active.png"
+      },
+      {
+        "pagePath": "pages/message/message",
+        "text": "消息",
+        "iconPath": "assets/tab/message.png",
+        "selectedIconPath": "assets/tab/message_active.png"
+      },
+      {
+        "pagePath": "pages/profile/profile",
+        "text": "我的",
+        "iconPath": "assets/tab/profile.png",
+        "selectedIconPath": "assets/tab/profile_active.png"
+      }
+    ]
+  },
+  "style": "v2",
+  "lazyCodeLoading": "requiredComponents",
+  "sitemapLocation": "sitemap.json"
+}
