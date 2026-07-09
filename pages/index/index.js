@@ -30,6 +30,10 @@ Page({
     this.setData({ 'draft.service': service })
     if (service === '送货') {
       wx.navigateTo({ url: '/pages/cargo-options/cargo-options?from=index' })
+      return
+    }
+    if (service === '帮买') {
+      wx.navigateTo({ url: '/pages/city-buy/city-buy?from=index' })
     }
   },
 

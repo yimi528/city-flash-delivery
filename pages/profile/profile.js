@@ -10,7 +10,7 @@ const orderStatus = [
 
 const services = [
   { iconClass: 'address', name: '地址簿', action: 'address' },
-  { iconClass: 'enterprise', name: '开通企业版', action: 'todo' },
+  { iconClass: 'enterprise', name: '商家端', action: 'merchant' },
   { iconClass: 'service', name: '联系客服', action: 'todo' },
   { iconClass: 'shield', name: '售后理赔', action: 'todo' },
   { iconClass: 'invoice', name: '发票管理', action: 'todo' },
@@ -126,6 +126,10 @@ Page({
     const name = event.currentTarget.dataset.name
     if (action === 'address') {
       wx.navigateTo({ url: '/pages/address/address?type=dropoff' })
+      return
+    }
+    if (action === 'merchant') {
+      wx.navigateTo({ url: '/pages/merchant/merchant' })
       return
     }
     wx.showToast({ title: `${name}开发中`, icon: 'none' })

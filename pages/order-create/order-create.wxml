@@ -7,15 +7,17 @@
   </view>
 
   <view class="route-card card">
-    <view class="service-badge">{{draft.service}} · 预计 {{estimate.distance}}km</view>
+    <view class="service-badge" wx:if="{{draft.service === '帮买'}}">帮买 · 商品预算 ￥{{estimate.budget}}</view>
+    <view class="service-badge" wx:else>{{draft.service}} · 预计 {{estimate.distance}}km</view>
     <view class="route-line">
-      <view class="tag-red">发</view>
+      <view class="{{draft.service === '帮买' ? 'tag-buy' : 'tag-red'}}">{{draft.service === '帮买' ? '买' : '发'}}</view>
       <view class="route-info">
         <view class="title">{{draft.pickup.name}}</view>
-        <view class="sub">{{draft.pickup.detail}} · {{draft.pickup.phone}}</view>
+        <view class="sub" wx:if="{{draft.service === '帮买'}}">购买地址 · {{draft.pickup.detail}}</view>
+        <view class="sub" wx:else>{{draft.pickup.detail}} · {{draft.pickup.phone}}</view>
       </view>
     </view>
-    <view class="connector"></view>
+    <view class="connector {{draft.service === '帮买' ? 'buy' : ''}}"></view>
     <view class="route-line">
       <view class="tag-green">收</view>
       <view class="route-info">
@@ -25,7 +27,22 @@
     </view>
   </view>
 
-  <view class="card option-card">
+  <view class="card buy-card" wx:if="{{draft.service === '帮买'}}">
+    <view class="section-head">
+      <view class="section-title">代买商品</view>
+      <view class="muted">骑手按描述购买</view>
+    </view>
+    <textarea value="{{draft.buyItems}}" placeholder="请填写品牌、口味、规格、可接受替代方案" auto-height maxlength="120" bindinput="inputBuyItems" />
+    <view class="buy-budget-row">
+      <view>
+        <view class="buy-budget-title">商品预算</view>
+        <view class="buy-budget-sub">正式版可接入多退少补和小票上传</view>
+      </view>
+      <view class="buy-budget-input"><text>￥</text><input type="digit" value="{{draft.budget}}" bindinput="inputBudget" /></view>
+    </view>
+  </view>
+
+  <view class="card option-card" wx:else>
     <view class="section-head">
       <view class="section-title">物品信息</view>
       <view class="muted">{{draft.service === '送货' ? '用于匹配车型' : '用于骑手判断车辆和保价'}}</view>
@@ -68,14 +85,16 @@
   <view class="card price-card">
     <view class="section-head">
       <view class="section-title">费用预估</view>
-      <view class="arrival">{{draft.service === '送货' ? '车型接送' : (draft.service === '1对1急送' ? '专人直送' : '约20分钟达')}}</view>
+      <view class="arrival">{{draft.service === '帮买' ? '骑手代买' : (draft.service === '送货' ? '车型接送' : (draft.service === '1对1急送' ? '专人直送' : '约20分钟达'))}}</view>
     </view>
-    <view class="price-row"><text>起步价</text><text>￥{{estimate.base}}</text></view>
+    <view class="price-row"><text>{{draft.service === '帮买' ? '跑腿起步价' : '起步价'}}</text><text>￥{{estimate.base}}</text></view>
     <view class="price-row"><text>距离费</text><text>￥{{estimate.distanceFee}}</text></view>
-    <view class="price-row"><text>重量费</text><text>￥{{estimate.weightFee}}</text></view>
+    <view class="price-row" wx:if="{{draft.service !== '帮买'}}"><text>重量费</text><text>￥{{estimate.weightFee}}</text></view>
     <view class="price-row" wx:if="{{draft.service === '送货'}}"><text>车型费</text><text>￥{{estimate.vehicleFee}}</text></view>
     <view class="price-row" wx:if="{{draft.service === '1对1急送'}}"><text>急送费</text><text>￥{{estimate.urgentFee}}</text></view>
     <view class="price-row discount"><text>新人优惠</text><text>-￥{{estimate.discount}}</text></view>
+    <view class="price-row service-fee" wx:if="{{draft.service === '帮买'}}"><text>跑腿服务费</text><text>￥{{estimate.serviceFee}}</text></view>
+    <view class="price-row budget-fee" wx:if="{{draft.service === '帮买'}}"><text>商品预算</text><text>￥{{estimate.budget}}</text></view>
     <view class="guarantee" bindtap="toggleGuarantee">
       <view class="check {{guarantee ? 'checked' : ''}}">✓</view>
       <view>

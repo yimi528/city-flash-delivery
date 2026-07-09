@@ -10,15 +10,18 @@ function estimateFee(draft) {
   const distance = toNumberDistance(draft.dropoff)
   const weight = Number(draft.weight || 1)
   const isCargo = draft.service === '送货'
+  const isBuy = draft.service === '帮买'
   const vehicle = draft.cargoOptions || {}
   const isCar = vehicle.vehicleId === 'car'
-  const base = isCargo ? (isCar ? 18 : 10) : 8
-  const distanceFee = Math.max(distance - 1, 0) * (isCargo ? (isCar ? 4.2 : 3) : 2.4)
-  const weightFee = Math.max(weight - 1, 0) * (isCargo ? 1.8 : 1.2)
+  const base = isBuy ? 9 : (isCargo ? (isCar ? 18 : 10) : 8)
+  const distanceFee = Math.max(distance - 1, 0) * (isBuy ? 2.8 : (isCargo ? (isCar ? 4.2 : 3) : 2.4))
+  const weightFee = isBuy ? 0 : Math.max(weight - 1, 0) * (isCargo ? 1.8 : 1.2)
   const urgentFee = draft.service === '1对1急送' ? 5 : 0
   const vehicleFee = isCargo ? Number(vehicle.vehicleFee || 0) : 0
-  const discount = 3
-  const total = Math.max(base + distanceFee + weightFee + urgentFee + vehicleFee - discount, 6.9)
+  const discount = isBuy ? 4 : 3
+  const budget = isBuy ? Number(draft.budget || 0) : 0
+  const serviceFee = Math.max(base + distanceFee + weightFee + urgentFee + vehicleFee - discount, 6.9)
+  const total = isBuy ? serviceFee + budget : serviceFee
   return {
     distance: distance.toFixed(1),
     base: base.toFixed(1),
@@ -27,6 +30,8 @@ function estimateFee(draft) {
     urgentFee: urgentFee.toFixed(1),
     vehicleFee: vehicleFee.toFixed(1),
     discount: discount.toFixed(1),
+    budget: budget.toFixed(1),
+    serviceFee: serviceFee.toFixed(1),
     total: total.toFixed(1)
   }
 }
@@ -44,10 +49,17 @@ function buildLocalOrder(draft, estimate) {
     statusIndex: 0,
     service: draft.service,
     pickupName: draft.pickup.name,
+    pickupDetail: draft.pickup.detail,
     dropoffName: draft.dropoff.name,
+    dropoffDetail: draft.dropoff.detail,
     item: draft.item,
-    vehicleName: draft.cargoOptions ? draft.cargoOptions.vehicleName : '电动车空间',
-    weightLabel: draft.cargoOptions ? draft.cargoOptions.weightLabel : getWeightLabel(Number(draft.weight || 1)),
+    buyItems: draft.buyItems || '',
+    budget: Number(draft.budget || 0),
+    serviceFee: Number(estimate.serviceFee || estimate.total),
+    purchaseAddressName: draft.purchaseAddress ? draft.purchaseAddress.name : draft.pickup.name,
+    purchaseAddressDetail: draft.purchaseAddress ? draft.purchaseAddress.detail : draft.pickup.detail,
+    vehicleName: draft.service === '帮买' ? '骑手代买' : (draft.cargoOptions ? draft.cargoOptions.vehicleName : '电动车空间'),
+    weightLabel: draft.service === '帮买' ? '' : (draft.cargoOptions ? draft.cargoOptions.weightLabel : getWeightLabel(Number(draft.weight || 1))),
     fee: Number(estimate.total),
     distance: Number(estimate.distance),
     eta: '约 20 分钟',
@@ -59,6 +71,7 @@ function buildLocalOrder(draft, estimate) {
 
 function buildBackendPayload(draft) {
   const cargoOptions = draft.cargoOptions || {}
+  const purchaseAddress = draft.purchaseAddress || draft.pickup
   return {
     userId: app.globalData.userId,
     service: draft.service,
@@ -67,6 +80,10 @@ function buildBackendPayload(draft) {
     dropoffAddressId: draft.dropoff.id,
     pickup: draft.pickup,
     dropoff: draft.dropoff,
+    purchaseAddressId: purchaseAddress ? purchaseAddress.id : '',
+    purchase: purchaseAddress,
+    buyItems: draft.buyItems || '',
+    budget: Number(draft.budget || 0),
     distanceKm: toNumberDistance(draft.dropoff),
     weightKg: Number(draft.weight || 1),
     vehicleId: cargoOptions.vehicleId || 'ebike',
@@ -126,6 +143,16 @@ Page({
     app.globalData.draftOrder.remark = event.detail.value
   },
 
+  inputBuyItems(event) {
+    app.globalData.draftOrder.buyItems = event.detail.value
+    this.setData({ draft: app.globalData.draftOrder, estimate: estimateFee(app.globalData.draftOrder) })
+  },
+
+  inputBudget(event) {
+    app.globalData.draftOrder.budget = Number(event.detail.value || 0)
+    this.setData({ draft: app.globalData.draftOrder, estimate: estimateFee(app.globalData.draftOrder) })
+  },
+
   toggleGuarantee() {
     this.setData({ guarantee: !this.data.guarantee })
   },
@@ -134,6 +161,10 @@ Page({
     const draft = app.globalData.draftOrder
     if (!draft.dropoff) {
       wx.showToast({ title: '请先选择收货地址', icon: 'none' })
+      return
+    }
+    if (draft.service === '帮买' && !String(draft.buyItems || '').trim()) {
+      wx.showToast({ title: '请填写想买的商品', icon: 'none' })
       return
     }
 

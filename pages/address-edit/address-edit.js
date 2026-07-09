@@ -34,7 +34,7 @@ Page({
     title: '新增地址',
     type: 'dropoff',
     form: emptyForm(),
-    tags: ['家', '公司', '门店', '学校']
+    tags: ['家', '公司', '门店', '学校', '商场', '药店']
   },
 
   onLoad(query) {

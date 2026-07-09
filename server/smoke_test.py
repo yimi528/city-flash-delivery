@@ -63,6 +63,12 @@ def main():
             {"service": "送货", "distanceKm": 2.4, "weightKg": 15, "vehicleId": "car"},
         )
         assert_true(status == 200 and estimate["total"] == 61.1, f"unexpected estimate: {estimate}")
+        status, buy_estimate = request(
+            "POST",
+            f"{base}/pricing/estimate",
+            {"service": "帮买", "distanceKm": 2.4, "budget": 50},
+        )
+        assert_true(status == 200 and buy_estimate["total"] == 58.9 and buy_estimate["serviceFee"] == 8.9, f"unexpected buy estimate: {buy_estimate}")
 
         status, addresses = request("GET", f"{base}/addresses?userId=demo-user")
         assert_true(status == 200 and len(addresses) >= 2, "addresses endpoint failed")
@@ -102,6 +108,29 @@ def main():
         )
         assert_true(status == 201 and order["vehicleName"] == "汽车空间", f"create order failed: {order}")
 
+        status, buy_order = request(
+            "POST",
+            f"{base}/orders",
+            {
+                "userId": "demo-user",
+                "service": "帮买",
+                "item": "咖啡奶茶",
+                "buyItems": "帮我买两杯奶茶，一杯少糖一杯正常糖",
+                "budget": 50,
+                "purchaseAddressId": addresses[-1]["id"],
+                "dropoffAddressId": addresses[1]["id"],
+                "remark": "帮买烟测订单",
+            },
+        )
+        assert_true(status == 201 and buy_order["buyItems"].startswith("帮我买") and buy_order["budget"] == 50, f"create buy order failed: {buy_order}")
+        assert_true(buy_order["merchantStatus"] == "待接单", f"buy order merchant status missing: {buy_order}")
+
+        status, dashboard = request("GET", f"{base}/merchant/dashboard?merchantId=merchant-demo")
+        assert_true(status == 200 and dashboard["stats"]["pending"] >= 1, f"merchant dashboard failed: {dashboard}")
+
+        status, merchant_updated = request("PATCH", f"{base}/merchant/orders/{buy_order['id']}/status", {"status": "备货中"})
+        assert_true(status == 200 and merchant_updated["merchantStatus"] == "备货中" and merchant_updated["status"] == "已接单", f"merchant update failed: {merchant_updated}")
+
         status, fetched = request("GET", f"{base}/orders/{order['id']}")
         assert_true(status == 200 and fetched["id"] == order["id"], "get order failed")
 
@@ -124,6 +153,8 @@ def run_direct_smoke():
         assert_true(login["nickname"] == "直测用户", f"login failed: {login}")
         estimate = app.estimate_price(conn, {"service": "送货", "distanceKm": 2.4, "weightKg": 15, "vehicleId": "car"})
         assert_true(estimate["total"] == 61.1, f"unexpected estimate: {estimate}")
+        buy_estimate = app.estimate_price(conn, {"service": "帮买", "distanceKm": 2.4, "budget": 50})
+        assert_true(buy_estimate["total"] == 58.9 and buy_estimate["serviceFee"] == 8.9, f"unexpected buy estimate: {buy_estimate}")
         addresses = conn.execute("SELECT * FROM addresses ORDER BY id").fetchall()
         assert_true(len(addresses) >= 2, "seed addresses missing")
         order = app.create_order(
@@ -140,6 +171,24 @@ def run_direct_smoke():
             },
         )
         assert_true(order["vehicleName"] == "汽车空间" and order["fee"] == 61.1, f"create order failed: {order}")
+        buy_order = app.create_order(
+            conn,
+            {
+                "userId": "demo-user",
+                "service": "帮买",
+                "item": "咖啡奶茶",
+                "buyItems": "帮我买两杯奶茶，一杯少糖一杯正常糖",
+                "budget": 50,
+                "purchaseAddressId": addresses[-1]["id"],
+                "dropoffAddressId": addresses[1]["id"],
+                "remark": "direct buy smoke test",
+            },
+        )
+        assert_true(buy_order["budget"] == 50 and buy_order["vehicleName"] == "骑手代买", f"create buy order failed: {buy_order}")
+        dashboard = app.merchant_dashboard(conn, "merchant-demo")
+        assert_true(dashboard and dashboard["stats"]["pending"] >= 1, f"merchant dashboard failed: {dashboard}")
+        merchant_updated = app.update_merchant_order_status(conn, buy_order["id"], {"status": "备货中"})
+        assert_true(merchant_updated["merchantStatus"] == "备货中" and merchant_updated["status"] == "已接单", f"merchant update failed: {merchant_updated}")
         updated = app.update_order_status(conn, order["id"], {"action": "next"})
         assert_true(updated["status"] == "已接单", f"status update failed: {updated}")
         print(json.dumps({"ok": True, "mode": "direct", "order": updated}, ensure_ascii=False, indent=2))

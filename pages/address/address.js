@@ -1,21 +1,32 @@
 const app = getApp()
 const api = require('../../utils/api')
 
+function addressMeta(type) {
+  if (type === 'pickup') return { title: '选择发货地址', pinLabel: '发', pinClass: 'pickup', toast: '已选发货地址' }
+  if (type === 'purchase') return { title: '选择购买地址', pinLabel: '买', pinClass: 'purchase', toast: '已选购买地址' }
+  return { title: '选择收货地址', pinLabel: '收', pinClass: 'dropoff', toast: '已选收货地址' }
+}
+
 Page({
   data: {
     statusBarHeight: 24,
     type: 'dropoff',
     title: '选择收货地址',
+    pinLabel: '收',
+    pinClass: 'dropoff',
     keyword: '',
     addresses: []
   },
 
   onLoad(query) {
     const type = query.type || 'dropoff'
+    const meta = addressMeta(type)
     this.setData({
       statusBarHeight: app.globalData.statusBarHeight,
       type,
-      title: type === 'pickup' ? '选择发货地址' : '选择收货地址',
+      title: meta.title,
+      pinLabel: meta.pinLabel,
+      pinClass: meta.pinClass,
       addresses: app.globalData.addresses
     })
   },
@@ -55,8 +66,9 @@ Page({
     const selected = app.globalData.addresses.find((item) => item.id === id)
     if (!selected) return
 
-    app.globalData.draftOrder[this.data.type] = selected
-    wx.showToast({ title: this.data.type === 'pickup' ? '已选发货地址' : '已选收货地址', icon: 'success' })
+    const draftKey = this.data.type === 'purchase' ? 'purchaseAddress' : this.data.type
+    app.globalData.draftOrder[draftKey] = selected
+    wx.showToast({ title: addressMeta(this.data.type).toast, icon: 'success' })
     setTimeout(() => wx.navigateBack(), 350)
   },
 

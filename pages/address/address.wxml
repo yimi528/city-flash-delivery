@@ -19,7 +19,7 @@
   <view class="address-list">
     <block wx:for="{{addresses}}" wx:key="id">
       <view class="address-item" data-id="{{item.id}}" bindtap="chooseAddress">
-        <view class="pin {{type === 'pickup' ? 'pickup' : 'dropoff'}}">{{type === 'pickup' ? '发' : '收'}}</view>
+        <view class="pin {{pinClass}}">{{pinLabel}}</view>
         <view class="info">
           <view class="name">{{item.name}} <text>{{item.distance}}</text> <text wx:if="{{item.isDefault}}" class="default-badge">默认</text></view>
           <view class="detail">{{item.detail}}</view>

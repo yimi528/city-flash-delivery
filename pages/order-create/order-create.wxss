@@ -88,9 +88,28 @@
   border-radius: 4rpx;
 }
 
+.connector.buy {
+  background: linear-gradient(180deg, #ff7b00, #10c779);
+}
+
+.tag-buy {
+  width: 46rpx;
+  height: 46rpx;
+  border-radius: 14rpx;
+  color: #fff;
+  background: #ff7b00;
+  font-size: 26rpx;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
 .option-card,
 .price-card,
-.cargo-card {
+.cargo-card,
+.buy-card {
   padding: 30rpx;
 }
 
@@ -166,6 +185,56 @@ textarea {
   background: #f6f8fc;
   color: #111c34;
   font-size: 26rpx;
+}
+
+.buy-card textarea {
+  min-height: 126rpx;
+  font-size: 28rpx;
+  line-height: 1.55;
+}
+
+.buy-budget-row {
+  margin-top: 24rpx;
+  padding-top: 24rpx;
+  border-top: 2rpx solid #f1f3f8;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18rpx;
+}
+
+.buy-budget-title {
+  color: #111c34;
+  font-size: 29rpx;
+  font-weight: 900;
+}
+
+.buy-budget-sub {
+  margin-top: 8rpx;
+  color: #7c879c;
+  font-size: 23rpx;
+}
+
+.buy-budget-input {
+  width: 172rpx;
+  height: 64rpx;
+  padding: 0 18rpx;
+  border-radius: 34rpx;
+  background: #fff0ed;
+  color: #ff1d16;
+  font-size: 28rpx;
+  font-weight: 950;
+  display: flex;
+  align-items: center;
+}
+
+.buy-budget-input input {
+  flex: 1;
+  min-width: 0;
+  height: 64rpx;
+  color: #ff1d16;
+  font-size: 30rpx;
+  font-weight: 950;
 }
 
 .edit-link {
@@ -281,6 +350,17 @@ textarea {
 }
 
 .price-row.discount text:last-child {
+  color: #ff1d16;
+}
+
+.price-row.service-fee {
+  margin-top: 8rpx;
+  padding-top: 10rpx;
+  border-top: 2rpx solid #f1f3f8;
+}
+
+.price-row.service-fee text:last-child,
+.price-row.budget-fee text:last-child {
   color: #ff1d16;
 }
 

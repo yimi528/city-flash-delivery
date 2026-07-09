@@ -107,6 +107,7 @@
 
 .pin.pickup { background: #ff1712; }
 .pin.dropoff { background: #10c779; }
+.pin.purchase { background: #ff7b00; }
 
 .info {
   flex: 1;

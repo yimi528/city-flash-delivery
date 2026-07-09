@@ -1,0 +1,91 @@
+<view class="buy-page">
+  <view style="height: {{statusBarHeight}}px"></view>
+
+  <view class="buy-nav">
+    <view class="left-actions">
+      <view class="back" bindtap="goBack">‹</view>
+      <view class="home" bindtap="goHome">⌂</view>
+    </view>
+    <view class="city-pill">{{city}} <text>▾</text></view>
+    <view class="menu-pill"><text>•••</text><view class="pill-dot"></view></view>
+  </view>
+
+  <view class="hero">
+    <view class="hero-kicker">足不出户，买遍全城 <text>24h</text></view>
+    <view class="hero-title">全城帮买</view>
+    <view class="intro-btn" bindtap="openIntro">查看介绍</view>
+    <view class="box-art">
+      <view class="box-base"></view>
+      <view class="box-left"></view>
+      <view class="box-right"></view>
+      <view class="float cup"></view>
+      <view class="float milk"></view>
+    </view>
+  </view>
+
+  <view class="order-card">
+    <view class="search-row">
+      <input value="{{buyItems}}" placeholder="填写任意商品，骑手帮你买" bindinput="inputBuyItems" />
+      <button bindtap="goOrder">去下单</button>
+    </view>
+
+    <view class="category-grid">
+      <block wx:for="{{categories}}" wx:key="id">
+        <view class="category {{selectedCategory === item.id ? 'active' : ''}}" data-id="{{item.id}}" bindtap="selectCategory">
+          <view class="category-icon">{{item.icon}}</view>
+          <view>{{item.name}}</view>
+        </view>
+      </block>
+    </view>
+  </view>
+
+  <view class="form-card">
+    <view class="section-head">
+      <view>
+        <view class="section-title">帮买需求</view>
+        <view class="section-sub">{{selectedCategoryName}} · 可填写品牌、口味、规格和替代方案</view>
+      </view>
+      <view class="sample" bindtap="fillSample">填示例</view>
+    </view>
+    <textarea value="{{buyItems}}" maxlength="120" auto-height placeholder="例如：帮我买两杯奶茶，一杯少糖一杯正常糖" bindinput="inputBuyItems" />
+    <view class="budget-row">
+      <view>
+        <view class="budget-title">商品预算</view>
+        <view class="budget-sub">骑手按预算购买，差价正式版可走多退少补</view>
+      </view>
+      <view class="budget-input"><text>￥</text><input type="digit" value="{{budget}}" bindinput="inputBudget" /></view>
+    </view>
+  </view>
+
+  <view class="address-card">
+    <view class="address-line" bindtap="choosePurchaseAddress">
+      <view class="pin buy">买</view>
+      <view class="address-main">
+        <view class="address-title">{{purchaseAddress ? purchaseAddress.name : '骑手就近购买'}}</view>
+        <view class="address-sub">{{purchaseAddress ? purchaseAddress.detail : '不指定门店时，骑手按需求就近购买'}}</view>
+      </view>
+      <view class="address-action">选择</view>
+    </view>
+    <view class="address-line" bindtap="chooseDropoffAddress">
+      <view class="pin receive">收</view>
+      <view class="address-main">
+        <view class="address-title {{dropoff ? '' : 'placeholder'}}">{{dropoff ? dropoff.name : '送到哪里？'}}</view>
+        <view class="address-sub" wx:if="{{dropoff}}">{{dropoff.detail}} · {{dropoff.phone}}</view>
+        <view class="address-sub" wx:else>选择收货地址后即可确认订单</view>
+      </view>
+      <view class="address-action">地址簿</view>
+    </view>
+  </view>
+
+  <view class="brand-card">
+    <view class="section-title">大牌帮买</view>
+    <view class="brand-row">
+      <block wx:for="{{brands}}" wx:key="name">
+        <view class="brand-item">
+          <view class="brand-logo">{{item.short}}</view>
+          <view>{{item.name}}</view>
+        </view>
+      </block>
+    </view>
+  </view>
+</view>

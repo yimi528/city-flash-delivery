@@ -1,0 +1,107 @@
+<view class="merchant-page">
+  <view style="height: {{statusBarHeight}}px"></view>
+
+  <view class="page-nav">
+    <view class="back" bindtap="goBack">‹</view>
+    <view class="nav-title">商家工作台</view>
+    <view class="nav-action" bindtap="toggleOnline">{{online ? '营业中' : '休息中'}}</view>
+  </view>
+
+  <view class="store-card">
+    <view>
+      <view class="store-kicker">{{store.category || '同城商家'}}</view>
+      <view class="store-name">{{store.name || '示例门店'}}</view>
+      <view class="store-address">{{store.address || '宁德市核心商圈'}} · 评分 {{store.rating || '4.9'}}</view>
+    </view>
+    <view class="store-status {{online ? 'on' : 'off'}}">{{online ? '接单中' : '暂停接单'}}</view>
+  </view>
+
+  <view class="stats-card">
+    <view class="stat-item">
+      <view class="stat-value">{{stats.todayOrders}}</view>
+      <view class="stat-label">今日订单</view>
+    </view>
+    <view class="stat-item">
+      <view class="stat-value">{{stats.pending}}</view>
+      <view class="stat-label">待接单</view>
+    </view>
+    <view class="stat-item">
+      <view class="stat-value">{{stats.ready}}</view>
+      <view class="stat-label">待取货</view>
+    </view>
+    <view class="stat-item">
+      <view class="stat-value">￥{{stats.revenue}}</view>
+      <view class="stat-label">预算流水</view>
+    </view>
+  </view>
+
+  <scroll-view class="filter-scroll" scroll-x="true" show-scrollbar="false">
+    <view class="filter-row">
+      <block wx:for="{{filters}}" wx:key="*this">
+        <view class="filter {{activeFilter === item ? 'active' : ''}}" data-status="{{item}}" bindtap="changeFilter">{{item}}</view>
+      </block>
+    </view>
+  </scroll-view>
+
+  <view class="order-section">
+    <block wx:for="{{visibleOrders}}" wx:key="id">
+      <view class="merchant-order">
+        <view class="order-head" data-id="{{item.id}}" bindtap="openOrder">
+          <view>
+            <view class="order-id">{{item.id}}</view>
+            <view class="order-time">{{item.createTime}} · {{item.distance}}km · {{item.eta}}</view>
+          </view>
+          <view class="merchant-status {{item.merchantStatus === '待接单' ? 'hot' : ''}}">{{item.merchantStatus}}</view>
+        </view>
+        <view class="goods-box">
+          <view class="goods-title">{{item.displayItems}}</view>
+          <view class="goods-meta">预算 ￥{{item.budget}} · 跑腿费 ￥{{item.serviceFee || 0}} · 合计 ￥{{item.fee}}</view>
+          <view class="goods-note" wx:if="{{item.remark}}">备注：{{item.remark}}</view>
+        </view>
+        <view class="route-line">
+          <view class="pin buy">买</view>
+          <view class="route-main">
+            <view>{{item.sourceName}}</view>
+            <text>{{item.sourceDetail}}</text>
+          </view>
+        </view>
+        <view class="route-line">
+          <view class="pin send">送</view>
+          <view class="route-main">
+            <view>{{item.dropoffName}}</view>
+            <text>{{item.dropoffDetail}}</text>
+          </view>
+        </view>
+        <view class="order-actions">
+          <button class="ghost" bindtap="printTicket">打印小票</button>
+          <button class="ghost" bindtap="callRider">联系骑手</button>
+          <button class="solid" wx:if="{{item.actionText}}" data-id="{{item.id}}" bindtap="advanceOrder">{{item.actionText}}</button>
+        </view>
+      </view>
+    </block>
+
+    <view class="empty" wx:if="{{!visibleOrders.length}}">
+      <view class="empty-icon">店</view>
+      <view>当前筛选下暂无订单</view>
+    </view>
+  </view>
+
+  <view class="product-card">
+    <view class="section-head">
+      <view>
+        <view class="section-title">商品快捷管理</view>
+        <view class="section-sub">MVP 先支持一键售罄/恢复</view>
+      </view>
+      <view class="avg-time">平均备货 {{stats.avgPrepare}}</view>
+    </view>
+    <block wx:for="{{products}}" wx:key="id">
+      <view class="product-row">
+        <view>
+          <view class="product-name">{{item.name}}</view>
+          <view class="product-sub">￥{{item.price}} · 库存 {{item.stock}}</view>
+        </view>
+        <view class="soldout {{item.soldOut ? 'off' : ''}}" data-id="{{item.id}}" bindtap="toggleSoldOut">{{item.soldOut ? '已售罄' : '在售'}}</view>
+      </view>
+    </block>
+  </view>
+</view>

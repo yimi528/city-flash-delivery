@@ -98,6 +98,22 @@ function updateOrderStatus(id, payload) {
   })
 }
 
+function getMerchantDashboard(merchantId) {
+  return request(`/merchant/dashboard?merchantId=${encodeURIComponent(merchantId || 'merchant-demo')}`)
+}
+
+function getMerchantOrders(merchantId, status) {
+  const query = status ? `&status=${encodeURIComponent(status)}` : ''
+  return request(`/merchant/orders?merchantId=${encodeURIComponent(merchantId || 'merchant-demo')}${query}`)
+}
+
+function updateMerchantOrderStatus(id, payload) {
+  return request(`/merchant/orders/${encodeURIComponent(id)}/status`, {
+    method: 'PATCH',
+    data: payload
+  })
+}
+
 module.exports = {
   request,
   wechatLogin,
@@ -110,5 +126,8 @@ module.exports = {
   createOrder,
   getOrders,
   getOrder,
-  updateOrderStatus
+  updateOrderStatus,
+  getMerchantDashboard,
+  getMerchantOrders,
+  updateMerchantOrderStatus
 }

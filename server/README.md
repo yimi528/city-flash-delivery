@@ -44,6 +44,42 @@ python3 smoke_test.py
 - `PATCH /api/orders/:id/status` 更新订单状态
 - `POST /api/rider/orders/:id/accept` 骑手接单
 - `GET /api/coupons?userId=demo-user` 优惠券列表
+- `GET /api/merchant/dashboard?merchantId=merchant-demo` 商家工作台
+- `GET /api/merchant/orders?merchantId=merchant-demo` 商家订单列表
+- `PATCH /api/merchant/orders/:id/status` 更新商家订单状态
+
+### 帮买订单字段
+
+`POST /api/orders` 创建“帮买”订单时可额外传：
+
+```json
+{
+  "service": "帮买",
+  "item": "咖啡奶茶",
+  "buyItems": "帮我买两杯奶茶，一杯少糖一杯正常糖",
+  "budget": 50,
+  "purchaseAddressId": "a4",
+  "dropoffAddressId": "a2"
+}
+```
+
+返回订单会包含 `buyItems`、`budget`、`purchaseAddressName`、`serviceFee` 和 `fee`。其中 `serviceFee` 是跑腿服务费，`fee` 是商品预算 + 跑腿服务费的预估合计。
+
+### 商家端状态流转
+
+商家端 MVP 面向帮买订单，默认门店为 `merchant-demo`。状态流转：
+
+```text
+待接单 -> 备货中 -> 待骑手取货 -> 已交付
+```
+
+更新示例：
+
+```bash
+curl -X PATCH http://127.0.0.1:8000/api/merchant/orders/S订单号/status \
+  -H 'Content-Type: application/json' \
+  -d '{"status":"备货中"}'
+```
 
 ## 数据库
 
@@ -55,6 +91,7 @@ python3 smoke_test.py
 - `addresses` 地址
 - `vehicle_types` 配送工具/车型
 - `riders` 骑手
+- `merchants` 商家/门店
 - `orders` 订单
 - `order_status_logs` 订单状态日志
 - `coupons` 优惠券

@@ -23,7 +23,9 @@ from urllib.parse import parse_qs, urlparse
 ROOT_DIR = Path(__file__).resolve().parent
 DB_PATH = Path(os.environ.get("CITY_FLASH_DB", ROOT_DIR / "data" / "dev.db"))
 DEFAULT_USER_ID = "demo-user"
+DEFAULT_MERCHANT_ID = "merchant-demo"
 STATUS_FLOW = ["待接单", "已接单", "配送中", "已完成"]
+MERCHANT_STATUS_FLOW = ["待接单", "备货中", "待骑手取货", "已交付"]
 
 
 def now_iso() -> str:
@@ -116,11 +118,34 @@ CREATE TABLE IF NOT EXISTS riders (
   FOREIGN KEY (vehicle_type_id) REFERENCES vehicle_types(id)
 );
 
+CREATE TABLE IF NOT EXISTS merchants (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  category TEXT NOT NULL,
+  phone TEXT NOT NULL,
+  address TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT '营业中',
+  rating REAL NOT NULL DEFAULT 4.9,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS orders (
   id TEXT PRIMARY KEY,
   user_id TEXT NOT NULL,
   service TEXT NOT NULL,
   item TEXT NOT NULL,
+  merchant_id TEXT,
+  merchant_name TEXT NOT NULL DEFAULT '',
+  merchant_status TEXT NOT NULL DEFAULT '',
+  merchant_note TEXT NOT NULL DEFAULT '',
+  buy_items TEXT NOT NULL DEFAULT '',
+  buy_budget REAL NOT NULL DEFAULT 0,
+  purchase_address_id TEXT,
+  purchase_name TEXT NOT NULL DEFAULT '',
+  purchase_detail TEXT NOT NULL DEFAULT '',
+  purchase_contact TEXT NOT NULL DEFAULT '',
+  purchase_phone TEXT NOT NULL DEFAULT '',
   pickup_address_id TEXT,
   pickup_name TEXT NOT NULL,
   pickup_detail TEXT NOT NULL,
@@ -142,6 +167,7 @@ CREATE TABLE IF NOT EXISTS orders (
   weight_fee REAL NOT NULL,
   urgent_fee REAL NOT NULL DEFAULT 0,
   discount_fee REAL NOT NULL DEFAULT 0,
+  service_fee REAL NOT NULL DEFAULT 0,
   total_fee REAL NOT NULL,
   status TEXT NOT NULL,
   status_index INTEGER NOT NULL,
@@ -152,6 +178,7 @@ CREATE TABLE IF NOT EXISTS orders (
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
   FOREIGN KEY (user_id) REFERENCES users(id),
+  FOREIGN KEY (merchant_id) REFERENCES merchants(id),
   FOREIGN KEY (vehicle_type_id) REFERENCES vehicle_types(id),
   FOREIGN KEY (rider_id) REFERENCES riders(id)
 );
@@ -201,9 +228,37 @@ def migrate_schema(conn: sqlite3.Connection) -> None:
     ensure_column(conn, "addresses", "is_default", "is_default INTEGER NOT NULL DEFAULT 0")
     ensure_column(conn, "addresses", "is_deleted", "is_deleted INTEGER NOT NULL DEFAULT 0")
     ensure_column(conn, "addresses", "updated_at", "updated_at TEXT NOT NULL DEFAULT ''")
+    ensure_column(conn, "orders", "merchant_id", "merchant_id TEXT")
+    ensure_column(conn, "orders", "merchant_name", "merchant_name TEXT NOT NULL DEFAULT ''")
+    ensure_column(conn, "orders", "merchant_status", "merchant_status TEXT NOT NULL DEFAULT ''")
+    ensure_column(conn, "orders", "merchant_note", "merchant_note TEXT NOT NULL DEFAULT ''")
+    ensure_column(conn, "orders", "buy_items", "buy_items TEXT NOT NULL DEFAULT ''")
+    ensure_column(conn, "orders", "buy_budget", "buy_budget REAL NOT NULL DEFAULT 0")
+    ensure_column(conn, "orders", "purchase_address_id", "purchase_address_id TEXT")
+    ensure_column(conn, "orders", "purchase_name", "purchase_name TEXT NOT NULL DEFAULT ''")
+    ensure_column(conn, "orders", "purchase_detail", "purchase_detail TEXT NOT NULL DEFAULT ''")
+    ensure_column(conn, "orders", "purchase_contact", "purchase_contact TEXT NOT NULL DEFAULT ''")
+    ensure_column(conn, "orders", "purchase_phone", "purchase_phone TEXT NOT NULL DEFAULT ''")
+    ensure_column(conn, "orders", "service_fee", "service_fee REAL NOT NULL DEFAULT 0")
     now = now_iso()
+    conn.execute(
+        """
+        INSERT OR IGNORE INTO merchants(id, name, category, phone, address, status, rating, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (DEFAULT_MERCHANT_ID, "阿嬷手作宁德万达店", "咖啡奶茶", "0593-8888888", "宁德万达广场 2 号门", "营业中", 4.9, now, now),
+    )
     conn.execute("UPDATE users SET updated_at = ? WHERE updated_at = ''", (now,))
     conn.execute("UPDATE addresses SET updated_at = ? WHERE updated_at = ''", (now,))
+    conn.execute("UPDATE orders SET service_fee = total_fee WHERE service_fee = 0")
+    conn.execute(
+        """
+        UPDATE orders
+        SET merchant_id = ?, merchant_name = ?, merchant_status = ?
+        WHERE service = '帮买' AND (merchant_id IS NULL OR merchant_id = '')
+        """,
+        (DEFAULT_MERCHANT_ID, "阿嬷手作宁德万达店", "待接单"),
+    )
 
 
 def seed_db(conn: sqlite3.Connection) -> None:
@@ -252,6 +307,18 @@ def seed_db(conn: sqlite3.Connection) -> None:
         riders,
     )
 
+    merchants = [
+        (DEFAULT_MERCHANT_ID, "阿嬷手作宁德万达店", "咖啡奶茶", "0593-8888888", "宁德万达广场 2 号门", "营业中", 4.9, created_at, created_at),
+        ("merchant-pharmacy", "同城好药蕉城店", "药品保健", "0593-6666666", "蕉城区蕉城北路 7 号", "营业中", 4.8, created_at, created_at),
+    ]
+    conn.executemany(
+        """
+        INSERT OR IGNORE INTO merchants(id, name, category, phone, address, status, rating, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        merchants,
+    )
+
     coupons = [
         ("coupon-1", DEFAULT_USER_ID, "新人首单立减", 9, 10, "unused", "2026-12-31"),
         ("coupon-2", DEFAULT_USER_ID, "送货车型券", 6, 30, "unused", "2026-12-31"),
@@ -288,6 +355,19 @@ def format_address(row: sqlite3.Row) -> dict:
         "distance": f"{address['distance_km']:g}km",
         "distanceKm": address["distance_km"],
         "isDefault": bool(address["is_default"]),
+    }
+
+
+def format_merchant(row: sqlite3.Row) -> dict:
+    merchant = dict(row)
+    return {
+        "id": merchant["id"],
+        "name": merchant["name"],
+        "category": merchant["category"],
+        "phone": merchant["phone"],
+        "address": merchant["address"],
+        "status": merchant["status"],
+        "rating": merchant["rating"],
     }
 
 
@@ -335,6 +415,7 @@ def estimate_price(conn: sqlite3.Connection, payload: dict) -> dict:
     distance = parse_float(payload.get("distanceKm", payload.get("distance")), 2.6)
     weight = parse_float(payload.get("weightKg", payload.get("weight")), 1)
     is_cargo = service == "送货"
+    is_buy = service == "帮买"
 
     if is_cargo:
         vehicle = get_vehicle(conn, payload.get("vehicleId") or payload.get("vehicle_type_id"))
@@ -343,6 +424,13 @@ def estimate_price(conn: sqlite3.Connection, payload: dict) -> dict:
         weight_rate = float(vehicle["weight_rate"])
         vehicle_fee = float(vehicle["vehicle_fee"])
         vehicle_name = vehicle["name"]
+    elif is_buy:
+        vehicle = get_vehicle(conn, "ebike")
+        base = 9.0
+        distance_rate = 2.8
+        weight_rate = 0.0
+        vehicle_fee = 0.0
+        vehicle_name = "骑手代买"
     else:
         vehicle = None
         base = 8.0
@@ -354,8 +442,10 @@ def estimate_price(conn: sqlite3.Connection, payload: dict) -> dict:
     distance_fee = max(distance - 1, 0) * distance_rate
     weight_fee = max(weight - 1, 0) * weight_rate
     urgent_fee = 5.0 if service == "1对1急送" else 0.0
-    discount = parse_float(payload.get("discount"), 3.0)
-    total = max(base + distance_fee + weight_fee + urgent_fee + vehicle_fee - discount, 6.9)
+    discount = parse_float(payload.get("discount"), 4.0 if is_buy else 3.0)
+    budget = parse_float(payload.get("budget", payload.get("buyBudget")), 0.0) if is_buy else 0.0
+    service_fee = max(base + distance_fee + weight_fee + urgent_fee + vehicle_fee - discount, 6.9)
+    total = service_fee + budget
 
     return {
         "distance": round(distance, 1),
@@ -366,6 +456,8 @@ def estimate_price(conn: sqlite3.Connection, payload: dict) -> dict:
         "urgentFee": round(urgent_fee, 1),
         "vehicleFee": round(vehicle_fee, 1),
         "discount": round(discount, 1),
+        "budget": round(budget, 1),
+        "serviceFee": round(service_fee, 1),
         "total": round(total, 1),
         "vehicleId": vehicle["id"] if vehicle else "ebike",
         "vehicleName": vehicle_name,
@@ -419,13 +511,22 @@ def format_order(row: sqlite3.Row) -> dict:
         "status": order["status"],
         "statusIndex": order["status_index"],
         "service": order["service"],
+        "merchantId": order["merchant_id"] or "",
+        "merchantName": order["merchant_name"],
+        "merchantStatus": order["merchant_status"],
+        "merchantNote": order["merchant_note"],
         "pickupName": order["pickup_name"],
         "pickupDetail": order["pickup_detail"],
         "dropoffName": order["dropoff_name"],
         "dropoffDetail": order["dropoff_detail"],
         "item": order["item"],
+        "buyItems": order["buy_items"],
+        "budget": round(float(order["buy_budget"]), 1),
+        "purchaseAddressName": order["purchase_name"] or order["pickup_name"],
+        "purchaseAddressDetail": order["purchase_detail"] or order["pickup_detail"],
         "vehicleName": order["vehicle_name"] or "电动车空间",
         "weightLabel": order["weight_label"],
+        "serviceFee": round(float(order["service_fee"]), 1),
         "fee": round(float(order["total_fee"]), 1),
         "distance": round(float(order["distance_km"]), 1),
         "eta": order["eta"],
@@ -438,13 +539,17 @@ def format_order(row: sqlite3.Row) -> dict:
 def create_order(conn: sqlite3.Connection, payload: dict) -> dict:
     user_id = payload.get("userId") or DEFAULT_USER_ID
     service = payload.get("service") or "帮送"
-    pickup = normalize_address(conn, payload, "pickup")
+    is_buy = service == "帮买"
+    purchase = normalize_address(conn, payload, "purchase") if is_buy else None
+    pickup = purchase if is_buy and purchase else normalize_address(conn, payload, "pickup")
     dropoff = normalize_address(conn, payload, "dropoff")
     cargo_options = payload.get("cargoOptions") if isinstance(payload.get("cargoOptions"), dict) else {}
     vehicle_id = payload.get("vehicleId") or cargo_options.get("vehicleId") or "ebike"
     distance = parse_float(payload.get("distanceKm") or payload.get("distance") or dropoff.get("distanceKm"), 2.6)
     weight = parse_float(payload.get("weightKg") or payload.get("weight") or cargo_options.get("weight"), 1)
     item = payload.get("item") or cargo_options.get("categoryName") or "文件/小件"
+    buy_items = payload.get("buyItems") or payload.get("buy_items") or (item if is_buy else "")
+    buy_budget = parse_float(payload.get("budget", payload.get("buyBudget")), 0.0) if is_buy else 0.0
 
     estimate = estimate_price(
         conn,
@@ -453,31 +558,49 @@ def create_order(conn: sqlite3.Connection, payload: dict) -> dict:
             "distanceKm": distance,
             "weightKg": weight,
             "vehicleId": vehicle_id,
+            "budget": buy_budget,
         },
     )
     created_at = now_iso()
     oid = order_id()
     eta_minutes = max(10, int(distance * (8 if vehicle_id == "car" else 7)))
     eta = f"约 {eta_minutes} 分钟"
-    label = cargo_options.get("weightLabel") or weight_label(weight)
+    label = "" if is_buy else (cargo_options.get("weightLabel") or weight_label(weight))
+    merchant = conn.execute("SELECT * FROM merchants WHERE id = ?", (DEFAULT_MERCHANT_ID,)).fetchone() if is_buy else None
+    merchant_id = merchant["id"] if merchant else None
+    merchant_name = merchant["name"] if merchant else ""
+    merchant_status = "待接单" if is_buy else ""
 
     conn.execute(
         """
         INSERT INTO orders(
-          id, user_id, service, item,
+          id, user_id, service, item, merchant_id, merchant_name, merchant_status, merchant_note,
+          buy_items, buy_budget,
+          purchase_address_id, purchase_name, purchase_detail, purchase_contact, purchase_phone,
           pickup_address_id, pickup_name, pickup_detail, pickup_contact, pickup_phone,
           dropoff_address_id, dropoff_name, dropoff_detail, dropoff_contact, dropoff_phone,
           distance_km, weight_kg, weight_label,
           vehicle_type_id, vehicle_name, vehicle_fee,
-          base_fee, distance_fee, weight_fee, urgent_fee, discount_fee, total_fee,
+          base_fee, distance_fee, weight_fee, urgent_fee, discount_fee, service_fee, total_fee,
           status, status_index, eta, rider_id, rider_name, remark, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             oid,
             user_id,
             service,
             item,
+            merchant_id,
+            merchant_name,
+            merchant_status,
+            "",
+            buy_items,
+            buy_budget,
+            pickup.get("id") if is_buy else None,
+            pickup["name"] if is_buy else "",
+            pickup["detail"] if is_buy else "",
+            pickup["contact"] if is_buy else "",
+            pickup["phone"] if is_buy else "",
             pickup.get("id"),
             pickup["name"],
             pickup["detail"],
@@ -499,6 +622,7 @@ def create_order(conn: sqlite3.Connection, payload: dict) -> dict:
             estimate["weightFee"],
             estimate["urgentFee"],
             estimate["discount"],
+            estimate["serviceFee"],
             estimate["total"],
             "待接单",
             0,
@@ -558,6 +682,104 @@ def update_order_status(conn: sqlite3.Connection, oid: str, payload: dict) -> di
     conn.execute(
         "INSERT INTO order_status_logs(id, order_id, status, note, created_at) VALUES (?, ?, ?, ?, ?)",
         (str(uuid.uuid4()), oid, status, payload.get("note") or "状态更新", updated_at),
+    )
+    return format_order(conn.execute("SELECT * FROM orders WHERE id = ?", (oid,)).fetchone())
+
+
+def list_merchant_orders(conn: sqlite3.Connection, merchant_id: str, status: str = "") -> list[dict]:
+    if status:
+        rows = conn.execute(
+            """
+            SELECT * FROM orders
+            WHERE merchant_id = ? AND merchant_status = ?
+            ORDER BY created_at DESC
+            """,
+            (merchant_id, status),
+        ).fetchall()
+    else:
+        rows = conn.execute(
+            """
+            SELECT * FROM orders
+            WHERE merchant_id = ?
+            ORDER BY
+              CASE merchant_status
+                WHEN '待接单' THEN 1
+                WHEN '备货中' THEN 2
+                WHEN '待骑手取货' THEN 3
+                WHEN '已交付' THEN 4
+                ELSE 9
+              END,
+              created_at DESC
+            """,
+            (merchant_id,),
+        ).fetchall()
+    return [format_order(row) for row in rows]
+
+
+def merchant_dashboard(conn: sqlite3.Connection, merchant_id: str) -> dict | None:
+    merchant = conn.execute("SELECT * FROM merchants WHERE id = ?", (merchant_id,)).fetchone()
+    if not merchant:
+        return None
+    orders = list_merchant_orders(conn, merchant_id)
+    pending = sum(1 for item in orders if item["merchantStatus"] == "待接单")
+    preparing = sum(1 for item in orders if item["merchantStatus"] == "备货中")
+    ready = sum(1 for item in orders if item["merchantStatus"] == "待骑手取货")
+    completed = sum(1 for item in orders if item["merchantStatus"] == "已交付")
+    revenue = sum(float(item.get("budget") or item.get("fee") or 0) for item in orders)
+    return {
+        "store": format_merchant(merchant),
+        "stats": {
+            "todayOrders": len(orders),
+            "pending": pending,
+            "preparing": preparing,
+            "ready": ready,
+            "completed": completed,
+            "revenue": round(revenue, 1),
+            "avgPrepare": "8分钟" if preparing or ready else "6分钟",
+        },
+        "orders": orders,
+    }
+
+
+def update_merchant_order_status(conn: sqlite3.Connection, oid: str, payload: dict) -> dict | None:
+    row = conn.execute("SELECT * FROM orders WHERE id = ?", (oid,)).fetchone()
+    if not row:
+        return None
+    order = dict(row)
+    status = payload.get("status") or order["merchant_status"] or "待接单"
+    if status not in MERCHANT_STATUS_FLOW:
+        current = order["merchant_status"] or "待接单"
+        index = MERCHANT_STATUS_FLOW.index(current) if current in MERCHANT_STATUS_FLOW else 0
+        status = MERCHANT_STATUS_FLOW[min(index + 1, len(MERCHANT_STATUS_FLOW) - 1)]
+
+    user_status = order["status"]
+    user_status_index = int(order["status_index"])
+    eta = order["eta"]
+    if status == "备货中":
+        user_status = "已接单"
+        user_status_index = 1
+        eta = "商家备货中"
+    elif status == "待骑手取货":
+        user_status = "已接单"
+        user_status_index = 1
+        eta = "等待骑手取货"
+    elif status == "已交付":
+        user_status = "配送中"
+        user_status_index = 2
+        eta = "约 9 分钟"
+
+    updated_at = now_iso()
+    conn.execute(
+        """
+        UPDATE orders
+        SET merchant_status = ?, merchant_note = ?, status = ?, status_index = ?, eta = ?, updated_at = ?
+        WHERE id = ?
+        """,
+        (status, payload.get("note") or "", user_status, user_status_index, eta, updated_at, oid),
+    )
+    conn.execute(
+        "INSERT INTO order_status_logs(id, order_id, status, note, created_at) VALUES (?, ?, ?, ?, ?)",
+        (str(uuid.uuid4()), oid, user_status, payload.get("note") or f"商家状态：{status}", updated_at),
     )
     return format_order(conn.execute("SELECT * FROM orders WHERE id = ?", (oid,)).fetchone())
 
@@ -676,6 +898,21 @@ class ApiHandler(BaseHTTPRequestHandler):
                 user_id = query.get("userId", [DEFAULT_USER_ID])[0]
                 rows = conn.execute("SELECT * FROM coupons WHERE user_id = ? ORDER BY expires_at", (user_id,)).fetchall()
                 self.send_json(200, [dict(row) for row in rows])
+                return
+
+            if path == "/api/merchant/dashboard":
+                merchant_id = query.get("merchantId", [DEFAULT_MERCHANT_ID])[0]
+                dashboard = merchant_dashboard(conn, merchant_id)
+                if not dashboard:
+                    self.send_error_json(404, "Merchant not found")
+                    return
+                self.send_json(200, dashboard)
+                return
+
+            if path == "/api/merchant/orders":
+                merchant_id = query.get("merchantId", [DEFAULT_MERCHANT_ID])[0]
+                status = query.get("status", [""])[0]
+                self.send_json(200, list_merchant_orders(conn, merchant_id, status))
                 return
 
             if path == "/api/orders":
@@ -816,6 +1053,16 @@ class ApiHandler(BaseHTTPRequestHandler):
     def handle_patch(self) -> None:
         path, _ = self.parsed()
         payload = self.read_json()
+        merchant_match = re.fullmatch(r"/api/merchant/orders/([^/]+)/status", path)
+        if merchant_match:
+            with connect() as conn:
+                order = update_merchant_order_status(conn, merchant_match.group(1), payload)
+                if not order:
+                    self.send_error_json(404, "Order not found")
+                    return
+                self.send_json(200, order)
+                return
+
         match = re.fullmatch(r"/api/orders/([^/]+)/status", path)
         if not match:
             self.send_error_json(404, "Not found")

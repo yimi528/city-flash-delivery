@@ -36,6 +36,16 @@ App({
     apiBaseUrl: 'http://127.0.0.1:8000/api',
     city: '宁德市',
     orderFilter: '',
+    merchantId: 'merchant-demo',
+    merchantStore: {
+      id: 'merchant-demo',
+      name: '阿嬷手作宁德万达店',
+      category: '咖啡奶茶',
+      phone: '0593-8888888',
+      address: '宁德万达广场 2 号门',
+      status: '营业中',
+      rating: 4.9
+    },
     draftOrder: {
       service: '帮送',
       pickup: {
@@ -50,6 +60,9 @@ App({
       dropoff: null,
       item: '文件/小件',
       weight: 1,
+      buyItems: '',
+      budget: 50,
+      purchaseAddress: null,
       cargoOptions: {
         categoryId: 'express',
         categoryName: '快递',
