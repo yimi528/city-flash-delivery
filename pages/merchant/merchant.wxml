@@ -45,8 +45,8 @@
 
   <view class="order-section">
     <block wx:for="{{visibleOrders}}" wx:key="id">
-      <view class="merchant-order">
-        <view class="order-head" data-id="{{item.id}}" bindtap="openOrder">
+      <view class="merchant-order" data-id="{{item.id}}" bindtap="openOrder">
+        <view class="order-head">
           <view>
             <view class="order-id">{{item.id}}</view>
             <view class="order-time">{{item.createTime}} · {{item.distance}}km · {{item.eta}}</view>
@@ -57,6 +57,10 @@
           <view class="goods-title">{{item.displayItems}}</view>
           <view class="goods-meta">预算 ￥{{item.budget}} · 跑腿费 ￥{{item.serviceFee || 0}} · 合计 ￥{{item.fee}}</view>
           <view class="goods-note" wx:if="{{item.remark}}">备注：{{item.remark}}</view>
+        </view>
+        <view class="merchant-primary-action" wx:if="{{item.canAdvance}}" data-id="{{item.id}}" catchtap="advanceOrder">
+          <text>{{item.actionText}}</text>
+          <text class="action-arrow">›</text>
         </view>
         <view class="route-line">
           <view class="pin buy">买</view>
@@ -73,9 +77,8 @@
           </view>
         </view>
         <view class="order-actions">
-          <button class="ghost" bindtap="printTicket">打印小票</button>
-          <button class="ghost" bindtap="callRider">联系骑手</button>
-          <button class="solid" wx:if="{{item.actionText}}" data-id="{{item.id}}" bindtap="advanceOrder">{{item.actionText}}</button>
+          <view class="ghost" catchtap="printTicket">打印小票</view>
+          <view class="ghost" catchtap="callRider">联系骑手</view>
         </view>
       </view>
     </block>

@@ -37,6 +37,15 @@ App({
     city: '宁德市',
     orderFilter: '',
     merchantId: 'merchant-demo',
+    riderId: 'rider-1',
+    riderProfile: {
+      id: 'rider-1',
+      name: '王师傅',
+      phone: '13900001111',
+      vehicleName: '电动车',
+      status: '接单中',
+      rating: 4.9
+    },
     merchantStore: {
       id: 'merchant-demo',
       name: '阿嬷手作宁德万达店',

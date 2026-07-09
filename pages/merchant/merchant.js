@@ -9,10 +9,11 @@ const products = [
   { id: 'p4', name: '鲜切水果杯', price: 22, stock: 0, soldOut: true }
 ]
 
-function actionLabel(status) {
+function actionLabel(status, orderStatus) {
   if (status === '待接单') return '接单备货'
   if (status === '备货中') return '备货完成'
   if (status === '待骑手取货') return '交付骑手'
+  if (status === '已交付' && orderStatus !== '已完成') return '确认完成'
   return ''
 }
 
@@ -25,12 +26,14 @@ function nextMerchantStatus(status) {
 
 function normalizeOrder(order) {
   const merchantStatus = order.merchantStatus || (order.service === '帮买' ? '待接单' : '')
+  const actionText = actionLabel(merchantStatus, order.status)
   return Object.assign({}, order, {
     merchantStatus,
     displayItems: order.buyItems || order.item || '待确认商品',
     sourceName: order.purchaseAddressName || order.pickupName || '门店',
     sourceDetail: order.purchaseAddressDetail || order.pickupDetail || '',
-    actionText: actionLabel(merchantStatus)
+    actionText,
+    canAdvance: Boolean(actionText)
   })
 }
 
@@ -148,10 +151,19 @@ Page({
       if (merchantStatus === '备货中') {
         updated.status = '已接单'
         updated.statusIndex = 1
+        updated.rider = '等待骑手取货'
+        updated.eta = '商家备货中'
+      }
+      if (merchantStatus === '待骑手取货') {
+        updated.status = '已接单'
+        updated.statusIndex = 1
+        updated.rider = '等待骑手取货'
+        updated.eta = '等待骑手取货'
       }
       if (merchantStatus === '已交付') {
         updated.status = '配送中'
         updated.statusIndex = 2
+        updated.rider = '王师傅'
         updated.eta = '约 9 分钟'
       }
       return normalizeOrder(updated)
@@ -163,12 +175,48 @@ Page({
       if (merchantStatus === '备货中') {
         updated.status = '已接单'
         updated.statusIndex = 1
+        updated.rider = '等待骑手取货'
+        updated.eta = '商家备货中'
+      }
+      if (merchantStatus === '待骑手取货') {
+        updated.status = '已接单'
+        updated.statusIndex = 1
+        updated.rider = '等待骑手取货'
+        updated.eta = '等待骑手取货'
       }
       if (merchantStatus === '已交付') {
         updated.status = '配送中'
         updated.statusIndex = 2
+        updated.rider = '王师傅'
+        updated.eta = '约 9 分钟'
       }
       return updated
+    })
+
+    this.setData({ orders, stats: calcStats(orders) }, () => this.applyFilter())
+  },
+
+  completeOrderInMemory(orderId) {
+    const orders = this.data.orders.map((item) => {
+      if (item.id !== orderId) return item
+      return normalizeOrder(Object.assign({}, item, {
+        status: '已完成',
+        statusIndex: 3,
+        merchantStatus: '已交付',
+        rider: item.rider || '王师傅',
+        eta: '已送达'
+      }))
+    })
+
+    app.globalData.orders = (app.globalData.orders || []).map((item) => {
+      if (item.id !== orderId) return item
+      return Object.assign({}, item, {
+        status: '已完成',
+        statusIndex: 3,
+        merchantStatus: '已交付',
+        rider: item.rider || '王师傅',
+        eta: '已送达'
+      })
     })
 
     this.setData({ orders, stats: calcStats(orders) }, () => this.applyFilter())
@@ -178,6 +226,23 @@ Page({
     const orderId = event.currentTarget.dataset.id
     const order = this.data.orders.find((item) => item.id === orderId)
     if (!order || !order.actionText) return
+
+    if (order.merchantStatus === '已交付') {
+      if (!app.globalData.useBackend || orderId.indexOf('M-DEMO') === 0) {
+        this.completeOrderInMemory(orderId)
+        wx.showToast({ title: '订单已完成', icon: 'success' })
+        return
+      }
+      api.updateOrderStatus(orderId, { status: '已完成', note: '商家演示确认完成' }).then(() => {
+        this.completeOrderInMemory(orderId)
+        wx.showToast({ title: '订单已完成', icon: 'success' })
+      }).catch(() => {
+        this.completeOrderInMemory(orderId)
+        wx.showToast({ title: '已本地完成', icon: 'none' })
+      })
+      return
+    }
+
     const merchantStatus = nextMerchantStatus(order.merchantStatus)
 
     if (!app.globalData.useBackend || orderId.indexOf('M-DEMO') === 0) {
@@ -201,7 +266,7 @@ Page({
       wx.showToast({ title: '示例订单暂不可打开详情', icon: 'none' })
       return
     }
-    wx.navigateTo({ url: `/pages/order-detail/order-detail?id=${id}` })
+    wx.navigateTo({ url: `/pages/order-detail/order-detail?id=${id}&mode=merchant` })
   },
 
   callRider() {

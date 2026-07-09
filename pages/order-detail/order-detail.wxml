@@ -36,6 +36,26 @@
     <view class="cancel-tip" wx:if="{{order.status === '已取消'}}">该订单已取消，可返回首页重新下单。</view>
   </view>
 
+  <view class="card merchant-card" wx:if="{{isMerchantMode && order.service === '帮买'}}">
+    <view class="merchant-head">
+      <view>
+        <view class="section-title">商家履约</view>
+        <view class="section-sub">录屏演示可直接推进商家接单、备货、交付</view>
+      </view>
+      <view class="merchant-pill">{{merchantStatus}}</view>
+    </view>
+    <view class="merchant-flow">
+      <block wx:for="{{merchantStatusFlow}}" wx:key="status">
+        <view class="merchant-step {{merchantActiveIndex >= index ? 'active' : ''}}">
+          <view class="merchant-dot">{{merchantActiveIndex > index ? '✓' : index + 1}}</view>
+          <view class="merchant-label">{{item.label}}</view>
+        </view>
+      </block>
+    </view>
+    <button class="merchant-primary" wx:if="{{merchantActionText}}" bindtap="advanceMerchantOrder">{{merchantActionText}}</button>
+    <view class="merchant-done" wx:else>商家履约已完成</view>
+  </view>
+
   <view class="card info-card">
     <view class="info-row"><text>订单编号</text><text>{{order.id}}</text></view>
     <view class="info-row"><text>服务类型</text><text>{{order.service}}</text></view>
@@ -53,6 +73,6 @@
   <view class="action-bar">
     <button class="outline" bindtap="cancelOrder" wx:if="{{order.status !== '已完成' && order.status !== '已取消'}}">取消订单</button>
     <button class="outline" bindtap="callRider">联系骑手</button>
-    <button class="solid" bindtap="nextStatus" wx:if="{{order.status !== '已完成' && order.status !== '已取消'}}">模拟推进</button>
+    <button class="solid" bindtap="advanceMerchantOrder" wx:if="{{isMerchantMode && merchantActionText}}">{{merchantActionText}}</button>
   </view>
 </view>

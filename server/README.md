@@ -42,7 +42,10 @@ python3 smoke_test.py
 - `POST /api/orders` 创建订单
 - `GET /api/orders/:id` 订单详情
 - `PATCH /api/orders/:id/status` 更新订单状态
+- `GET /api/rider/dashboard?riderId=rider-1` 骑手工作台
+- `GET /api/rider/orders?riderId=rider-1` 骑手订单池
 - `POST /api/rider/orders/:id/accept` 骑手接单
+- `PATCH /api/rider/orders/:id/status` 骑手更新状态
 - `GET /api/coupons?userId=demo-user` 优惠券列表
 - `GET /api/merchant/dashboard?merchantId=merchant-demo` 商家工作台
 - `GET /api/merchant/orders?merchantId=merchant-demo` 商家订单列表
@@ -79,6 +82,30 @@ python3 smoke_test.py
 curl -X PATCH http://127.0.0.1:8000/api/merchant/orders/S订单号/status \
   -H 'Content-Type: application/json' \
   -d '{"status":"备货中"}'
+```
+
+### 骑手端状态流转
+
+骑手端默认账号为 `rider-1`。普通帮送/送货订单可直接进入骑手订单池；帮买订单需要商家先流转到 `待骑手取货` 后才会进入骑手订单池。状态流转：
+
+```text
+可接单 -> 待取货 -> 配送中 -> 已完成
+```
+
+更新示例：
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/rider/orders/S订单号/accept \
+  -H 'Content-Type: application/json' \
+  -d '{"riderId":"rider-1"}'
+
+curl -X PATCH http://127.0.0.1:8000/api/rider/orders/S订单号/status \
+  -H 'Content-Type: application/json' \
+  -d '{"riderId":"rider-1","action":"pickup"}'
+
+curl -X PATCH http://127.0.0.1:8000/api/rider/orders/S订单号/status \
+  -H 'Content-Type: application/json' \
+  -d '{"riderId":"rider-1","action":"complete"}'
 ```
 
 ## 数据库

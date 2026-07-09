@@ -11,6 +11,7 @@ const orderStatus = [
 const services = [
   { iconClass: 'address', name: '地址簿', action: 'address' },
   { iconClass: 'enterprise', name: '商家端', action: 'merchant' },
+  { iconClass: 'rider', name: '骑手端', action: 'rider' },
   { iconClass: 'service', name: '联系客服', action: 'todo' },
   { iconClass: 'shield', name: '售后理赔', action: 'todo' },
   { iconClass: 'invoice', name: '发票管理', action: 'todo' },
@@ -130,6 +131,10 @@ Page({
     }
     if (action === 'merchant') {
       wx.navigateTo({ url: '/pages/merchant/merchant' })
+      return
+    }
+    if (action === 'rider') {
+      wx.navigateTo({ url: '/pages/rider/rider' })
       return
     }
     wx.showToast({ title: `${name}开发中`, icon: 'none' })

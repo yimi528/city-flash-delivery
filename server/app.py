@@ -24,6 +24,7 @@ ROOT_DIR = Path(__file__).resolve().parent
 DB_PATH = Path(os.environ.get("CITY_FLASH_DB", ROOT_DIR / "data" / "dev.db"))
 DEFAULT_USER_ID = "demo-user"
 DEFAULT_MERCHANT_ID = "merchant-demo"
+DEFAULT_RIDER_ID = "rider-1"
 STATUS_FLOW = ["待接单", "已接单", "配送中", "已完成"]
 MERCHANT_STATUS_FLOW = ["待接单", "备货中", "待骑手取货", "已交付"]
 
@@ -371,6 +372,20 @@ def format_merchant(row: sqlite3.Row) -> dict:
     }
 
 
+def format_rider(row: sqlite3.Row) -> dict:
+    rider = dict(row)
+    vehicle_name = rider.get("vehicle_name") or ("汽车" if rider["vehicle_type_id"] == "car" else "电动车")
+    return {
+        "id": rider["id"],
+        "name": rider["name"],
+        "phone": rider["phone"],
+        "vehicleId": rider["vehicle_type_id"],
+        "vehicleName": vehicle_name,
+        "status": "接单中" if rider["status"] == "online" else "休息中",
+        "rating": 4.9,
+    }
+
+
 def login_or_create_user(conn: sqlite3.Connection, payload: dict) -> dict:
     code = (payload.get("code") or "").strip()
     user_info = payload.get("userInfo") if isinstance(payload.get("userInfo"), dict) else {}
@@ -530,6 +545,7 @@ def format_order(row: sqlite3.Row) -> dict:
         "fee": round(float(order["total_fee"]), 1),
         "distance": round(float(order["distance_km"]), 1),
         "eta": order["eta"],
+        "riderId": order["rider_id"] or "",
         "rider": order["rider_name"] or "等待骑手接单",
         "createTime": format_created_at(order["created_at"]),
         "remark": order["remark"],
@@ -741,6 +757,141 @@ def merchant_dashboard(conn: sqlite3.Connection, merchant_id: str) -> dict | Non
     }
 
 
+def rider_phase(order: dict) -> str:
+    if order["status"] == "已完成":
+        return "已完成"
+    if order["status"] == "配送中":
+        return "配送中"
+    if order["status"] == "已接单" and order.get("riderId"):
+        return "待取货"
+    if order["service"] == "帮买" and order["merchantStatus"] == "待骑手取货" and not order.get("riderId"):
+        return "可接单"
+    if order["status"] == "待接单" and not order.get("riderId") and order["service"] != "帮买":
+        return "可接单"
+    if order["status"] == "已接单":
+        return "待取货"
+    return order["status"]
+
+
+def list_rider_orders(conn: sqlite3.Connection, rider_id: str, status: str = "") -> list[dict]:
+    rows = conn.execute(
+        """
+        SELECT * FROM orders
+        WHERE status <> '已取消'
+          AND (
+            (service <> '帮买' AND status = '待接单' AND (rider_id IS NULL OR rider_id = ''))
+            OR (service = '帮买' AND merchant_status = '待骑手取货' AND (rider_id IS NULL OR rider_id = ''))
+            OR (rider_id = ? AND status IN ('已接单', '配送中', '已完成'))
+          )
+        ORDER BY
+          CASE status
+            WHEN '待接单' THEN 1
+            WHEN '已接单' THEN 2
+            WHEN '配送中' THEN 3
+            WHEN '已完成' THEN 4
+            ELSE 9
+          END,
+          created_at DESC
+        """,
+        (rider_id,),
+    ).fetchall()
+    orders = [format_order(row) for row in rows]
+    if status:
+        orders = [order for order in orders if rider_phase(order) == status]
+    return orders
+
+
+def rider_dashboard(conn: sqlite3.Connection, rider_id: str) -> dict | None:
+    rider = conn.execute(
+        """
+        SELECT riders.*, vehicle_types.short_name AS vehicle_name
+        FROM riders
+        LEFT JOIN vehicle_types ON vehicle_types.id = riders.vehicle_type_id
+        WHERE riders.id = ?
+        """,
+        (rider_id,),
+    ).fetchone()
+    if not rider:
+        return None
+    orders = list_rider_orders(conn, rider_id)
+    phases = [rider_phase(order) for order in orders]
+    completed_orders = [order for order in orders if rider_phase(order) == "已完成"]
+    return {
+        "rider": format_rider(rider),
+        "stats": {
+            "available": phases.count("可接单"),
+            "pickup": phases.count("待取货"),
+            "delivering": phases.count("配送中"),
+            "completed": phases.count("已完成"),
+            "todayIncome": round(sum(float(order.get("serviceFee") or order.get("fee") or 0) for order in completed_orders), 1),
+        },
+        "orders": orders,
+    }
+
+
+def update_rider_order_status(conn: sqlite3.Connection, oid: str, payload: dict) -> dict | None:
+    row = conn.execute("SELECT * FROM orders WHERE id = ?", (oid,)).fetchone()
+    if not row:
+        return None
+
+    rider_id = payload.get("riderId") or DEFAULT_RIDER_ID
+    rider = conn.execute("SELECT * FROM riders WHERE id = ?", (rider_id,)).fetchone()
+    if not rider:
+        return None
+
+    order = dict(row)
+    action = payload.get("action") or "accept"
+    if action not in ("accept", "pickup", "complete"):
+        if order["status"] == "待接单":
+            action = "accept"
+        elif order["status"] == "已接单":
+            action = "pickup"
+        else:
+            action = "complete"
+
+    status = order["status"]
+    status_index = int(order["status_index"])
+    merchant_status = order["merchant_status"]
+    eta = order["eta"]
+    note = payload.get("note") or ""
+
+    if action == "accept":
+        status = "已接单"
+        status_index = 1
+        eta = "约 16 分钟"
+        note = note or f"{rider['name']}接单"
+    elif action == "pickup":
+        status = "配送中"
+        status_index = 2
+        eta = "约 9 分钟"
+        note = note or f"{rider['name']}已取货"
+        if order["service"] == "帮买":
+            merchant_status = "已交付"
+    elif action == "complete":
+        status = "已完成"
+        status_index = 3
+        eta = "已送达"
+        note = note or f"{rider['name']}确认送达"
+        if order["service"] == "帮买":
+            merchant_status = "已交付"
+
+    updated_at = now_iso()
+    conn.execute(
+        """
+        UPDATE orders
+        SET status = ?, status_index = ?, merchant_status = ?, eta = ?,
+            rider_id = ?, rider_name = ?, updated_at = ?
+        WHERE id = ?
+        """,
+        (status, status_index, merchant_status, eta, rider["id"], rider["name"], updated_at, oid),
+    )
+    conn.execute(
+        "INSERT INTO order_status_logs(id, order_id, status, note, created_at) VALUES (?, ?, ?, ?, ?)",
+        (str(uuid.uuid4()), oid, status, note, updated_at),
+    )
+    return format_order(conn.execute("SELECT * FROM orders WHERE id = ?", (oid,)).fetchone())
+
+
 def update_merchant_order_status(conn: sqlite3.Connection, oid: str, payload: dict) -> dict | None:
     row = conn.execute("SELECT * FROM orders WHERE id = ?", (oid,)).fetchone()
     if not row:
@@ -915,6 +1066,21 @@ class ApiHandler(BaseHTTPRequestHandler):
                 self.send_json(200, list_merchant_orders(conn, merchant_id, status))
                 return
 
+            if path == "/api/rider/dashboard":
+                rider_id = query.get("riderId", [DEFAULT_RIDER_ID])[0]
+                dashboard = rider_dashboard(conn, rider_id)
+                if not dashboard:
+                    self.send_error_json(404, "Rider not found")
+                    return
+                self.send_json(200, dashboard)
+                return
+
+            if path == "/api/rider/orders":
+                rider_id = query.get("riderId", [DEFAULT_RIDER_ID])[0]
+                status = query.get("status", [""])[0]
+                self.send_json(200, list_rider_orders(conn, rider_id, status))
+                return
+
             if path == "/api/orders":
                 user_id = query.get("userId", [DEFAULT_USER_ID])[0]
                 status = query.get("status", [""])[0]
@@ -991,18 +1157,10 @@ class ApiHandler(BaseHTTPRequestHandler):
 
             match = re.fullmatch(r"/api/rider/orders/([^/]+)/accept", path)
             if match:
-                rider_id = payload.get("riderId") or "rider-1"
-                rider = conn.execute("SELECT * FROM riders WHERE id = ?", (rider_id,)).fetchone()
-                if not rider:
-                    self.send_error_json(404, "Rider not found")
-                    return
-                order = update_order_status(
-                    conn,
-                    match.group(1),
-                    {"status": "已接单", "note": f"{rider['name']}接单"},
-                )
+                payload["action"] = "accept"
+                order = update_rider_order_status(conn, match.group(1), payload)
                 if not order:
-                    self.send_error_json(404, "Order not found")
+                    self.send_error_json(404, "Order or rider not found")
                     return
                 self.send_json(200, order)
                 return
@@ -1059,6 +1217,16 @@ class ApiHandler(BaseHTTPRequestHandler):
                 order = update_merchant_order_status(conn, merchant_match.group(1), payload)
                 if not order:
                     self.send_error_json(404, "Order not found")
+                    return
+                self.send_json(200, order)
+                return
+
+        rider_match = re.fullmatch(r"/api/rider/orders/([^/]+)/status", path)
+        if rider_match:
+            with connect() as conn:
+                order = update_rider_order_status(conn, rider_match.group(1), payload)
+                if not order:
+                    self.send_error_json(404, "Order or rider not found")
                     return
                 self.send_json(200, order)
                 return

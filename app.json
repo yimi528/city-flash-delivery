@@ -4,6 +4,7 @@
     "pages/quick-service/quick-service",
     "pages/city-buy/city-buy",
     "pages/merchant/merchant",
+    "pages/rider/rider",
     "pages/cargo-options/cargo-options",
     "pages/order-create/order-create",
     "pages/address/address",

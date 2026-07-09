@@ -1,0 +1,90 @@
+<view class="rider-page">
+  <view style="height: {{statusBarHeight}}px"></view>
+
+  <view class="page-nav">
+    <view class="back" bindtap="goBack">‹</view>
+    <view class="nav-title">骑手工作台</view>
+    <view class="nav-action" bindtap="toggleOnline">{{online ? '接单中' : '休息中'}}</view>
+  </view>
+
+  <view class="rider-card">
+    <view>
+      <view class="rider-kicker">{{rider.vehicleName || '电动车'}} · 即时配送</view>
+      <view class="rider-name">{{rider.name || '王师傅'}}</view>
+      <view class="rider-meta">评分 {{rider.rating || '4.9'}} · 今日保持在线</view>
+    </view>
+    <view class="rider-status {{online ? 'on' : 'off'}}">{{online ? '可接单' : '已休息'}}</view>
+  </view>
+
+  <view class="stats-card">
+    <view class="stat-item">
+      <view class="stat-value">{{stats.available}}</view>
+      <view class="stat-label">可接单</view>
+    </view>
+    <view class="stat-item">
+      <view class="stat-value">{{stats.pickup}}</view>
+      <view class="stat-label">待取货</view>
+    </view>
+    <view class="stat-item">
+      <view class="stat-value">{{stats.delivering}}</view>
+      <view class="stat-label">配送中</view>
+    </view>
+    <view class="stat-item">
+      <view class="stat-value">￥{{stats.todayIncome}}</view>
+      <view class="stat-label">今日收益</view>
+    </view>
+  </view>
+
+  <scroll-view class="filter-scroll" scroll-x="true" show-scrollbar="false">
+    <view class="filter-row">
+      <block wx:for="{{filters}}" wx:key="*this">
+        <view class="filter {{activeFilter === item ? 'active' : ''}}" data-status="{{item}}" bindtap="changeFilter">{{item}}</view>
+      </block>
+    </view>
+  </scroll-view>
+
+  <view class="order-section">
+    <block wx:for="{{visibleOrders}}" wx:key="id">
+      <view class="rider-order" data-id="{{item.id}}" bindtap="openOrder">
+        <view class="order-head">
+          <view>
+            <view class="order-id">{{item.id}}</view>
+            <view class="order-time">{{item.createTime}} · {{item.distance}}km · {{item.eta}}</view>
+          </view>
+          <view class="phase-pill {{item.riderPhase === '可接单' ? 'hot' : ''}}">{{item.riderPhase}}</view>
+        </view>
+
+        <view class="goods-box">
+          <view class="goods-title">{{item.displayItems}}</view>
+          <view class="goods-meta">{{item.service}} · 预计收入 ￥{{item.serviceFee || item.fee}} · 合计 ￥{{item.fee}}</view>
+        </view>
+
+        <view class="route-line">
+          <view class="pin pickup">取</view>
+          <view class="route-main">
+            <view>{{item.pickupTitle}}</view>
+            <text>{{item.pickupSub}}</text>
+          </view>
+        </view>
+        <view class="route-line">
+          <view class="pin dropoff">送</view>
+          <view class="route-main">
+            <view>{{item.dropoffTitle}}</view>
+            <text>{{item.dropoffSub}}</text>
+          </view>
+        </view>
+
+        <view class="rider-primary-action" wx:if="{{item.canRiderAdvance}}" data-id="{{item.id}}" catchtap="advanceOrder">
+          <text>{{item.riderActionText}}</text>
+          <text class="action-arrow">›</text>
+        </view>
+        <view class="rider-done" wx:else>订单已完成</view>
+      </view>
+    </block>
+
+    <view class="empty" wx:if="{{!visibleOrders.length}}">
+      <view class="empty-icon">骑</view>
+      <view>当前筛选下暂无骑手订单</view>
+    </view>
+  </view>
+</view>

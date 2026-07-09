@@ -114,6 +114,29 @@ function updateMerchantOrderStatus(id, payload) {
   })
 }
 
+function getRiderDashboard(riderId) {
+  return request(`/rider/dashboard?riderId=${encodeURIComponent(riderId || 'rider-1')}`)
+}
+
+function getRiderOrders(riderId, status) {
+  const query = status ? `&status=${encodeURIComponent(status)}` : ''
+  return request(`/rider/orders?riderId=${encodeURIComponent(riderId || 'rider-1')}${query}`)
+}
+
+function acceptRiderOrder(id, payload) {
+  return request(`/rider/orders/${encodeURIComponent(id)}/accept`, {
+    method: 'POST',
+    data: payload || {}
+  })
+}
+
+function updateRiderOrderStatus(id, payload) {
+  return request(`/rider/orders/${encodeURIComponent(id)}/status`, {
+    method: 'PATCH',
+    data: payload
+  })
+}
+
 module.exports = {
   request,
   wechatLogin,
@@ -129,5 +152,9 @@ module.exports = {
   updateOrderStatus,
   getMerchantDashboard,
   getMerchantOrders,
-  updateMerchantOrderStatus
+  updateMerchantOrderStatus,
+  getRiderDashboard,
+  getRiderOrders,
+  acceptRiderOrder,
+  updateRiderOrderStatus
 }
