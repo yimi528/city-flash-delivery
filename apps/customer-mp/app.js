@@ -54,6 +54,12 @@ App({
       }
     },
     orderFilter: '',
+    features: {
+      buyForMe: false,
+      delivery: true,
+      pickup: true,
+      cargo: true
+    },
     draftOrder: {
       service: '帮送',
       pickup: {
@@ -61,7 +67,7 @@ App({
         name: '恒生一品苑',
         detail: '东侨经济技术开发区福宁北路',
         contact: '陈先生',
-        phone: '13809574581',
+        phone: '13800004581',
         distance: '0.3km',
         distanceKm: 0.3,
         latitude: 26.6824,
@@ -82,10 +88,14 @@ App({
         categoryId: 'express',
         categoryName: '快递',
         vehicleId: 'ebike',
-        vehicleName: '电动车空间',
-        vehicleShortName: '电动车',
-        vehicleCapacity: '56cm × 44cm × 38cm',
+        vehicleName: '二轮电动',
+        vehicleShortName: '二轮',
+        vehicleCapacity: '45cm × 38cm × 35cm',
         vehicleFee: 0,
+        baseFee: 10,
+        distanceRate: 3,
+        weightRate: 1.8,
+        maxWeight: 10,
         weight: 1,
         weightLabel: '≤1公斤'
       },
@@ -97,7 +107,7 @@ App({
         name: '恒生一品苑',
         detail: '东侨经济技术开发区福宁北路 6 号',
         contact: '陈先生',
-        phone: '13809574581',
+        phone: '13800004581',
         distance: '0.3km',
         distanceKm: 0.3,
         latitude: 26.6824,
@@ -145,39 +155,6 @@ App({
         tag: '门店'
       }
     ],
-    orders: [
-      {
-        id: 'S202607090012',
-        status: '配送中',
-        statusIndex: 2,
-        service: '帮送',
-        pickupName: '恒生一品苑',
-        dropoffName: '宁德万达广场',
-        item: '文件/小件',
-        vehicleName: '电动车空间',
-        weightLabel: '≤1公斤',
-        fee: 14.8,
-        distance: 2.4,
-        eta: '约 18 分钟',
-        rider: '张师傅',
-        createTime: '今天 13:26'
-      },
-      {
-        id: 'S202607080089',
-        status: '已完成',
-        statusIndex: 4,
-        service: '帮取',
-        pickupName: '华润便利店',
-        dropoffName: '恒生一品苑',
-        item: '饮料/日用品',
-        vehicleName: '电动车空间',
-        weightLabel: '≤1公斤',
-        fee: 9.9,
-        distance: 0.8,
-        eta: '已送达',
-        rider: '李师傅',
-        createTime: '昨天 20:18'
-      }
-    ]
+    orders: []
   }
 })

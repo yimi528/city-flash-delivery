@@ -80,27 +80,32 @@
     <view class="card vehicle-card">
       <view class="section-title">选择配送工具</view>
       <view class="desc">请参考以下空间，避免物品过大无法配送</view>
-      <view class="vehicle-list">
-        <block wx:for="{{vehicles}}" wx:key="id">
-          <view class="vehicle {{selectedVehicle === item.id ? 'active' : ''}}" data-id="{{item.id}}" bindtap="selectVehicle">
-            <view class="vehicle-visual {{item.id}}">
-              <view class="vehicle-shadow"></view>
-              <view class="vehicle-body"></view>
-              <view class="vehicle-front"></view>
-              <view class="vehicle-wheel w1"></view>
-              <view class="vehicle-wheel w2"></view>
-              <view class="cargo-box"></view>
-              <view class="cargo-box second"></view>
-              <view class="size-line size-a">{{item.id === 'ebike' ? '56cm' : '1.3m'}}</view>
-              <view class="size-line size-b">{{item.id === 'ebike' ? '38cm' : '0.8m'}}</view>
-              <view class="size-line size-c" wx:if="{{item.id === 'ebike'}}">44cm</view>
-              <view class="size-line size-c" wx:else>1.4m</view>
+      <scroll-view class="vehicle-scroll" scroll-x="true" show-scrollbar="false">
+        <view class="vehicle-list">
+          <block wx:for="{{vehicles}}" wx:key="id">
+            <view class="vehicle {{selectedVehicle === item.id ? 'active' : ''}}" data-id="{{item.id}}" bindtap="selectVehicle">
+              <view class="vehicle-visual {{item.id}}">
+                <view class="vehicle-shadow"></view>
+                <view class="vehicle-body"></view>
+                <view class="vehicle-front"></view>
+                <view class="vehicle-wheel w1"></view>
+                <view class="vehicle-wheel w2"></view>
+                <view class="cargo-box"></view>
+                <view class="cargo-box second"></view>
+                <view class="size-line size-a">{{item.dimA}}</view>
+                <view class="size-line size-b">{{item.dimB}}</view>
+                <view class="size-line size-c">{{item.dimC}}</view>
+              </view>
+              <view class="vehicle-name">{{item.name}}</view>
+              <view class="vehicle-desc">{{item.desc}}</view>
+              <view class="vehicle-meta">
+                <text>{{item.displayFee}}</text>
+                <text>载重 {{item.maxWeight}}kg</text>
+              </view>
             </view>
-            <view class="vehicle-name">{{item.name}}</view>
-            <view class="vehicle-desc">{{item.desc}}</view>
-          </view>
-        </block>
-      </view>
+          </block>
+        </view>
+      </scroll-view>
     </view>
   </view>
 

@@ -39,23 +39,51 @@ const weightMarks = [
 const vehicles = [
   {
     id: 'ebike',
-    name: '电动车空间',
-    shortName: '电动车',
-    capacity: '56cm × 44cm × 38cm',
-    desc: '适合文件、小箱、鲜花、轻便日用品',
+    name: '二轮电动',
+    shortName: '二轮',
+    capacity: '45cm × 38cm × 35cm',
+    desc: '适合文件、小件、饮料、鲜花蛋糕',
     fee: 0,
+    baseFee: 10,
+    distanceRate: 3,
+    weightRate: 1.8,
     displayFee: '基础车型',
+    dimA: '45cm',
+    dimB: '35cm',
+    dimC: '38cm',
     maxWeight: 10
   },
   {
-    id: 'car',
-    name: '汽车空间',
-    shortName: '汽车',
-    capacity: '1.4m × 1.3m × 0.8m',
-    desc: '适合行李箱、小家具、多件包裹',
-    fee: 15,
-    displayFee: '+￥15 车型费',
-    maxWeight: 50
+    id: 'etrike',
+    name: '三轮电动',
+    shortName: '三轮',
+    capacity: '1.2m × 0.8m × 0.7m',
+    desc: '适合大箱、多件包裹、小家电',
+    fee: 8,
+    baseFee: 15,
+    distanceRate: 3.8,
+    weightRate: 1.5,
+    displayFee: '+￥8 车型费',
+    dimA: '1.2m',
+    dimB: '0.7m',
+    dimC: '0.8m',
+    maxWeight: 80
+  },
+  {
+    id: 'van',
+    name: '面包车',
+    shortName: '面包车',
+    capacity: '1.8m × 1.3m × 1.2m',
+    desc: '适合搬家小件、家具家纺、批量货物',
+    fee: 25,
+    baseFee: 28,
+    distanceRate: 5,
+    weightRate: 0.8,
+    displayFee: '+￥25 车型费',
+    dimA: '1.8m',
+    dimB: '1.2m',
+    dimC: '1.3m',
+    maxWeight: 300
   }
 ]
 
@@ -153,7 +181,9 @@ Page({
     const vehicle = findVehicle(this.data.selectedVehicle)
     const guarantee = guaranteeOptions.find((item) => item.id === this.data.selectedGuarantee) || guaranteeOptions[0]
 
-    app.globalData.draftOrder.service = '送货'
+    if (!app.globalData.draftOrder.service || app.globalData.draftOrder.service === '帮买') {
+      app.globalData.draftOrder.service = '帮送'
+    }
     app.globalData.draftOrder.item = category.item
     app.globalData.draftOrder.weight = this.data.weight
     app.globalData.draftOrder.cargoOptions = {
@@ -164,6 +194,10 @@ Page({
       vehicleShortName: vehicle.shortName,
       vehicleCapacity: vehicle.capacity,
       vehicleFee: vehicle.fee,
+      baseFee: vehicle.baseFee,
+      distanceRate: vehicle.distanceRate,
+      weightRate: vehicle.weightRate,
+      maxWeight: vehicle.maxWeight,
       guaranteeId: guarantee.id,
       guaranteeRange: guarantee.range,
       guaranteeFee: guarantee.fee,

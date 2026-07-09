@@ -46,7 +46,7 @@
   <view class="card option-card" wx:else>
     <view class="section-head">
       <view class="section-title">物品信息</view>
-      <view class="muted">{{draft.service === '送货' ? '用于匹配车型' : '用于骑手判断车辆和保价'}}</view>
+      <view class="muted">{{draft.service !== '帮买' ? '用于匹配车型' : '用于骑手判断车辆和保价'}}</view>
     </view>
     <view class="chips">
       <block wx:for="{{itemTypes}}" wx:key="*this">
@@ -64,7 +64,7 @@
     <textarea placeholder="备注：如取件码、门牌号、是否需要电话联系" auto-height maxlength="80" bindinput="inputRemark" />
   </view>
 
-  <view class="card cargo-card" wx:if="{{draft.service === '送货'}}" bindtap="openCargoOptions">
+  <view class="card cargo-card" wx:if="{{draft.service !== '帮买'}}" bindtap="openCargoOptions">
     <view class="section-head">
       <view class="section-title">配送工具</view>
       <view class="edit-link">重新选择</view>
@@ -86,12 +86,12 @@
   <view class="card price-card">
     <view class="section-head">
       <view class="section-title">费用预估</view>
-      <view class="arrival">{{draft.service === '帮买' ? '骑手代买' : (draft.service === '送货' ? '车型接送' : (draft.service === '1对1急送' ? '专人直送' : '约20分钟达'))}}</view>
+      <view class="arrival">{{draft.service === '帮买' ? '骑手代买' : (draft.service === '1对1急送' ? '专人直送' : '车型配送')}}</view>
     </view>
     <view class="price-row"><text>{{draft.service === '帮买' ? '跑腿起步价' : '起步价'}}</text><text>￥{{estimate.base}}</text></view>
     <view class="price-row"><text>距离费</text><text>￥{{estimate.distanceFee}}</text></view>
     <view class="price-row" wx:if="{{draft.service !== '帮买'}}"><text>重量费</text><text>￥{{estimate.weightFee}}</text></view>
-    <view class="price-row" wx:if="{{draft.service === '送货'}}"><text>车型费</text><text>￥{{estimate.vehicleFee}}</text></view>
+    <view class="price-row" wx:if="{{draft.service !== '帮买'}}"><text>车型费</text><text>￥{{estimate.vehicleFee}}</text></view>
     <view class="price-row" wx:if="{{draft.service === '1对1急送'}}"><text>急送费</text><text>￥{{estimate.urgentFee}}</text></view>
     <view class="price-row discount"><text>新人优惠</text><text>-￥{{estimate.discount}}</text></view>
     <view class="price-row service-fee" wx:if="{{draft.service === '帮买'}}"><text>跑腿服务费</text><text>￥{{estimate.serviceFee}}</text></view>

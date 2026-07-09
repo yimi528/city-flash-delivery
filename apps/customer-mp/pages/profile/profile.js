@@ -2,16 +2,14 @@ const app = getApp()
 const api = require('../../utils/api')
 
 const orderStatus = [
-  { iconClass: 'pay', name: '待支付', filter: '待支付' },
-  { iconClass: 'publish', name: '待发布', filter: '待发布' },
-  { iconClass: 'progress', name: '进行中', filter: '进行中' },
+  { iconClass: 'pay', name: '待接单', filter: '待接单' },
+  { iconClass: 'publish', name: '已接单', filter: '已接单' },
+  { iconClass: 'progress', name: '配送中', filter: '配送中' },
   { iconClass: 'done', name: '已完成', filter: '已完成' }
 ]
 
 const services = [
   { iconClass: 'address', name: '地址簿', action: 'address' },
-  { iconClass: 'cooperate', name: '商家入驻', action: 'todo' },
-  { iconClass: 'rider', name: '骑手招募', action: 'todo' },
   { iconClass: 'service', name: '联系客服', action: 'todo' },
   { iconClass: 'shield', name: '售后理赔', action: 'todo' },
   { iconClass: 'invoice', name: '发票管理', action: 'todo' },
@@ -19,9 +17,7 @@ const services = [
   { iconClass: 'invite', name: '填写邀请码', action: 'todo' },
   { iconClass: 'license', name: '平台资质', action: 'todo' },
   { iconClass: 'terms', name: '法律条款', action: 'todo' },
-  { iconClass: 'jobs', name: '更多热门岗位', action: 'todo' },
   { iconClass: 'bill', name: '我的账单', action: 'todo' },
-  { iconClass: 'cooperate', name: '商务合作', action: 'todo' },
   { iconClass: 'settings', name: '系统设置', action: 'todo' }
 ]
 

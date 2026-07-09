@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>同城速送运营后台</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar">
+      <div class="brand-mark">速</div>
+      <div>
+        <div class="brand-name">同城速送</div>
+        <div class="brand-sub">Operations Console</div>
+      </div>
+      <nav class="nav-list" aria-label="运营后台导航">
+        <button class="nav-item active" type="button">订单工作台</button>
+        <button class="nav-item" type="button" data-toast="价格规则下一步接入">价格规则</button>
+        <button class="nav-item" type="button" data-toast="服务范围下一步接入">服务范围</button>
+        <button class="nav-item" type="button" data-toast="系统设置下一步接入">系统设置</button>
+      </nav>
+      <div class="sidebar-note">
+        <span>固定配送流</span>
+        <strong>接单 → 取货 → 配送 → 完成</strong>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">运营后台 Web MVP</p>
+          <h1>同城配送订单工作台</h1>
+          <p class="muted">甲方单运营方使用：查看全部用户订单，并按固定配送流程更新状态。</p>
+        </div>
+        <div class="top-actions">
+          <label class="api-field">
+            <span>API</span>
+            <input id="apiBase" value="http://127.0.0.1:8000/api" aria-label="API 地址">
+          </label>
+          <button id="loginBtn" class="ghost-btn" type="button">运营登录</button>
+          <button id="refreshBtn" class="primary-btn" type="button">刷新订单</button>
+        </div>
+      </header>
+
+      <section class="store-panel">
+        <div class="store-card">
+          <div>
+            <div id="storeCategory" class="store-kicker">自营配送</div>
+            <h2 id="storeName">同城速送运营中心</h2>
+            <p id="storeAddress">宁德市运营中心</p>
+          </div>
+          <div id="storeStatus" class="status-pill">未登录</div>
+        </div>
+        <div class="health-card">
+          <span class="pulse"></span>
+          <div>
+            <strong id="healthTitle">等待连接</strong>
+            <p id="healthText">请先启动后端并登录运营账号。</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="stats-grid" aria-label="今日概览">
+        <article class="stat-card hot"><span id="statPendingLabel">待接单</span><strong id="statPending">0</strong></article>
+        <article class="stat-card"><span id="statPreparingLabel">已接单</span><strong id="statPreparing">0</strong></article>
+        <article class="stat-card"><span id="statReadyLabel">配送中</span><strong id="statReady">0</strong></article>
+        <article class="stat-card"><span>今日订单</span><strong id="statToday">0</strong></article>
+        <article class="stat-card"><span id="statRevenueLabel">金额合计</span><strong id="statRevenue">￥0</strong></article>
+      </section>
+
+      <section class="workspace">
+        <div class="toolbar">
+          <div>
+            <h2>订单列表</h2>
+            <p class="muted">帮买功能暂时隐藏，当前只处理帮送、帮取、送货等配送订单。</p>
+          </div>
+          <div class="toolbar-actions">
+            <div id="filters" class="filters"></div>
+          </div>
+        </div>
+        <div id="orders" class="orders"></div>
+      </section>
+    </main>
+  </div>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="./app.js"></script>
+</body>
+</html>

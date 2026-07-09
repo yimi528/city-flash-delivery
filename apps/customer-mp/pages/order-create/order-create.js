@@ -22,15 +22,16 @@ function getRouteSource(draft) {
 function estimateFee(draft) {
   const distance = getRouteDistance(draft)
   const weight = Number(draft.weight || 1)
-  const isCargo = draft.service === '送货'
   const isBuy = draft.service === '帮买'
   const vehicle = draft.cargoOptions || {}
-  const isCar = vehicle.vehicleId === 'car'
-  const base = isBuy ? 9 : (isCargo ? (isCar ? 18 : 10) : 8)
-  const distanceFee = Math.max(distance - 1, 0) * (isBuy ? 2.8 : (isCargo ? (isCar ? 4.2 : 3) : 2.4))
-  const weightFee = isBuy ? 0 : Math.max(weight - 1, 0) * (isCargo ? 1.8 : 1.2)
+  const usesVehicle = !isBuy && vehicle.vehicleId
+  const base = isBuy ? 9 : (usesVehicle ? Number(vehicle.baseFee || 10) : 8)
+  const distanceRate = usesVehicle ? Number(vehicle.distanceRate || 3) : 2.4
+  const weightRate = usesVehicle ? Number(vehicle.weightRate || 1.8) : 1.2
+  const distanceFee = Math.max(distance - 1, 0) * (isBuy ? 2.8 : distanceRate)
+  const weightFee = isBuy ? 0 : Math.max(weight - 1, 0) * weightRate
   const urgentFee = draft.service === '1对1急送' ? 5 : 0
-  const vehicleFee = isCargo ? Number(vehicle.vehicleFee || 0) : 0
+  const vehicleFee = usesVehicle ? Number(vehicle.vehicleFee || 0) : 0
   const discount = isBuy ? 4 : 3
   const budget = isBuy ? Number(draft.budget || 0) : 0
   const serviceFee = Math.max(base + distanceFee + weightFee + urgentFee + vehicleFee - discount, 6.9)
@@ -71,7 +72,7 @@ function buildLocalOrder(draft, estimate) {
     serviceFee: Number(estimate.serviceFee || estimate.total),
     purchaseAddressName: draft.purchaseAddress ? draft.purchaseAddress.name : draft.pickup.name,
     purchaseAddressDetail: draft.purchaseAddress ? draft.purchaseAddress.detail : draft.pickup.detail,
-    vehicleName: draft.service === '帮买' ? '骑手代买' : (draft.cargoOptions ? draft.cargoOptions.vehicleName : '电动车空间'),
+    vehicleName: draft.service === '帮买' ? '骑手代买' : (draft.cargoOptions ? draft.cargoOptions.vehicleName : '二轮电动'),
     weightLabel: draft.service === '帮买' ? '' : (draft.cargoOptions ? draft.cargoOptions.weightLabel : getWeightLabel(Number(draft.weight || 1))),
     fee: Number(estimate.total),
     distance: Number(estimate.distance),

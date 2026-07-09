@@ -1,12 +1,22 @@
 const app = getApp()
 const map = require('../../utils/map')
 
+function enabledServices() {
+  const features = app.globalData.features || {}
+  const services = []
+  if (features.delivery !== false) services.push('帮送')
+  if (features.pickup !== false) services.push('帮取')
+  if (features.cargo !== false) services.push('送货')
+  if (features.buyForMe === true) services.push('帮买')
+  return services
+}
+
 Page({
   data: {
     statusBarHeight: 24,
     city: '宁德市',
     draft: {},
-    services: ['帮送', '帮取', '送货', '帮买'],
+    services: [],
     quickServices: [
       { icon: '饮', name: '取送饮料', type: 'drink' },
       { icon: '文', name: '取送文件', type: 'file' },
@@ -22,15 +32,20 @@ Page({
     this.setData({
       statusBarHeight: app.globalData.statusBarHeight,
       city: app.globalData.city,
-      draft: app.globalData.draftOrder
+      draft: app.globalData.draftOrder,
+      services: enabledServices()
     })
   },
 
   chooseService(event) {
     const service = event.currentTarget.dataset.service
+    if (service === '帮买' && (app.globalData.features || {}).buyForMe !== true) {
+      wx.showToast({ title: '帮买功能暂未开放', icon: 'none' })
+      return
+    }
     app.globalData.draftOrder.service = service
     this.setData({ 'draft.service': service })
-    if (service === '送货') {
+    if (service !== '帮买') {
       wx.navigateTo({ url: '/pages/cargo-options/cargo-options?from=index' })
       return
     }
@@ -78,7 +93,9 @@ Page({
   },
 
   openCargoOptions() {
-    app.globalData.draftOrder.service = '送货'
+    if (!app.globalData.draftOrder.service || app.globalData.draftOrder.service === '帮买') {
+      app.globalData.draftOrder.service = '帮送'
+    }
     this.setData({ draft: app.globalData.draftOrder })
     wx.navigateTo({ url: '/pages/cargo-options/cargo-options?from=index' })
   },

@@ -7,7 +7,7 @@ Page({
     orders: [],
     mode: '寄',
     filter: '全部',
-    filters: ['全部', '待支付', '待发布', '进行中', '已完成', '已取消']
+    filters: ['全部', '待接单', '已接单', '取货中', '配送中', '已完成', '已取消']
   },
 
   onShow() {
@@ -32,7 +32,6 @@ Page({
     const filter = this.data.filter
     const allOrders = sourceOrders || app.globalData.orders
     const orders = allOrders.filter((item) => {
-      if (filter === '进行中') return item.status !== '已完成' && item.status !== '已取消' && item.status !== '待支付' && item.status !== '待发布'
       if (filter === '全部') return true
       return item.status === filter
     })

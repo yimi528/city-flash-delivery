@@ -280,6 +280,13 @@ textarea {
   background: rgba(205, 216, 232, 0.68);
 }
 
+.etrike .cargo-body {
+  width: 94rpx;
+  height: 40rpx;
+  border-radius: 14rpx 20rpx 14rpx 14rpx;
+}
+
+.van .cargo-body,
 .car .cargo-body {
   width: 96rpx;
   height: 42rpx;
@@ -296,6 +303,13 @@ textarea {
   background: linear-gradient(135deg, #ff877e, #ff2118);
 }
 
+.etrike .cargo-box {
+  right: 12rpx;
+  width: 42rpx;
+  height: 40rpx;
+}
+
+.van .cargo-box,
 .car .cargo-box {
   right: 10rpx;
   width: 44rpx;

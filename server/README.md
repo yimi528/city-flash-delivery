@@ -11,14 +11,16 @@ python3 app.py --host 127.0.0.1 --port 8000
 
 启动后接口地址为：`http://127.0.0.1:8000/api`
 
-小程序端默认配置分别在 `apps/customer-mp/app.js`、`apps/merchant-mp/app.js`：
+运营 Web 后台地址：`http://127.0.0.1:8000/merchant/`
+
+用户端小程序默认配置在 `apps/customer-mp/app.js`，运营 Web 后台在 `apps/merchant-web/app.js`：
 
 ```js
 apiBaseUrl: 'http://127.0.0.1:8000/api',
 useBackend: true
 ```
 
-如果后端没有启动，小程序会自动回退到各自的本地演示数据。
+如果后端没有启动，用户端小程序会自动回退到本地演示数据；运营 Web 后台需要连接后端才能登录和同步订单。
 
 ## 测试
 
@@ -31,7 +33,7 @@ python3 smoke_test.py
 
 - `GET /api/health` 健康检查
 - `POST /api/auth/wechat-login` 模拟微信登录，返回用户和 mock token
-- `POST /api/auth/merchant-login` 模拟商家登录，返回门店和 mock token
+- `POST /api/auth/merchant-login` 模拟运营登录，返回运营中心和 mock token
 - `GET /api/users/:id` 用户详情
 - `GET /api/addresses?userId=demo-user` 地址列表
 - `POST /api/addresses` 新增地址
@@ -44,9 +46,20 @@ python3 smoke_test.py
 - `GET /api/orders/:id` 订单详情
 - `PATCH /api/orders/:id/status` 更新订单状态
 - `GET /api/coupons?userId=demo-user` 优惠券列表
-- `GET /api/merchant/dashboard?merchantId=merchant-demo` 商家工作台
-- `GET /api/merchant/orders?merchantId=merchant-demo` 商家订单列表
-- `PATCH /api/merchant/orders/:id/status` 更新商家订单状态
+- `GET /api/merchant/all-orders?merchantId=merchant-demo` 运营后台全部订单同步列表
+- `GET /api/merchant/dashboard?merchantId=merchant-demo` 旧版帮买工作台预留
+- `GET /api/merchant/orders?merchantId=merchant-demo` 旧版帮买订单列表预留
+- `PATCH /api/merchant/orders/:id/status` 旧版帮买订单状态预留
+
+### 配送工具
+
+`GET /api/vehicle-types` 默认返回三类固定车型：
+
+- `ebike` 二轮电动：适合文件、小件、饮料、鲜花蛋糕。
+- `etrike` 三轮电动：适合大箱、多件包裹、小家电。
+- `van` 面包车：适合搬家小件、家具家纺、批量货物。
+
+前端帮送、帮取、送货都会把所选 `vehicleId` 带到计价和下单接口；当前不做用户自定义车型。
 
 ### 本地鉴权
 
@@ -60,9 +73,11 @@ Authorization: Bearer mock-token:merchant:merchant-demo
 X-App-Role: merchant
 ```
 
-用户端只能访问自己的地址和订单，不能手动推进订单状态；商家端只能访问自己门店的工作台、订单和固定履约接口。当前 token 是本地 MVP 格式，正式版需要替换成微信登录 code2session + 服务端签发 token。
+用户端只能访问自己的地址和订单，不能手动推进订单状态；运营 Web 后台可以查看全部订单并按固定配送流程更新订单状态。当前 token 是本地 MVP 格式，正式版需要替换成微信登录 code2session + 服务端签发 token，并按用户/运营/管理员角色拆权限。
 
-### 帮买订单字段
+### 帮买订单字段（暂时隐藏）
+
+帮买入口当前通过前端功能开关隐藏，代码和后端字段暂不删除，方便后续确认垫付、退款、买不到商品处理规则后再开启。
 
 `POST /api/orders` 创建“帮买”订单时可额外传：
 
@@ -79,22 +94,22 @@ X-App-Role: merchant
 
 返回订单会包含 `buyItems`、`budget`、`purchaseAddressName`、`serviceFee` 和 `fee`。其中 `serviceFee` 是跑腿服务费，`fee` 是商品预算 + 跑腿服务费的预估合计。
 
-### 商家端状态流转
+### 运营后台状态流转
 
-商家端 MVP 面向帮买订单，默认门店为 `merchant-demo`。状态流转：
+运营 Web 后台默认展示“全部订单”，用于和用户端订单状态同步；默认运营账号为 `merchant-demo`。配送订单状态流转：
 
 ```text
-待接单 -> 备货中 -> 待骑手取货 -> 已交付
+待接单 -> 已接单 -> 取货中 -> 配送中 -> 已完成
 ```
 
 更新示例：
 
 ```bash
-curl -X PATCH http://127.0.0.1:8000/api/merchant/orders/S订单号/status \
+curl -X PATCH http://127.0.0.1:8000/api/orders/S订单号/status \
   -H 'Content-Type: application/json' \
   -H 'Authorization: Bearer mock-token:merchant:merchant-demo' \
   -H 'X-App-Role: merchant' \
-  -d '{"status":"备货中"}'
+  -d '{"status":"取货中"}'
 ```
 
 ### 骑手预留接口
@@ -111,7 +126,7 @@ curl -X PATCH http://127.0.0.1:8000/api/merchant/orders/S订单号/status \
 - `addresses` 地址
 - `vehicle_types` 配送工具/车型
 - `riders` 骑手
-- `merchants` 商家/门店
+- `merchants` 运营中心/旧版商家预留
 - `orders` 订单
 - `order_status_logs` 订单状态日志
 - `coupons` 优惠券

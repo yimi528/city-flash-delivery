@@ -391,14 +391,20 @@
   padding-bottom: 36rpx;
 }
 
-.vehicle-list {
+.vehicle-scroll {
+  width: 100%;
   margin-top: 34rpx;
-  display: flex;
+  white-space: nowrap;
+}
+
+.vehicle-list {
+  display: inline-flex;
   gap: 28rpx;
+  padding-right: 30rpx;
 }
 
 .vehicle {
-  flex: 1;
+  width: 300rpx;
   min-height: 390rpx;
   border: 4rpx solid #e2e7f0;
   border-radius: 24rpx;
@@ -469,6 +475,27 @@
 .ebike .w1 { left: 38rpx; }
 .ebike .w2 { left: 178rpx; }
 
+.etrike .vehicle-body {
+  left: 32rpx;
+  bottom: 70rpx;
+  width: 178rpx;
+  height: 66rpx;
+  border-radius: 20rpx 28rpx 22rpx 22rpx;
+}
+
+.etrike .vehicle-front {
+  left: 48rpx;
+  bottom: 124rpx;
+  width: 74rpx;
+  height: 54rpx;
+  border-radius: 50rpx 18rpx 0 0;
+  transform: skewX(-12deg);
+}
+
+.etrike .w1 { left: 42rpx; }
+.etrike .w2 { left: 188rpx; }
+
+.van .vehicle-body,
 .car .vehicle-body {
   left: 28rpx;
   bottom: 70rpx;
@@ -477,6 +504,7 @@
   border-radius: 70rpx 80rpx 28rpx 28rpx;
 }
 
+.van .vehicle-front,
 .car .vehicle-front {
   left: 90rpx;
   bottom: 132rpx;
@@ -486,7 +514,9 @@
   transform: skewX(18deg);
 }
 
+.van .w1,
 .car .w1 { left: 62rpx; }
+.van .w2,
 .car .w2 { left: 184rpx; }
 
 .cargo-box {
@@ -511,6 +541,14 @@
   background: #ff7066;
 }
 
+.etrike .cargo-box {
+  right: 48rpx;
+  bottom: 88rpx;
+  width: 66rpx;
+  height: 70rpx;
+}
+
+.van .cargo-box,
 .car .cargo-box {
   right: 60rpx;
   bottom: 86rpx;
@@ -522,6 +560,7 @@
   display: none;
 }
 
+.van .cargo-box.second,
 .car .cargo-box.second {
   display: block;
   right: 36rpx;
@@ -565,6 +604,16 @@
   text-align: center;
   font-size: 21rpx;
   line-height: 1.35;
+}
+
+.vehicle-meta {
+  padding: 0 18rpx 20rpx;
+  color: #ff1712;
+  font-size: 21rpx;
+  font-weight: 850;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
 .bottom-bar {

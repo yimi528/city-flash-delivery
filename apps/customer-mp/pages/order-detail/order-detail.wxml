@@ -3,13 +3,17 @@
   <view class="page-nav">
     <view class="back" bindtap="goBack">‹</view>
     <view class="nav-title">订单详情</view>
-    <view class="nav-action">客服</view>
+    <view class="nav-action sync-action" bindtap="manualSync">{{isSyncing ? '同步中' : '刷新'}}</view>
   </view>
 
   <view class="status-hero">
     <view>
       <view class="status-name">{{order.status}}</view>
       <view class="status-sub">{{order.rider}} · {{order.eta}}</view>
+      <view class="status-sync {{isSyncing ? 'syncing' : ''}}">
+        <view class="sync-dot"></view>
+        <text>{{syncText}}</text>
+      </view>
     </view>
     <view class="status-price">￥{{order.fee}}</view>
   </view>
@@ -72,7 +76,7 @@
 
   <view class="action-bar">
     <button class="outline" bindtap="cancelOrder" wx:if="{{order.status !== '已完成' && order.status !== '已取消'}}">取消订单</button>
-    <button class="outline" bindtap="callRider">联系骑手</button>
+    <button class="outline" bindtap="callRider">联系配送员</button>
     <button class="solid" bindtap="advanceMerchantOrder" wx:if="{{isMerchantMode && merchantActionText}}">{{merchantActionText}}</button>
   </view>
 </view>

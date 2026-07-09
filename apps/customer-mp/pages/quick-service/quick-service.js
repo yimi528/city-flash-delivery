@@ -168,10 +168,14 @@ Page({
       categoryId: config.id,
       categoryName: this.data.selectedOption || config.defaultItem,
       vehicleId: 'ebike',
-      vehicleName: '电动车空间',
-      vehicleShortName: '电动车',
-      vehicleCapacity: '56cm × 44cm × 38cm',
+      vehicleName: '二轮电动',
+      vehicleShortName: '二轮',
+      vehicleCapacity: '45cm × 38cm × 35cm',
       vehicleFee: 0,
+      baseFee: 10,
+      distanceRate: 3,
+      weightRate: 1.8,
+      maxWeight: 10,
       weight: this.data.weight,
       weightLabel: getWeightLabel(this.data.weight)
     }

@@ -37,29 +37,6 @@ function normalizeOrder(order) {
   })
 }
 
-function demoOrder() {
-  return normalizeOrder({
-    id: 'M-DEMO-001',
-    service: '帮买',
-    status: '待接单',
-    statusIndex: 0,
-    merchantStatus: '待接单',
-    buyItems: '帮我买两杯奶茶，一杯少糖一杯正常糖',
-    budget: 50,
-    serviceFee: 8.9,
-    fee: 58.9,
-    purchaseAddressName: '阿嬷手作宁德万达店',
-    purchaseAddressDetail: '宁德万达广场 2 号门',
-    dropoffName: '宁德万达广场写字楼 A 座',
-    dropoffDetail: 'A 座 18 层前台',
-    distance: 1.8,
-    eta: '约 18 分钟',
-    rider: '等待骑手接单',
-    createTime: '示例订单',
-    remark: '少冰，袋子扎紧'
-  })
-}
-
 function calcStats(orders) {
   const realOrders = orders.filter((item) => item.id.indexOf('M-DEMO') !== 0)
   const baseOrders = realOrders.length ? realOrders : orders
@@ -108,7 +85,7 @@ Page({
         store: dashboard.store || app.globalData.merchantStore,
         online: (dashboard.store || {}).status !== '休息中',
         stats: dashboard.stats || calcStats(orders),
-        orders: orders.length ? orders : [demoOrder()]
+        orders
       }, () => this.applyFilter())
     }).catch(() => {
       this.applyLocalDashboard()
@@ -126,7 +103,7 @@ Page({
 
   applyLocalDashboard() {
     const localOrders = (app.globalData.orders || []).filter((item) => item.service === '帮买').map(normalizeOrder)
-    const orders = localOrders.length ? localOrders : [demoOrder()]
+    const orders = localOrders
     this.setData({
       store: app.globalData.merchantStore,
       online: app.globalData.merchantStore.status !== '休息中',

@@ -1,7 +1,8 @@
 const app = getApp()
 const api = require('../../utils/api')
 
-const statusFlow = ['待接单', '已接单', '配送中', '已完成']
+const SYNC_INTERVAL_MS = 2000
+const statusFlow = ['待接单', '已接单', '取货中', '配送中', '已完成']
 const merchantStatusFlow = [
   { status: '待接单', label: '接单' },
   { status: '备货中', label: '备货' },
@@ -35,6 +36,15 @@ function merchantIndex(status) {
   return merchantStatusFlow.findIndex((item) => item.status === status)
 }
 
+function pad(value) {
+  return String(value).padStart(2, '0')
+}
+
+function syncTimeText() {
+  const now = new Date()
+  return `已同步 ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`
+}
+
 Page({
   data: {
     statusBarHeight: 24,
@@ -45,7 +55,9 @@ Page({
     merchantStatus: '',
     merchantActiveIndex: 0,
     merchantActionText: '',
-    isMerchantMode: false
+    isMerchantMode: false,
+    isSyncing: false,
+    syncText: '等待同步'
   },
 
   onLoad(query) {
@@ -56,12 +68,60 @@ Page({
   onShow() {
     const order = app.globalData.orders.find((item) => item.id === this.orderId) || app.globalData.orders[0]
     this.applyOrder(order)
+    this.syncOrder({ silent: false })
+    this.startOrderPolling()
+  },
+
+  onHide() {
+    this.stopOrderPolling()
+  },
+
+  onUnload() {
+    this.stopOrderPolling()
+  },
+
+  onPullDownRefresh() {
+    this.syncOrder({ silent: false, toast: true }).then(() => {
+      if (wx.stopPullDownRefresh) wx.stopPullDownRefresh()
+    })
+  },
+
+  startOrderPolling() {
+    if (!app.globalData.useBackend || !this.orderId || this.orderSyncTimer) return
+    this.orderSyncTimer = setInterval(() => {
+      this.syncOrder({ silent: true })
+    }, SYNC_INTERVAL_MS)
+  },
+
+  stopOrderPolling() {
+    if (!this.orderSyncTimer) return
+    clearInterval(this.orderSyncTimer)
+    this.orderSyncTimer = null
+  },
+
+  syncOrder(options = {}) {
     if (app.globalData.useBackend && this.orderId) {
-      api.getOrder(this.orderId).then((remoteOrder) => {
+      if (this.orderSyncing) return Promise.resolve()
+      const silent = Boolean(options.silent)
+      const oldStatus = this.data.order ? this.data.order.status : ''
+      this.orderSyncing = true
+      if (!silent) this.setData({ isSyncing: true, syncText: '正在同步订单状态...' })
+      return api.getOrder(this.orderId).then((remoteOrder) => {
         this.cacheOrder(remoteOrder)
         this.applyOrder(remoteOrder)
-      }).catch(() => {})
+        this.setData({ isSyncing: false, syncText: syncTimeText() })
+        if (silent && oldStatus && remoteOrder.status !== oldStatus) {
+          wx.showToast({ title: `订单更新为${remoteOrder.status}`, icon: 'none' })
+        }
+        if (options.toast) wx.showToast({ title: '订单状态已同步', icon: 'success' })
+        this.orderSyncing = false
+      }).catch(() => {
+        this.setData({ isSyncing: false, syncText: '同步失败，稍后自动重试' })
+        if (options.toast) wx.showToast({ title: '同步失败，请检查后端', icon: 'none' })
+        this.orderSyncing = false
+      })
     }
+    return Promise.resolve()
   },
 
   applyOrder(order) {
@@ -77,6 +137,10 @@ Page({
     })
   },
 
+  manualSync() {
+    this.syncOrder({ silent: false, toast: true })
+  },
+
   cacheOrder(order) {
     const index = app.globalData.orders.findIndex((item) => item.id === order.id)
     if (index > -1) {
@@ -87,7 +151,7 @@ Page({
   },
 
   nextStatus() {
-    wx.showToast({ title: '订单状态由商家/平台更新', icon: 'none' })
+    wx.showToast({ title: '订单状态由运营后台更新', icon: 'none' })
   },
 
   nextStatusLocal(order) {
@@ -97,6 +161,9 @@ Page({
     if (order.status === '已接单') {
       order.rider = '王师傅'
       order.eta = '约 16 分钟'
+    }
+    if (order.status === '取货中') {
+      order.eta = '正在前往取货'
     }
     if (order.status === '配送中') {
       order.eta = '约 9 分钟'
@@ -149,7 +216,7 @@ Page({
     }
     if (merchantStatus === '已交付') {
       updated.status = '配送中'
-      updated.statusIndex = 2
+      updated.statusIndex = 3
       updated.rider = '王师傅'
       updated.eta = '约 9 分钟'
     }
@@ -175,7 +242,7 @@ Page({
   completeOrderLocal(order) {
     const updated = Object.assign({}, order, {
       status: '已完成',
-      statusIndex: 3,
+      statusIndex: 4,
       merchantStatus: '已交付',
       eta: '已送达',
       rider: order.rider || '王师傅'
@@ -197,7 +264,7 @@ Page({
   },
 
   callRider() {
-    wx.showToast({ title: '演示版暂未接入电话', icon: 'none' })
+    wx.showToast({ title: '演示版暂未接入配送员电话', icon: 'none' })
   },
 
   goBack() {

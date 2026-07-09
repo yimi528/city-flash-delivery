@@ -39,6 +39,11 @@ def request(method: str, url: str, body: dict | None = None, headers: dict | Non
         return exc.code, json.loads(raw) if raw else None
 
 
+def request_text(url: str):
+    with urllib.request.urlopen(url, timeout=5) as resp:
+        return resp.status, resp.read().decode("utf-8")
+
+
 def assert_true(condition: bool, message: str):
     if not condition:
         raise AssertionError(message)
@@ -60,6 +65,8 @@ def main():
     try:
         status, health = request("GET", f"{base}/health")
         assert_true(status == 200 and health["status"] == "ok", "health endpoint failed")
+        status, merchant_html = request_text(base.replace("/api", "/merchant/"))
+        assert_true(status == 200 and "同城速送运营后台" in merchant_html, "operations web static page failed")
 
         status, login = request("POST", f"{base}/auth/wechat-login", {"code": "smoke-code", "userInfo": {"nickName": "烟测用户"}})
         assert_true(status == 200 and login["user"]["nickname"] == "烟测用户" and login["role"] == "customer", f"login failed: {login}")
@@ -67,14 +74,14 @@ def main():
         assert_true(status == 200 and merchant_login["role"] == "merchant" and merchant_login["merchant"]["id"] == "merchant-demo", f"merchant login failed: {merchant_login}")
 
         status, vehicles = request("GET", f"{base}/vehicle-types")
-        assert_true(status == 200 and len(vehicles) >= 2, "vehicle-types endpoint failed")
+        assert_true(status == 200 and {item["id"] for item in vehicles} >= {"ebike", "etrike", "van"}, "vehicle-types endpoint failed")
 
         status, estimate = request(
             "POST",
             f"{base}/pricing/estimate",
-            {"service": "送货", "distanceKm": 2.4, "weightKg": 15, "vehicleId": "car"},
+            {"service": "送货", "distanceKm": 2.4, "weightKg": 15, "vehicleId": "van"},
         )
-        assert_true(status == 200 and estimate["total"] == 61.1, f"unexpected estimate: {estimate}")
+        assert_true(status == 200 and estimate["total"] == 68.2, f"unexpected estimate: {estimate}")
         status, buy_estimate = request(
             "POST",
             f"{base}/pricing/estimate",
@@ -120,12 +127,12 @@ def main():
                 "pickupAddressId": addresses[0]["id"],
                 "dropoffAddressId": addresses[1]["id"],
                 "weightKg": 15,
-                "vehicleId": "car",
+                "vehicleId": "van",
                 "remark": "后端烟测订单",
             },
             headers=CUSTOMER_HEADERS,
         )
-        assert_true(status == 201 and order["vehicleName"] == "汽车空间", f"create order failed: {order}")
+        assert_true(status == 201 and order["vehicleName"] == "面包车", f"create order failed: {order}")
 
         status, buy_order = request(
             "POST",
@@ -149,6 +156,16 @@ def main():
         assert_true(status == 200 and dashboard["stats"]["pending"] >= 1, f"merchant dashboard failed: {dashboard}")
         status, forbidden_dashboard = request("GET", f"{base}/merchant/dashboard?merchantId=merchant-demo", headers=CUSTOMER_HEADERS)
         assert_true(status == 403, f"customer should not access merchant dashboard: {forbidden_dashboard}")
+        status, all_orders = request("GET", f"{base}/merchant/all-orders?merchantId=merchant-demo", headers=MERCHANT_HEADERS)
+        all_order_ids = {item["id"] for item in all_orders["orders"]} if status == 200 else set()
+        assert_true(status == 200 and {order["id"], buy_order["id"]} <= all_order_ids, f"merchant all orders sync failed: {all_orders}")
+
+        status, operator_accepted = request("PATCH", f"{base}/orders/{order['id']}/status", {"status": "已接单", "note": "运营接单"}, headers=MERCHANT_HEADERS)
+        assert_true(status == 200 and operator_accepted["status"] == "已接单", f"operator accept failed: {operator_accepted}")
+        status, operator_pickup = request("PATCH", f"{base}/orders/{order['id']}/status", {"status": "取货中", "note": "运营开始取货"}, headers=MERCHANT_HEADERS)
+        assert_true(status == 200 and operator_pickup["status"] == "取货中", f"operator pickup failed: {operator_pickup}")
+        status, operator_delivering = request("PATCH", f"{base}/orders/{order['id']}/status", {"status": "配送中", "note": "运营开始配送"}, headers=MERCHANT_HEADERS)
+        assert_true(status == 200 and operator_delivering["status"] == "配送中", f"operator delivery failed: {operator_delivering}")
 
         status, merchant_updated = request("PATCH", f"{base}/merchant/orders/{buy_order['id']}/status", {"status": "备货中"}, headers=MERCHANT_HEADERS)
         assert_true(status == 200 and merchant_updated["merchantStatus"] == "备货中" and merchant_updated["status"] == "已接单", f"merchant update failed: {merchant_updated}")
@@ -170,8 +187,8 @@ def main():
         status, forbidden_update = request("PATCH", f"{base}/orders/{order['id']}/status", {"action": "next"}, headers=CUSTOMER_HEADERS)
         assert_true(status == 403, f"customer should not manually update order status: {forbidden_update}")
 
-        status, updated = request("PATCH", f"{base}/orders/{order['id']}/status", {"action": "next"}, headers=ADMIN_HEADERS)
-        assert_true(status == 200 and updated["status"] == "已接单", f"status update failed: {updated}")
+        status, updated = request("PATCH", f"{base}/orders/{order['id']}/status", {"status": "已完成"}, headers=MERCHANT_HEADERS)
+        assert_true(status == 200 and updated["status"] == "已完成", f"operator complete failed: {updated}")
 
         status, orders = request("GET", f"{base}/orders?userId=demo-user", headers=CUSTOMER_HEADERS)
         assert_true(status == 200 and any(item["id"] == order["id"] for item in orders), "list orders failed")
@@ -187,8 +204,8 @@ def run_direct_smoke():
     with app.connect() as conn:
         login = app.login_or_create_user(conn, {"code": "direct-code", "userInfo": {"nickName": "直测用户"}})
         assert_true(login["nickname"] == "直测用户", f"login failed: {login}")
-        estimate = app.estimate_price(conn, {"service": "送货", "distanceKm": 2.4, "weightKg": 15, "vehicleId": "car"})
-        assert_true(estimate["total"] == 61.1, f"unexpected estimate: {estimate}")
+        estimate = app.estimate_price(conn, {"service": "送货", "distanceKm": 2.4, "weightKg": 15, "vehicleId": "van"})
+        assert_true(estimate["total"] == 68.2, f"unexpected estimate: {estimate}")
         buy_estimate = app.estimate_price(conn, {"service": "帮买", "distanceKm": 2.4, "budget": 50})
         assert_true(buy_estimate["total"] == 58.9 and buy_estimate["serviceFee"] == 8.9, f"unexpected buy estimate: {buy_estimate}")
         addresses = conn.execute("SELECT * FROM addresses ORDER BY id").fetchall()
@@ -202,11 +219,11 @@ def run_direct_smoke():
                 "pickupAddressId": addresses[0]["id"],
                 "dropoffAddressId": addresses[1]["id"],
                 "weightKg": 15,
-                "vehicleId": "car",
+                "vehicleId": "van",
                 "remark": "direct smoke test",
             },
         )
-        assert_true(order["vehicleName"] == "汽车空间" and order["fee"] == 61.1, f"create order failed: {order}")
+        assert_true(order["vehicleName"] == "面包车" and order["fee"] == 68.2, f"create order failed: {order}")
         buy_order = app.create_order(
             conn,
             {

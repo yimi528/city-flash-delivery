@@ -59,6 +59,11 @@ Page({
   },
 
   onShow() {
+    if ((app.globalData.features || {}).buyForMe !== true) {
+      wx.showToast({ title: '帮买功能暂时隐藏，先使用帮送/帮取下单', icon: 'none' })
+      setTimeout(() => wx.switchTab({ url: '/pages/index/index' }), 350)
+      return
+    }
     const draft = app.globalData.draftOrder
     const category = findCategory(draft.buyCategoryId || this.data.selectedCategory)
     this.setData({
@@ -162,10 +167,14 @@ Page({
         categoryId: 'daily',
         categoryName: category.name,
         vehicleId: 'ebike',
-        vehicleName: '电动车空间',
-        vehicleShortName: '电动车',
-        vehicleCapacity: '56cm × 44cm × 38cm',
+        vehicleName: '二轮电动',
+        vehicleShortName: '二轮',
+        vehicleCapacity: '45cm × 38cm × 35cm',
         vehicleFee: 0,
+        baseFee: 10,
+        distanceRate: 3,
+        weightRate: 1.8,
+        maxWeight: 10,
         weight: 1,
         weightLabel: '≤1公斤'
       },
