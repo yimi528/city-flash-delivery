@@ -1,6 +1,7 @@
 {
   "pages": [
     "pages/index/index",
+    "pages/quick-service/quick-service",
     "pages/city-buy/city-buy",
     "pages/merchant/merchant",
     "pages/cargo-options/cargo-options",

@@ -1,0 +1,92 @@
+<view class="quick-page">
+  <view class="brand-bg"><view class="orb one"></view><view class="orb two"></view></view>
+  <view style="height: {{statusBarHeight}}px"></view>
+
+  <view class="quick-nav">
+    <view class="left-actions">
+      <view class="back" bindtap="goBack">‹</view>
+      <view class="home" bindtap="goHome">⌂</view>
+    </view>
+    <view class="city-pill">{{city}} <text>▾</text></view>
+    <view class="menu-pill"><text>•••</text><view class="pill-dot"></view></view>
+  </view>
+
+  <view class="hero-card">
+    <view>
+      <view class="hero-kicker">{{config.kicker}}</view>
+      <view class="hero-title">{{config.title}}</view>
+      <view class="hero-sub">{{config.subtitle}}</view>
+    </view>
+    <view class="hero-icon"><text>{{config.icon}}</text></view>
+  </view>
+
+  <scroll-view class="service-scroll" scroll-x="true" show-scrollbar="false">
+    <view class="service-row">
+      <block wx:for="{{serviceTabs}}" wx:key="type">
+        <view class="service-tab {{type === item.type ? 'active' : ''}}" data-type="{{item.type}}" bindtap="switchType">
+          <view>{{item.icon}}</view><text>{{item.name}}</text>
+        </view>
+      </block>
+    </view>
+  </scroll-view>
+
+  <view class="card option-card">
+    <view class="section-head">
+      <view>
+        <view class="section-title">选择服务类型</view>
+        <view class="section-sub">按你的物品和场景匹配骑手提醒</view>
+      </view>
+      <view class="badge">极速</view>
+    </view>
+    <view class="option-grid">
+      <block wx:for="{{config.options}}" wx:key="*this">
+        <view class="option {{selectedOption === item ? 'active' : ''}}" data-option="{{item}}" bindtap="selectOption">{{item}}</view>
+      </block>
+    </view>
+  </view>
+
+  <view class="card address-card">
+    <view class="address-line" data-type="pickup" bindtap="chooseAddress">
+      <view class="pin pickup">取</view>
+      <view class="address-main">
+        <view class="address-title">{{pickup ? pickup.name : '选择取件地址'}}</view>
+        <view class="address-sub">{{pickup ? pickup.detail : '门店、小区、写字楼都可以'}}</view>
+      </view>
+      <view class="address-action">地址簿</view>
+    </view>
+    <view class="address-line" data-type="dropoff" bindtap="chooseAddress">
+      <view class="pin dropoff">送</view>
+      <view class="address-main">
+        <view class="address-title {{dropoff ? '' : 'placeholder'}}">{{dropoff ? dropoff.name : '送到哪里？'}}</view>
+        <view class="address-sub">{{dropoff ? dropoff.detail : '选择收货地址后即可确认订单'}}</view>
+      </view>
+      <view class="address-action">地址簿</view>
+    </view>
+  </view>
+
+  <view class="card detail-card">
+    <view class="section-title">填写需求</view>
+    <textarea value="{{remark}}" maxlength="100" auto-height placeholder="{{config.placeholder}}" bindinput="inputRemark" />
+    <view class="weight-line">
+      <view>
+        <view class="weight-title">预估重量</view>
+        <view class="weight-sub">骑手取件时会再次核对</view>
+      </view>
+      <view class="weight-options">
+        <block wx:for="{{weightOptions}}" wx:key="*this">
+          <view class="weight {{weight === item ? 'active' : ''}}" data-weight="{{item}}" bindtap="selectWeight">{{item}}kg</view>
+        </block>
+      </view>
+    </view>
+  </view>
+
+  <view class="card promise-card">
+    <block wx:for="{{config.tips}}" wx:key="*this">
+      <view class="promise-item"><view>✓</view><text>{{item}}</text></view>
+    </block>
+  </view>
+
+  <view class="bottom-bar">
+    <button class="confirm-btn" bindtap="goOrder">去下单</button>
+  </view>
+</view>

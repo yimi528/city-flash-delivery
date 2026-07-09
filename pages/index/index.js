@@ -7,11 +7,11 @@ Page({
     draft: {},
     services: ['帮送', '帮取', '送货', '帮买'],
     quickServices: [
-      { icon: '🥤', name: '取送饮料' },
-      { icon: '📄', name: '取送文件' },
-      { icon: '🚚', name: '送货搬运' },
-      { icon: '📷', name: '取送数码' },
-      { icon: '✣', name: '更多服务' }
+      { icon: '饮', name: '取送饮料', type: 'drink' },
+      { icon: '文', name: '取送文件', type: 'file' },
+      { icon: '排', name: '代排队', type: 'queue' },
+      { icon: '数', name: '取送数码', type: 'digital' },
+      { icon: '全', name: '更多服务', type: 'more' }
     ],
     nearbyRiders: 12
   },
@@ -52,19 +52,11 @@ Page({
   },
 
   useQuick(event) {
-    const name = event.currentTarget.dataset.name
-    if (name === '送货搬运') {
-      app.globalData.draftOrder.service = '送货'
-      this.setData({ draft: app.globalData.draftOrder })
-      wx.navigateTo({ url: '/pages/cargo-options/cargo-options?from=index' })
-      return
-    }
-    app.globalData.draftOrder.item = name
-    if (name.indexOf('取送') === 0) {
-      app.globalData.draftOrder.service = '帮送'
-    }
+    const type = event.currentTarget.dataset.type || 'drink'
+    const name = event.currentTarget.dataset.name || '取送饮料'
+    app.globalData.draftOrder.quickServiceName = name
     this.setData({ draft: app.globalData.draftOrder })
-    wx.showToast({ title: `已选择${name}`, icon: 'none' })
+    wx.navigateTo({ url: `/pages/quick-service/quick-service?type=${type}` })
   },
 
   openCargoOptions() {

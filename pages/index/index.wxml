@@ -72,12 +72,21 @@
   </view>
 
   <view class="card shortcut-card">
-    <block wx:for="{{quickServices}}" wx:key="name">
-      <view class="quick-item" data-name="{{item.name}}" bindtap="useQuick">
-        <view class="quick-icon">{{item.icon}}</view>
-        <view>{{item.name}}</view>
+    <view class="shortcut-head">
+      <view>
+        <view class="shortcut-title">常用服务</view>
+        <view class="shortcut-sub">饮料、文件、数码、代排队都能直接下单</view>
       </view>
-    </block>
+      <view class="shortcut-more" data-type="more" data-name="更多服务" bindtap="useQuick">全部 ›</view>
+    </view>
+    <view class="quick-row">
+      <block wx:for="{{quickServices}}" wx:key="name">
+        <view class="quick-item" data-name="{{item.name}}" data-type="{{item.type}}" bindtap="useQuick">
+          <view class="quick-icon">{{item.icon}}</view>
+          <view>{{item.name}}</view>
+        </view>
+      </block>
+    </view>
   </view>
 
   <view class="promo-card">

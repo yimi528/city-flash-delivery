@@ -1,7 +1,9 @@
 .orders-page {
   min-height: 100vh;
   padding-bottom: 140rpx;
-  background: #fff;
+  background:
+    radial-gradient(circle at 86% 0, rgba(255, 91, 34, 0.12), transparent 230rpx),
+    linear-gradient(180deg, #fff7f0 0%, #f4f6fb 360rpx, #f4f6fb 100%);
 }
 
 .nav-shell {
@@ -110,9 +112,9 @@
 .order-card {
   margin: 20rpx 30rpx 0;
   padding: 30rpx;
-  border-radius: 28rpx;
+  border-radius: 30rpx;
   background: #fff;
-  box-shadow: 0 14rpx 34rpx rgba(20, 28, 50, 0.06);
+  box-shadow: 0 14rpx 34rpx rgba(20, 28, 50, 0.05);
 }
 
 .order-head,
@@ -129,13 +131,20 @@
 }
 
 .status {
+  height: 44rpx;
+  padding: 0 18rpx;
+  border-radius: 24rpx;
   color: #ff1d16;
+  background: #fff0ed;
   font-size: 25rpx;
   font-weight: 850;
+  display: flex;
+  align-items: center;
 }
 
 .status.done {
   color: #10b775;
+  background: #eafff7;
 }
 
 .route {

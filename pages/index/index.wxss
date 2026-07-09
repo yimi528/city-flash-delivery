@@ -437,8 +437,43 @@
 }
 
 .shortcut-card {
-  height: 158rpx;
-  padding: 22rpx 14rpx 18rpx;
+  min-height: 230rpx;
+  padding: 28rpx 24rpx 24rpx;
+}
+
+.shortcut-head {
+  padding: 0 6rpx 22rpx;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.shortcut-title {
+  color: #0c1b38;
+  font-size: 34rpx;
+  font-weight: 950;
+}
+
+.shortcut-sub {
+  margin-top: 8rpx;
+  color: #8a94a8;
+  font-size: 23rpx;
+}
+
+.shortcut-more {
+  min-width: 96rpx;
+  height: 48rpx;
+  border-radius: 24rpx;
+  color: #ff1712;
+  background: #fff0ed;
+  font-size: 23rpx;
+  font-weight: 900;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.quick-row {
   display: flex;
   justify-content: space-around;
 }
@@ -451,11 +486,18 @@
 }
 
 .quick-icon {
-  height: 58rpx;
-  color: #fb5066;
-  font-size: 48rpx;
-  line-height: 58rpx;
-  margin-bottom: 10rpx;
+  width: 66rpx;
+  height: 66rpx;
+  margin: 0 auto 12rpx;
+  border-radius: 22rpx;
+  color: #fff;
+  background: linear-gradient(180deg, #ff8a80, #ff1712);
+  font-size: 29rpx;
+  font-weight: 950;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 12rpx 22rpx rgba(255, 23, 18, 0.15);
 }
 
 .promo-card {
@@ -463,7 +505,7 @@
   margin: 24rpx 30rpx 0;
   padding: 28rpx 34rpx;
   border-radius: 28rpx;
-  background: linear-gradient(118deg, #0751c3 0%, #0f78ff 52%, #ffe069 52%, #ff3222 100%);
+  background: linear-gradient(135deg, #111d37, #284b8d 62%, #ff5b22 100%);
   color: #fff;
   display: flex;
   align-items: center;
