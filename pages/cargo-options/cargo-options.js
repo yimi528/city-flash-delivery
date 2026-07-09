@@ -1,10 +1,39 @@
 const app = getApp()
 
 const categories = [
-  { id: 'furniture', icon: '🛋️', name: '家具家纺', item: '家具家纺' },
-  { id: 'queue', icon: '⌛', name: '排队取号', item: '排队取号' },
-  { id: 'express', icon: '📦', name: '快递', item: '快递包裹' },
+  { id: 'food', icon: '食', name: '食品饮料', item: '食品饮料' },
+  { id: 'express', icon: '快', name: '快递包裹', item: '快递包裹' },
+  { id: 'flower', icon: '花', name: '鲜花蛋糕', item: '鲜花蛋糕' },
+  { id: 'digital', icon: '数', name: '电子数码', item: '数码配件' },
+  { id: 'furniture', icon: '家', name: '家具家纺', item: '家具家纺' },
+  { id: 'queue', icon: '排', name: '排队取号', item: '排队取号' },
   { id: 'other', icon: '◇', name: '其他', item: '大件物品' }
+]
+
+const guaranteeOptions = [
+  { id: 'g1', range: '价值0-200元', fee: '1元' },
+  { id: 'g2', range: '价值201-400元', fee: '2元' },
+  { id: 'g3', range: '价值401-600元', fee: '3元' },
+  { id: 'g4', range: '价值601-1000元', fee: '5元' }
+]
+
+const weightMarks = [
+  { value: 0, label: '0', major: true },
+  { value: 1, label: '', major: false },
+  { value: 2, label: '', major: false },
+  { value: 3, label: '', major: false },
+  { value: 4, label: '', major: false },
+  { value: 5, label: '5', major: true },
+  { value: 6, label: '', major: false },
+  { value: 7, label: '', major: false },
+  { value: 8, label: '', major: false },
+  { value: 9, label: '', major: false },
+  { value: 10, label: '10', major: true },
+  { value: 11, label: '', major: false },
+  { value: 12, label: '', major: false },
+  { value: 13, label: '', major: false },
+  { value: 14, label: '', major: false },
+  { value: 15, label: '15', major: true }
 ]
 
 const vehicles = [
@@ -30,40 +59,78 @@ const vehicles = [
   }
 ]
 
+function findCategory(id) {
+  return categories.find((item) => item.id === id) || categories[0]
+}
+
+function findVehicle(id) {
+  return vehicles.find((item) => item.id === id) || vehicles[0]
+}
+
 function getWeightLabel(weight) {
   if (weight <= 1) return '≤1公斤'
   if (weight < 10) return `${weight}公斤`
   return `${weight}公斤以上`
 }
 
+function getWeightPercent(weight) {
+  const value = Math.max(0, Math.min(Number(weight || 1), 15))
+  return Math.round((value / 15) * 100)
+}
+
+function weightState(weight) {
+  return {
+    weight,
+    weightLabel: getWeightLabel(weight),
+    weightPercent: getWeightPercent(weight)
+  }
+}
+
 Page({
   data: {
     statusBarHeight: 24,
     categories,
+    guaranteeOptions,
+    weightMarks,
     vehicles,
-    selectedCategory: 'furniture',
-    selectedVehicle: 'car',
+    selectedCategory: 'food',
+    selectedCategoryName: '食品饮料',
+    selectedGuarantee: 'g1',
+    selectedVehicle: 'ebike',
     weight: 1,
     weightLabel: '≤1公斤',
+    weightPercent: 7,
     from: ''
   },
 
   onLoad(query) {
     const cargoOptions = app.globalData.draftOrder.cargoOptions || {}
     const weight = Number(cargoOptions.weight || app.globalData.draftOrder.weight || 1)
+    const selectedCategory = cargoOptions.categoryId || 'food'
+    const state = weightState(weight)
     this.setData({
       statusBarHeight: app.globalData.statusBarHeight,
       from: query.from || '',
-      selectedCategory: cargoOptions.categoryId || 'furniture',
-      selectedVehicle: cargoOptions.vehicleId || 'car',
-      weight,
-      weightLabel: getWeightLabel(weight)
+      selectedCategory,
+      selectedCategoryName: findCategory(selectedCategory).name,
+      selectedGuarantee: cargoOptions.guaranteeId || 'g1',
+      selectedVehicle: cargoOptions.vehicleId || 'ebike',
+      weight: state.weight,
+      weightLabel: state.weightLabel,
+      weightPercent: state.weightPercent
     })
   },
 
   selectCategory(event) {
     const selectedCategory = event.currentTarget.dataset.id
-    this.setData({ selectedCategory })
+    this.setData({
+      selectedCategory,
+      selectedCategoryName: findCategory(selectedCategory).name
+    })
+  },
+
+  selectGuarantee(event) {
+    this.setData({ selectedGuarantee: event.currentTarget.dataset.id })
   },
 
   selectVehicle(event) {
@@ -73,17 +140,18 @@ Page({
 
   changeWeight(event) {
     const weight = Number(event.detail.value)
-    this.setData({ weight, weightLabel: getWeightLabel(weight) })
+    this.setData(weightState(weight))
   },
 
   quickWeight(event) {
     const weight = Number(event.currentTarget.dataset.weight)
-    this.setData({ weight, weightLabel: getWeightLabel(weight) })
+    this.setData(weightState(weight))
   },
 
   confirm() {
-    const category = categories.find((item) => item.id === this.data.selectedCategory) || categories[0]
-    const vehicle = vehicles.find((item) => item.id === this.data.selectedVehicle) || vehicles[0]
+    const category = findCategory(this.data.selectedCategory)
+    const vehicle = findVehicle(this.data.selectedVehicle)
+    const guarantee = guaranteeOptions.find((item) => item.id === this.data.selectedGuarantee) || guaranteeOptions[0]
 
     app.globalData.draftOrder.service = '送货'
     app.globalData.draftOrder.item = category.item
@@ -96,6 +164,9 @@ Page({
       vehicleShortName: vehicle.shortName,
       vehicleCapacity: vehicle.capacity,
       vehicleFee: vehicle.fee,
+      guaranteeId: guarantee.id,
+      guaranteeRange: guarantee.range,
+      guaranteeFee: guarantee.fee,
       weight: this.data.weight,
       weightLabel: this.data.weightLabel
     }

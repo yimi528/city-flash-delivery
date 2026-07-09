@@ -1,4 +1,10 @@
 <view class="cargo-page">
+  <view class="map-backdrop">
+    <view class="road r1"></view>
+    <view class="road r2"></view>
+    <view class="road r3"></view>
+  </view>
+
   <view style="height: {{statusBarHeight}}px"></view>
 
   <view class="page-nav">
@@ -9,50 +15,92 @@
     <view class="menu-pill"><text>•••</text><view class="pill-dot"></view></view>
   </view>
 
-  <view class="category-card">
-    <block wx:for="{{categories}}" wx:key="id">
-      <view class="category {{selectedCategory === item.id ? 'active' : ''}}" data-id="{{item.id}}" bindtap="selectCategory">
-        <view class="category-icon">{{item.icon}}</view>
-        <view>{{item.name}}</view>
+  <view class="content-sheet">
+    <view class="card type-card">
+      <view class="section-title">选择物品类型</view>
+      <view class="desc">请选择真实物品类型，<text>不建议配送超过5000元</text>的物品，易损贵品建议购买保价；如未购买保价，最高赔付上限为7倍运费</view>
+
+      <view class="selected-type">
+        <view>{{selectedCategoryName}}</view>
+        <view class="change-link">修改 ›</view>
       </view>
-    </block>
-  </view>
 
-  <view class="card weight-card">
-    <view class="section-title">选择物品重量</view>
-    <view class="desc">骑手取件时会评估物品重量，超重需要补齐差价，物品过重无法配送 <text>不知道重量›</text></view>
-    <view class="weight-value">{{weightLabel}}</view>
-    <view class="slider-wrap">
-      <view class="triangle"></view>
-      <slider min="1" max="15" step="1" value="{{weight}}" activeColor="#ff1712" backgroundColor="#e6e9f0" block-size="18" block-color="#ff1712" bindchange="changeWeight" bindchanging="changeWeight" />
-      <view class="scale-row"><text>0</text><text>5</text><text>10</text><text>15</text></view>
-    </view>
-    <view class="quick-weights">
-      <view class="quick-weight {{weight === 1 ? 'active' : ''}}" data-weight="1" bindtap="quickWeight">≤1kg</view>
-      <view class="quick-weight {{weight === 5 ? 'active' : ''}}" data-weight="5" bindtap="quickWeight">5kg</view>
-      <view class="quick-weight {{weight === 10 ? 'active' : ''}}" data-weight="10" bindtap="quickWeight">10kg</view>
-      <view class="quick-weight {{weight === 15 ? 'active' : ''}}" data-weight="15" bindtap="quickWeight">15kg</view>
-    </view>
-  </view>
-
-  <view class="card vehicle-card">
-    <view class="section-title">选择配送工具</view>
-    <view class="desc">请参考以下空间，避免物品过大无法配送</view>
-    <view class="vehicle-list">
-      <block wx:for="{{vehicles}}" wx:key="id">
-        <view class="vehicle {{selectedVehicle === item.id ? 'active' : ''}}" data-id="{{item.id}}" bindtap="selectVehicle">
-          <view class="vehicle-visual {{item.id}}">
-            <view class="vehicle-shadow"></view>
-            <view class="vehicle-body"></view>
-            <view class="cargo-box"></view>
-            <view class="size-line size-a">{{item.id === 'ebike' ? '56cm' : '1.3m'}}</view>
-            <view class="size-line size-b">{{item.id === 'ebike' ? '38cm' : '0.8m'}}</view>
-          </view>
-          <view class="vehicle-name">{{item.name}}</view>
-          <view class="vehicle-desc">{{item.desc}}</view>
-          <view class="vehicle-fee">{{item.displayFee}}</view>
+      <scroll-view class="category-scroll" scroll-x="true" show-scrollbar="false">
+        <view class="category-row">
+          <block wx:for="{{categories}}" wx:key="id">
+            <view class="category-chip {{selectedCategory === item.id ? 'active' : ''}}" data-id="{{item.id}}" bindtap="selectCategory">
+              <view class="category-icon">{{item.icon}}</view>
+              <text>{{item.name}}</text>
+            </view>
+          </block>
         </view>
-      </block>
+      </scroll-view>
+
+      <view class="guarantee-panel">
+        <view class="guarantee-head">
+          <view>
+            <view class="guarantee-title">保价放心送 <text>?</text></view>
+            <view class="guarantee-sub">享信用骑士配送 遗失损害全额赔</view>
+          </view>
+        </view>
+        <scroll-view class="guarantee-scroll" scroll-x="true" show-scrollbar="false">
+          <view class="guarantee-row">
+            <block wx:for="{{guaranteeOptions}}" wx:key="id">
+              <view class="guarantee-option {{selectedGuarantee === item.id ? 'active' : ''}}" data-id="{{item.id}}" bindtap="selectGuarantee">
+                <view>{{item.range}}</view>
+                <text>{{item.fee}}</text>
+              </view>
+            </block>
+          </view>
+        </scroll-view>
+      </view>
+    </view>
+
+    <view class="card weight-card">
+      <view class="section-title">选择物品重量</view>
+      <view class="desc">骑手取件时会评估物品重量，超重需要补齐差价，物品过重无法配送<text> 不知道重量›</text></view>
+      <view class="weight-value">{{weightLabel}}</view>
+      <view class="ruler-wrap">
+        <view class="pointer" style="left: {{weightPercent}}%;"><view></view></view>
+        <slider min="1" max="15" step="1" value="{{weight}}" activeColor="rgba(255,23,18,0)" backgroundColor="rgba(228,233,244,0)" block-size="22" block-color="#ff1712" bindchange="changeWeight" bindchanging="changeWeight" />
+        <view class="tick-row">
+          <block wx:for="{{weightMarks}}" wx:key="value">
+            <view class="tick {{item.major ? 'major' : ''}}"><view></view><text>{{item.label}}</text></view>
+          </block>
+        </view>
+      </view>
+      <view class="quick-weights">
+        <view class="quick-weight {{weight === 1 ? 'active' : ''}}" data-weight="1" bindtap="quickWeight">≤1kg</view>
+        <view class="quick-weight {{weight === 5 ? 'active' : ''}}" data-weight="5" bindtap="quickWeight">5kg</view>
+        <view class="quick-weight {{weight === 10 ? 'active' : ''}}" data-weight="10" bindtap="quickWeight">10kg</view>
+        <view class="quick-weight {{weight === 15 ? 'active' : ''}}" data-weight="15" bindtap="quickWeight">15kg</view>
+      </view>
+    </view>
+
+    <view class="card vehicle-card">
+      <view class="section-title">选择配送工具</view>
+      <view class="desc">请参考以下空间，避免物品过大无法配送</view>
+      <view class="vehicle-list">
+        <block wx:for="{{vehicles}}" wx:key="id">
+          <view class="vehicle {{selectedVehicle === item.id ? 'active' : ''}}" data-id="{{item.id}}" bindtap="selectVehicle">
+            <view class="vehicle-visual {{item.id}}">
+              <view class="vehicle-shadow"></view>
+              <view class="vehicle-body"></view>
+              <view class="vehicle-front"></view>
+              <view class="vehicle-wheel w1"></view>
+              <view class="vehicle-wheel w2"></view>
+              <view class="cargo-box"></view>
+              <view class="cargo-box second"></view>
+              <view class="size-line size-a">{{item.id === 'ebike' ? '56cm' : '1.3m'}}</view>
+              <view class="size-line size-b">{{item.id === 'ebike' ? '38cm' : '0.8m'}}</view>
+              <view class="size-line size-c" wx:if="{{item.id === 'ebike'}}">44cm</view>
+              <view class="size-line size-c" wx:else>1.4m</view>
+            </view>
+            <view class="vehicle-name">{{item.name}}</view>
+            <view class="vehicle-desc">{{item.desc}}</view>
+          </view>
+        </block>
+      </view>
     </view>
   </view>
 
