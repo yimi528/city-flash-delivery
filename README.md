@@ -12,7 +12,7 @@ city-flash-delivery/
     merchant-mp/      # 旧版商家小程序，暂保留为 legacy，不作为主入口
   packages/
     shared/           # 多端共享业务状态/角色约定
-  server/             # Python + SQLite 后端 MVP
+  server/             # Python + SQLite 后端 MVP；server/api 为 NestJS 正式后端骨架
   docs/               # UI 参考和产品资料
 ```
 
@@ -83,6 +83,18 @@ cd /Users/Admin1/Documents/Codex/2026-07-09/xian
 node work/test-miniapp-flow.js
 python3 server/smoke_test.py
 ```
+
+## 正式后端迁移方向
+
+已新增 `server/api/` 作为下一阶段正式后端骨架，技术栈为：
+
+```text
+TypeScript + NestJS + Prisma + PostgreSQL/PostGIS + Redis + Swagger + Docker Compose
+```
+
+当前策略是渐进式迁移：保留 `server/app.py` 作为可演示 MVP 后端，同时在 `server/api/` 逐步补齐正式 API、Prisma 数据模型和 PostgreSQL/PostGIS 数据库。等 NestJS 覆盖完整“用户下单 -> 运营后台接单 -> 订单状态同步”闭环后，再删除 Python 后端。
+
+NestJS 后端本地启动说明见：`server/api/README.md`。
 
 ## UI 参考素材
 

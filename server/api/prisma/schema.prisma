@@ -1,0 +1,179 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  CUSTOMER
+  OPERATOR
+  ADMIN
+}
+
+enum ServiceType {
+  DELIVERY
+  PICKUP
+  CARGO
+  BUY_FOR_ME
+}
+
+enum VehicleType {
+  EBIKE
+  ETRIKE
+  VAN
+}
+
+enum OrderStatus {
+  PENDING
+  ACCEPTED
+  PICKING_UP
+  DELIVERING
+  COMPLETED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  UNPAID
+  PAID
+  REFUNDED
+  CLOSED
+}
+
+model User {
+  id          String    @id @default(cuid())
+  openid      String?   @unique
+  phone       String?
+  nickname    String
+  avatarUrl   String    @default("")
+  memberLevel String    @default("NORMAL")
+  role        UserRole  @default(CUSTOMER)
+  addresses   Address[]
+  orders      Order[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@map("users")
+}
+
+model Operator {
+  id        String   @id @default(cuid())
+  username  String   @unique
+  name      String
+  phone     String?
+  role      UserRole @default(OPERATOR)
+  enabled   Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("operators")
+}
+
+model Address {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  name      String
+  detail    String
+  contact   String
+  phone     String
+  city      String   @default("")
+  district  String   @default("")
+  latitude  Decimal? @db.Decimal(10, 7)
+  longitude Decimal? @db.Decimal(10, 7)
+  location  Unsupported("geography(Point, 4326)")?
+  mapPoiId  String   @default("")
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@map("addresses")
+}
+
+model VehicleProfile {
+  id           String      @id @default(cuid())
+  type         VehicleType @unique
+  name         String
+  capacity     String
+  maxWeightKg  Decimal     @db.Decimal(8, 2)
+  baseFee      Decimal     @db.Decimal(8, 2)
+  distanceRate Decimal     @db.Decimal(8, 2)
+  weightRate   Decimal     @db.Decimal(8, 2)
+  vehicleFee   Decimal     @db.Decimal(8, 2)
+  enabled      Boolean     @default(true)
+  orders       Order[]
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  @@map("vehicle_profiles")
+}
+
+model Order {
+  id             String          @id @default(cuid())
+  orderNo        String          @unique
+  userId         String
+  user           User            @relation(fields: [userId], references: [id])
+  serviceType    ServiceType
+  status         OrderStatus     @default(PENDING)
+  paymentStatus  PaymentStatus   @default(UNPAID)
+  pickupName     String
+  pickupDetail   String
+  pickupContact  String
+  pickupPhone    String
+  pickupLat      Decimal?        @db.Decimal(10, 7)
+  pickupLng      Decimal?        @db.Decimal(10, 7)
+  pickupLocation Unsupported("geography(Point, 4326)")?
+  dropoffName    String
+  dropoffDetail  String
+  dropoffContact String
+  dropoffPhone   String
+  dropoffLat     Decimal?        @db.Decimal(10, 7)
+  dropoffLng     Decimal?        @db.Decimal(10, 7)
+  dropoffLocation Unsupported("geography(Point, 4326)")?
+  itemName       String
+  weightKg       Decimal         @db.Decimal(8, 2)
+  distanceKm     Decimal         @db.Decimal(8, 2)
+  vehicleId      String?
+  vehicle        VehicleProfile? @relation(fields: [vehicleId], references: [id])
+  baseFee        Decimal         @db.Decimal(8, 2)
+  distanceFee    Decimal         @db.Decimal(8, 2)
+  weightFee      Decimal         @db.Decimal(8, 2)
+  vehicleFee     Decimal         @db.Decimal(8, 2)
+  discountFee    Decimal         @db.Decimal(8, 2)
+  totalFee       Decimal         @db.Decimal(8, 2)
+  remark         String          @default("")
+  statusLogs     OrderStatusLog[]
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  @@index([userId, createdAt])
+  @@index([status, createdAt])
+  @@map("orders")
+}
+
+model OrderStatusLog {
+  id        String      @id @default(cuid())
+  orderId   String
+  order     Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  status    OrderStatus
+  note      String      @default("")
+  createdBy String      @default("")
+  createdAt DateTime    @default(now())
+
+  @@index([orderId, createdAt])
+  @@map("order_status_logs")
+}
+
+model ServiceArea {
+  id        String   @id @default(cuid())
+  name      String
+  enabled   Boolean  @default(true)
+  boundary  Unsupported("geography(Polygon, 4326)")?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("service_areas")
+}

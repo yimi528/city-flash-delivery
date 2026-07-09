@@ -9,6 +9,9 @@ node_modules/
 miniprogram_npm/
 dist/
 build/
+.env
+.env.*
+!.env.example
 
 # Logs
 *.log

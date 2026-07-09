@@ -1,0 +1,37 @@
+services:
+  postgres:
+    image: postgis/postgis:16-3.4
+    container_name: city-flash-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: city_flash
+      POSTGRES_PASSWORD: city_flash_dev
+      POSTGRES_DB: city_flash
+    ports:
+      - "5432:5432"
+    volumes:
+      - city_flash_pgdata:/var/lib/postgresql/data
+      - ./prisma/sql/001_enable_postgis.sql:/docker-entrypoint-initdb.d/001_enable_postgis.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U city_flash -d city_flash"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  redis:
+    image: redis:7-alpine
+    container_name: city-flash-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - city_flash_redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+volumes:
+  city_flash_pgdata:
+  city_flash_redis:
