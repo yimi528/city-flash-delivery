@@ -87,8 +87,23 @@ Page({
       buyItems
     })
     writeDraft({
+      taskId: 'buy_for_me',
+      taskName: '帮买',
       service: '帮买',
       item: category.name,
+      pricingMode: 'distance_weather',
+      priceSummary: '4公里内10，超出1.8元/公里',
+      servicePricing: {
+        baseDistanceKm: 4,
+        basePrice: 10,
+        extraPerKm: 1.8,
+        badWeatherMultiplier: 1.2
+      },
+      recommendedVehicleType: 'ebike',
+      recommendedVehicleName: '二轮车',
+      selectedLine: null,
+      serviceLimits: null,
+      badWeather: false,
       buyCategoryId: category.id,
       buyCategoryName: category.name,
       buyItems
@@ -167,13 +182,13 @@ Page({
         categoryId: 'daily',
         categoryName: category.name,
         vehicleId: 'ebike',
-        vehicleName: '二轮电动',
+        vehicleName: '二轮车',
         vehicleShortName: '二轮',
-        vehicleCapacity: '45cm × 38cm × 35cm',
+        vehicleCapacity: '小件快速送达',
         vehicleFee: 0,
         baseFee: 10,
-        distanceRate: 3,
-        weightRate: 1.8,
+        distanceRate: 1.8,
+        weightRate: 0,
         maxWeight: 10,
         weight: 1,
         weightLabel: '≤1公斤'

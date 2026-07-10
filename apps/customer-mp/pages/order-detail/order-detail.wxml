@@ -15,7 +15,7 @@
         <text>{{syncText}}</text>
       </view>
     </view>
-    <view class="status-price">￥{{order.fee}}</view>
+    <view class="status-price">{{order.feeText}}</view>
   </view>
 
   <view class="mini-map card">
@@ -70,6 +70,9 @@
     <view class="info-row" wx:if="{{order.service !== '帮买'}}"><text>物品类型</text><text>{{order.item}}</text></view>
     <view class="info-row" wx:if="{{order.service !== '帮买' && order.vehicleName}}"><text>配送工具</text><text>{{order.vehicleName}}</text></view>
     <view class="info-row" wx:if="{{order.service !== '帮买' && order.weightLabel}}"><text>物品重量</text><text>{{order.weightLabel}}</text></view>
+    <view class="info-row" wx:if="{{order.needsQuote}}"><text>报价状态</text><text>等待运营报价</text></view>
+    <view class="info-row" wx:if="{{order.quoteStatus === 'QUOTED'}}"><text>运营报价</text><text>￥{{order.quotedFee || order.fee}}</text></view>
+    <view class="info-row" wx:if="{{order.quoteNote}}"><text>报价说明</text><text>{{order.quoteNote}}</text></view>
     <view class="info-row"><text>配送距离</text><text>{{order.distance}}km</text></view>
     <view class="info-row"><text>下单时间</text><text>{{order.createTime}}</text></view>
   </view>

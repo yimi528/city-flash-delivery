@@ -16,10 +16,10 @@ This is the planned production backend for the city flash delivery project. It d
 ```bash
 cd /Users/Admin1/Documents/Codex/2026-07-09/xian/server/api
 cp .env.example .env
-docker compose up -d
+/Applications/Docker.app/Contents/Resources/bin/docker compose up -d
 npm install
 npm run prisma:generate
-npm run prisma:migrate
+npm run prisma:deploy
 npm run start:dev
 ```
 
@@ -64,7 +64,7 @@ This skeleton includes route/module placeholders for:
 
 ## Database Notes
 
-`prisma/schema.prisma` stores latitude/longitude as decimals and reserves PostGIS columns with Prisma `Unsupported("geography(...)")` fields. The SQL file `prisma/sql/001_enable_postgis.sql` enables PostGIS when the Docker Postgres container first initializes.
+`prisma/schema.prisma` stores latitude/longitude as decimals and reserves PostGIS columns with Prisma `Unsupported("geography(...)")` fields. The initial Prisma migration enables PostGIS extensions before creating tables. The SQL file `prisma/sql/001_enable_postgis.sql` also enables PostGIS when the Docker Postgres container first initializes.
 
 Core delivery flow:
 

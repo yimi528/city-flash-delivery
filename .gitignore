@@ -9,6 +9,9 @@ node_modules/
 miniprogram_npm/
 dist/
 build/
+*.tsbuildinfo
+apps/merchant-web/vite.config.js
+apps/merchant-web/vite.config.d.ts
 .env
 .env.*
 !.env.example

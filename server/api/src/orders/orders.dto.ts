@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer'
-import { IsIn, IsNumber, IsOptional, IsString, Min } from 'class-validator'
+import { IsBoolean, IsIn, IsNumber, IsOptional, IsString, Min } from 'class-validator'
 import {
   ORDER_STATUS_FLOW,
   SERVICE_TYPES,
@@ -19,6 +19,52 @@ export class CreateOrderDto {
 
   @IsIn(VEHICLE_TYPES)
   vehicleType!: VehicleType
+
+  @IsOptional()
+  @IsString()
+  serviceName?: string
+
+  @IsOptional()
+  @IsString()
+  vehicleName?: string
+
+  @IsOptional()
+  @IsString()
+  pricingMode?: string
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  linePrice?: number
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  baseDistanceKm?: number
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  basePrice?: number
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  extraPerKm?: number
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
+  badWeatherMultiplier?: number
+
+  @IsOptional()
+  @IsBoolean()
+  badWeather?: boolean
 
   @IsString()
   pickupName!: string
@@ -49,6 +95,12 @@ export class CreateOrderDto {
   weightKg?: number
 
   @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  budget?: number
+
+  @IsOptional()
   @IsString()
   remark?: string
 }
@@ -60,4 +112,15 @@ export class UpdateOrderStatusDto {
   @IsOptional()
   @IsString()
   note?: string
+}
+
+export class QuoteOrderDto {
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0.01)
+  quotedFee!: number
+
+  @IsOptional()
+  @IsString()
+  quoteNote?: string
 }

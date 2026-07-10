@@ -28,6 +28,21 @@
     </view>
   </view>
 
+  <view class="card line-card" wx:if="{{taskLines.length}}">
+    <view class="section-head">
+      <view class="section-title">选择线路</view>
+      <view class="muted">固定价格</view>
+    </view>
+    <view class="line-grid">
+      <block wx:for="{{taskLines}}" wx:key="id">
+        <view class="line-option {{selectedLineId === item.id ? 'active' : ''}}" data-id="{{item.id}}" bindtap="selectLine">
+          <view class="line-name">{{item.name}}</view>
+          <view class="line-price">￥{{item.price}}</view>
+        </view>
+      </block>
+    </view>
+  </view>
+
   <view class="card buy-card" wx:if="{{draft.service === '帮买'}}">
     <view class="section-head">
       <view class="section-title">代买商品</view>
@@ -45,15 +60,16 @@
 
   <view class="card option-card" wx:else>
     <view class="section-head">
-      <view class="section-title">物品信息</view>
-      <view class="muted">{{draft.service !== '帮买' ? '用于匹配车型' : '用于骑手判断车辆和保价'}}</view>
+      <view class="section-title">{{fieldConfig.sectionTitle}}</view>
+      <view class="muted">{{fieldConfig.sectionHint}}</view>
     </view>
+    <view class="limit-banner" wx:if="{{fieldConfig.limitText}}">{{fieldConfig.limitText}}</view>
     <view class="chips">
       <block wx:for="{{itemTypes}}" wx:key="*this">
         <view class="chip {{draft.item === item ? 'active' : ''}}" data-item="{{item}}" bindtap="selectItem">{{item}}</view>
       </block>
     </view>
-    <view class="weight-row">
+    <view class="weight-row" wx:if="{{fieldConfig.showWeight}}">
       <text>重量</text>
       <view class="weight-list">
         <block wx:for="{{weights}}" wx:key="*this">
@@ -61,15 +77,15 @@
         </block>
       </view>
     </view>
-    <textarea placeholder="备注：如取件码、门牌号、是否需要电话联系" auto-height maxlength="80" bindinput="inputRemark" />
+    <textarea placeholder="{{fieldConfig.remarkPlaceholder}}" auto-height maxlength="120" bindinput="inputRemark" />
   </view>
 
-  <view class="card cargo-card" wx:if="{{draft.service !== '帮买'}}" bindtap="openCargoOptions">
+  <view class="card cargo-card" wx:if="{{draft.service !== '帮买'}}">
     <view class="section-head">
       <view class="section-title">配送工具</view>
-      <view class="edit-link">重新选择</view>
+      <view class="edit-link" bindtap="openCargoOptions">{{isVehicleSelectorOpen ? '收起' : '重新选择'}}</view>
     </view>
-    <view class="cargo-summary">
+    <view class="cargo-summary" bindtap="openCargoOptions">
       <view class="cargo-visual {{draft.cargoOptions.vehicleId}}">
         <view class="cargo-body"></view>
         <view class="cargo-box"></view>
@@ -81,22 +97,55 @@
       <view class="cargo-fee" wx:if="{{draft.cargoOptions.vehicleFee}}">+￥{{draft.cargoOptions.vehicleFee}}</view>
       <view class="cargo-fee" wx:else>基础</view>
     </view>
+    <view class="vehicle-inline" wx:if="{{isVehicleSelectorOpen}}">
+      <view class="vehicle-inline-head">
+        <view class="vehicle-inline-title">选择车型</view>
+        <view class="vehicle-inline-tip">按当前任务推荐，可直接切换</view>
+      </view>
+      <block wx:for="{{vehicles}}" wx:key="id">
+        <view class="vehicle-row {{selectedVehicle === item.id ? 'active' : ''}}" data-id="{{item.id}}" bindtap="selectVehicle">
+          <view class="vehicle-icon {{item.id}}">{{item.icon}}</view>
+          <view class="vehicle-main">
+            <view class="vehicle-line">
+              <text class="vehicle-name">{{item.name}}</text>
+              <text class="vehicle-tag">{{item.tag}}</text>
+            </view>
+            <view class="vehicle-desc">{{item.desc}}</view>
+            <view class="vehicle-capacity">{{item.capacity}}</view>
+          </view>
+          <view class="vehicle-price">
+            <text>{{item.priceText}}</text>
+            <view class="vehicle-check" wx:if="{{selectedVehicle === item.id}}">✓</view>
+          </view>
+        </view>
+      </block>
+    </view>
   </view>
 
   <view class="card price-card">
     <view class="section-head">
       <view class="section-title">费用预估</view>
-      <view class="arrival">{{draft.service === '帮买' ? '骑手代买' : (draft.service === '1对1急送' ? '专人直送' : '车型配送')}}</view>
+      <view class="arrival">{{estimate.pricingNote}}</view>
     </view>
-    <view class="price-row"><text>{{draft.service === '帮买' ? '跑腿起步价' : '起步价'}}</text><text>￥{{estimate.base}}</text></view>
-    <view class="price-row"><text>距离费</text><text>￥{{estimate.distanceFee}}</text></view>
-    <view class="price-row" wx:if="{{draft.service !== '帮买'}}"><text>重量费</text><text>￥{{estimate.weightFee}}</text></view>
-    <view class="price-row" wx:if="{{draft.service !== '帮买'}}"><text>车型费</text><text>￥{{estimate.vehicleFee}}</text></view>
-    <view class="price-row" wx:if="{{draft.service === '1对1急送'}}"><text>急送费</text><text>￥{{estimate.urgentFee}}</text></view>
-    <view class="price-row discount"><text>新人优惠</text><text>-￥{{estimate.discount}}</text></view>
+    <view class="price-row"><text>{{estimate.baseTitle}}</text><text>{{estimate.baseText}}</text></view>
+    <view class="price-row" wx:if="{{estimate.showDistanceFee}}"><text>{{estimate.distanceFeeTitle}}</text><text>￥{{estimate.distanceFee}}</text></view>
+    <view class="price-row" wx:if="{{estimate.showWeatherFee}}"><text>恶劣天气加价</text><text>￥{{estimate.weatherFee}}</text></view>
+    <view class="price-row" wx:if="{{estimate.showWeightFee}}"><text>重量费</text><text>￥{{estimate.weightFee}}</text></view>
+    <view class="price-row" wx:if="{{estimate.showVehicleFee}}"><text>车型费</text><text>￥{{estimate.vehicleFee}}</text></view>
+    <view class="price-row" wx:if="{{estimate.showUrgentFee}}"><text>急送费</text><text>￥{{estimate.urgentFee}}</text></view>
+    <view class="price-row discount" wx:if="{{estimate.showDiscount}}"><text>新人优惠</text><text>-￥{{estimate.discount}}</text></view>
     <view class="price-row service-fee" wx:if="{{draft.service === '帮买'}}"><text>跑腿服务费</text><text>￥{{estimate.serviceFee}}</text></view>
     <view class="price-row budget-fee" wx:if="{{draft.service === '帮买'}}"><text>商品预算</text><text>￥{{estimate.budget}}</text></view>
-    <view class="guarantee" bindtap="toggleGuarantee">
+    <view class="weather-row" wx:if="{{estimate.pricingMode === 'distance_weather'}}" bindtap="toggleBadWeather">
+      <view>
+        <view class="weather-title">恶劣天气</view>
+        <view class="weather-sub">开启后价格按 {{draft.servicePricing.badWeatherMultiplier || 1.2}} 倍计算</view>
+      </view>
+      <view class="switch {{draft.badWeather ? 'on' : ''}}">
+        <view class="switch-dot"></view>
+      </view>
+    </view>
+    <view class="guarantee" wx:if="{{!estimate.isManualQuote && draft.service !== '拼车'}}" bindtap="toggleGuarantee">
       <view class="check {{guarantee ? 'checked' : ''}}">✓</view>
       <view>
         <view class="guarantee-title">购买保价服务</view>
@@ -108,8 +157,8 @@
   <view class="submit-bar">
     <view class="amount">
       <view class="muted">需支付</view>
-      <view class="money">￥{{estimate.total}}</view>
+      <view class="money">{{estimate.totalText}}</view>
     </view>
-    <button class="pay-btn" bindtap="submitOrder">微信支付并下单</button>
+    <button class="pay-btn" bindtap="submitOrder">{{estimate.isManualQuote ? '提交需求，等待报价' : '微信支付并下单'}}</button>
   </view>
 </view>

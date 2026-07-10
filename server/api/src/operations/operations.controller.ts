@@ -1,6 +1,6 @@
 import { Body, Controller, Get, Param, Patch } from '@nestjs/common'
 import { ApiTags } from '@nestjs/swagger'
-import { UpdateOrderStatusDto } from '../orders/orders.dto'
+import { QuoteOrderDto, UpdateOrderStatusDto } from '../orders/orders.dto'
 import { OrdersService } from '../orders/orders.service'
 
 @ApiTags('operations')
@@ -19,5 +19,10 @@ export class OperationsController {
   @Patch('orders/:id/status')
   updateOrderStatus(@Param('id') id: string, @Body() dto: UpdateOrderStatusDto) {
     return this.ordersService.updateStatus(id, dto)
+  }
+
+  @Patch('orders/:id/quote')
+  quoteOrder(@Param('id') id: string, @Body() dto: QuoteOrderDto) {
+    return this.ordersService.quote(id, dto)
   }
 }

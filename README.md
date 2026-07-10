@@ -16,7 +16,7 @@ city-flash-delivery/
   docs/               # UI 参考和产品资料
 ```
 
-根目录 `project.config.json` 默认指向 `apps/customer-mp/`，方便直接导入根目录打开用户端。运营后台主入口为 Web：`http://127.0.0.1:8000/merchant/`。
+根目录 `project.config.json` 默认指向 `apps/customer-mp/`，方便直接导入根目录打开用户端。运营后台主入口为 React Web：`http://127.0.0.1:5173`。
 
 ## 多端职责
 
@@ -26,14 +26,19 @@ city-flash-delivery/
 
 ## 如何运行
 
-### 1. 启动后端
+### 1. 启动正式后端
 
 ```bash
-cd /Users/Admin1/Documents/Codex/2026-07-09/xian/server
-python3 app.py --host 127.0.0.1 --port 8000
+cd /Users/Admin1/Documents/Codex/2026-07-09/xian/server/api
+/Applications/Docker.app/Contents/Resources/bin/docker compose up -d
+npm install
+npm run prisma:deploy
+npm run start:dev
 ```
 
-后端接口地址：`http://127.0.0.1:8000/api`。
+NestJS 后端接口地址：`http://127.0.0.1:3000/api`。
+
+Swagger 文档：`http://127.0.0.1:3000/api/docs`。
 
 ### 2. 打开用户端
 
@@ -45,9 +50,17 @@ python3 app.py --host 127.0.0.1 --port 8000
 
 ### 3. 打开运营 Web 后台
 
-- 确保后端已启动。
-- 浏览器打开：`http://127.0.0.1:8000/merchant/`。
-- 点击“运营登录”，默认运营账号为 `merchant-demo`。
+- 确保 NestJS 后端已启动。
+- 启动 React 运营后台：
+
+```bash
+cd /Users/Admin1/Documents/Codex/2026-07-09/xian/apps/merchant-web
+npm install
+npm run dev
+```
+
+- 浏览器打开：`http://127.0.0.1:5173`。
+- 点击“运营登录”，默认运营账号为 `operator-demo`。
 
 旧版商家小程序 `apps/merchant-mp/` 暂时保留用于对照，后续确认 Web 端稳定后可以删除。
 
@@ -74,7 +87,7 @@ mapConfig: {
 - 运营履约：Web 后台“全部订单”同步用户端状态，固定处理 `待接单 -> 已接单 -> 取货中 -> 配送中 -> 已完成`。
 - 角色隔离：用户端使用 customer token，运营后台使用 merchant token，后端已阻止用户端直接访问后台接单接口。
 - 接单规则：MVP 只保留固定配送流程，不做自定义接单；用户端不能手动推进订单状态。
-- 后端同步：用户端和运营 Web 后台通过同一个 `server/` 的订单接口共享状态；运营后台每 8 秒自动刷新一次，也可手动刷新。
+- 后端同步：用户端和 React 运营 Web 后台通过同一个 NestJS 订单接口共享状态；运营后台每 5 秒自动刷新一次，也可手动刷新。
 
 ## 测试
 

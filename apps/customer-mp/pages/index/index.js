@@ -1,14 +1,19 @@
 const app = getApp()
 const map = require('../../utils/map')
+const serviceConfig = require('../../utils/service-config')
+const vehicleConfig = require('../../utils/vehicle-config')
 
-function enabledServices() {
-  const features = app.globalData.features || {}
-  const services = []
-  if (features.delivery !== false) services.push('帮送')
-  if (features.pickup !== false) services.push('帮取')
-  if (features.cargo !== false) services.push('送货')
-  if (features.buyForMe === true) services.push('帮买')
-  return services
+function ensureDraftTask(taskId) {
+  const draft = app.globalData.draftOrder
+  const nextTaskId = taskId || draft.taskId || 'send_parcel'
+  const isTaskChanged = draft.taskId !== nextTaskId
+  const patch = serviceConfig.buildDraftService(nextTaskId)
+  Object.assign(draft, patch)
+  if (isTaskChanged || !draft.item) {
+    draft.item = serviceConfig.getDefaultItem(nextTaskId)
+  }
+  vehicleConfig.applyVehicleToDraft(draft, patch.recommendedVehicleType)
+  return draft
 }
 
 Page({
@@ -16,42 +21,30 @@ Page({
     statusBarHeight: 24,
     city: '宁德市',
     draft: {},
-    services: [],
-    quickServices: [
-      { icon: '饮', name: '取送饮料', type: 'drink' },
-      { icon: '文', name: '取送文件', type: 'file' },
-      { icon: '排', name: '代排队', type: 'queue' },
-      { icon: '数', name: '取送数码', type: 'digital' },
-      { icon: '全', name: '更多服务', type: 'more' }
-    ],
+    primaryTasks: serviceConfig.PRIMARY_TASKS,
+    commonTasks: serviceConfig.COMMON_TASKS,
+    activeTask: serviceConfig.PRIMARY_TASKS[0],
     nearbyRiders: 12,
     locationText: '定位附近'
   },
 
   onShow() {
+    const draft = ensureDraftTask()
     this.setData({
       statusBarHeight: app.globalData.statusBarHeight,
       city: app.globalData.city,
-      draft: app.globalData.draftOrder,
-      services: enabledServices()
+      draft,
+      activeTask: serviceConfig.getTask(draft.taskId)
     })
   },
 
-  chooseService(event) {
-    const service = event.currentTarget.dataset.service
-    if (service === '帮买' && (app.globalData.features || {}).buyForMe !== true) {
-      wx.showToast({ title: '帮买功能暂未开放', icon: 'none' })
-      return
-    }
-    app.globalData.draftOrder.service = service
-    this.setData({ 'draft.service': service })
-    if (service !== '帮买') {
-      wx.navigateTo({ url: '/pages/cargo-options/cargo-options?from=index' })
-      return
-    }
-    if (service === '帮买') {
-      wx.navigateTo({ url: '/pages/city-buy/city-buy?from=index' })
-    }
+  chooseTask(event) {
+    const taskId = event.currentTarget.dataset.task
+    const draft = ensureDraftTask(taskId)
+    this.setData({
+      draft,
+      activeTask: serviceConfig.getTask(draft.taskId)
+    })
   },
 
   openCity() {
@@ -84,25 +77,13 @@ Page({
     wx.navigateTo({ url: `/pages/address/address?type=${type}` })
   },
 
-  useQuick(event) {
-    const type = event.currentTarget.dataset.type || 'drink'
-    const name = event.currentTarget.dataset.name || '取送饮料'
-    app.globalData.draftOrder.quickServiceName = name
-    this.setData({ draft: app.globalData.draftOrder })
-    wx.navigateTo({ url: `/pages/quick-service/quick-service?type=${type}` })
-  },
-
-  openCargoOptions() {
-    if (!app.globalData.draftOrder.service || app.globalData.draftOrder.service === '帮买') {
-      app.globalData.draftOrder.service = '帮送'
-    }
-    this.setData({ draft: app.globalData.draftOrder })
-    wx.navigateTo({ url: '/pages/cargo-options/cargo-options?from=index' })
+  openPricing() {
+    wx.showToast({ title: this.data.draft.priceSummary || '按甲方规则计价', icon: 'none' })
   },
 
   goOrder() {
     if (!app.globalData.draftOrder.dropoff) {
-      wx.showToast({ title: '请先选择收货地址', icon: 'none' })
+      wx.showToast({ title: '请先选择目的地', icon: 'none' })
       return
     }
     wx.navigateTo({ url: '/pages/order-create/order-create' })

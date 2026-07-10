@@ -1,6 +1,7 @@
 services:
   postgres:
     image: postgis/postgis:16-3.4
+    platform: linux/amd64
     container_name: city-flash-postgres
     restart: unless-stopped
     environment:

@@ -1,6 +1,78 @@
 const app = getApp()
 const api = require('../../utils/api')
 const map = require('../../utils/map')
+const serviceConfig = require('../../utils/service-config')
+const vehicleConfig = require('../../utils/vehicle-config')
+
+const MANUAL_QUOTE_TASKS = {
+  '搬家/搬店': 'move_shop',
+  装货: 'load_goods',
+  卸货: 'unload_goods'
+}
+
+const FIELD_PRESETS = {
+  send_parcel: {
+    sectionTitle: '货物信息',
+    sectionHint: '30kg内，小于1立方米',
+    itemTypes: ['文件/小件', '快递包裹', '食品饮料', '数码配件'],
+    showWeight: true,
+    limitText: '寄货限制：30kg以内，体积小于1立方米',
+    remarkPlaceholder: '备注：货物尺寸、件数、取件码、是否易碎'
+  },
+  carpool_ride: {
+    sectionTitle: '乘车信息',
+    sectionHint: '固定线路拼车',
+    itemTypes: ['1人', '2人', '3人', '带少量行李'],
+    showWeight: false,
+    limitText: '',
+    remarkPlaceholder: '备注：上车时间、乘车人数、行李数量'
+  },
+  cargo_haul: {
+    sectionTitle: '拉货信息',
+    sectionHint: '用于判断是否需要装卸',
+    itemTypes: ['门店补货', '建材五金', '生鲜果蔬', '家具家电', '多件包裹'],
+    showWeight: true,
+    limitText: '',
+    remarkPlaceholder: '备注：货物尺寸、件数、是否需要装货/卸货/搬楼'
+  },
+  urgent_delivery: {
+    sectionTitle: '急送物品',
+    sectionHint: '小件快速送达',
+    itemTypes: ['文件/小件', '饮料日用', '鲜花蛋糕', '数码配件'],
+    showWeight: true,
+    limitText: '',
+    remarkPlaceholder: '备注：取件码、门牌号、是否需要电话联系'
+  },
+  pickup: {
+    sectionTitle: '帮取信息',
+    sectionHint: '写清取件要求',
+    itemTypes: ['快递包裹', '文件证件', '饮料日用', '排队取号'],
+    showWeight: true,
+    limitText: '',
+    remarkPlaceholder: '备注：取件码、联系人、窗口/柜台位置'
+  },
+  pedicab_delivery: {
+    sectionTitle: '送货/送客信息',
+    sectionHint: '短途轻便需求',
+    itemTypes: ['短途送客', '短途送货', '菜市场物品', '小件行李'],
+    showWeight: false,
+    limitText: '',
+    remarkPlaceholder: '备注：人数/件数、是否需要等候'
+  },
+  manual_quote: {
+    sectionTitle: '需求描述',
+    sectionHint: '提交后运营报价',
+    itemTypes: ['搬家/搬店', '装货', '卸货'],
+    showWeight: false,
+    limitText: '此类服务先提交需求，运营确认后报价',
+    remarkPlaceholder: '请写清楼层、有无电梯、货物数量、是否需要多人'
+  }
+}
+
+function getFieldPreset(draft) {
+  if (draft && inferPricingMode(draft) === 'manual_quote') return FIELD_PRESETS.manual_quote
+  return FIELD_PRESETS[(draft && draft.taskId) || ''] || FIELD_PRESETS.urgent_delivery
+}
 
 function getRouteOrigin(draft) {
   if (!draft) return null
@@ -19,34 +91,103 @@ function getRouteSource(draft) {
   return map.normalizePoint(getRouteOrigin(draft)) && map.normalizePoint(draft && draft.dropoff) ? '直线估算' : '地址簿距离'
 }
 
+function formatMoney(value) {
+  return Number(value || 0).toFixed(1)
+}
+
+function inferPricingMode(draft) {
+  if (draft && draft.pricingMode) return draft.pricingMode
+  if (!draft) return 'distance_weather'
+  if (draft.service === '寄货') return 'fixed_line_parcel'
+  if (draft.service === '拼车') return 'fixed_line_ride'
+  if (draft.service === '搬家/搬店' || draft.service === '装货' || draft.service === '卸货') return 'manual_quote'
+  if (draft.service === '急送' || draft.service === '帮取' || draft.service === '帮买' || draft.service === '帮送' || draft.service === '1对1急送') return 'distance_weather'
+  return 'distance'
+}
+
+function getPricingRule(draft) {
+  const vehicle = (draft && draft.cargoOptions) || {}
+  const servicePricing = (draft && draft.servicePricing) || {}
+  return {
+    baseDistanceKm: Number(servicePricing.baseDistanceKm || 4),
+    basePrice: Number(servicePricing.basePrice || vehicle.baseFee || 10),
+    extraPerKm: Number(servicePricing.extraPerKm || vehicle.distanceRate || 1.8),
+    badWeatherMultiplier: Number(servicePricing.badWeatherMultiplier || 1.2)
+  }
+}
+
 function estimateFee(draft) {
   const distance = getRouteDistance(draft)
-  const weight = Number(draft.weight || 1)
-  const isBuy = draft.service === '帮买'
-  const vehicle = draft.cargoOptions || {}
-  const usesVehicle = !isBuy && vehicle.vehicleId
-  const base = isBuy ? 9 : (usesVehicle ? Number(vehicle.baseFee || 10) : 8)
-  const distanceRate = usesVehicle ? Number(vehicle.distanceRate || 3) : 2.4
-  const weightRate = usesVehicle ? Number(vehicle.weightRate || 1.8) : 1.2
-  const distanceFee = Math.max(distance - 1, 0) * (isBuy ? 2.8 : distanceRate)
-  const weightFee = isBuy ? 0 : Math.max(weight - 1, 0) * weightRate
-  const urgentFee = draft.service === '1对1急送' ? 5 : 0
-  const vehicleFee = usesVehicle ? Number(vehicle.vehicleFee || 0) : 0
-  const discount = isBuy ? 4 : 3
+  const isBuy = draft && draft.service === '帮买'
   const budget = isBuy ? Number(draft.budget || 0) : 0
-  const serviceFee = Math.max(base + distanceFee + weightFee + urgentFee + vehicleFee - discount, 6.9)
-  const total = isBuy ? serviceFee + budget : serviceFee
+  const pricingMode = inferPricingMode(draft)
+  const rule = getPricingRule(draft)
+  const selectedLine = (draft && draft.selectedLine) || {}
+  const linePrice = Number(selectedLine.price || 0)
+  const isFixedLine = pricingMode === 'fixed_line_parcel' || pricingMode === 'fixed_line_ride'
+  const isManualQuote = pricingMode === 'manual_quote'
+  const badWeather = !!(draft && draft.badWeather)
+  let base = 0
+  let distanceFee = 0
+  let weatherFee = 0
+  let serviceFee = 0
+  let baseTitle = '起步价'
+  let distanceFeeTitle = `超出${rule.baseDistanceKm}公里费用`
+  let pricingNote = (draft && draft.priceSummary) || '按甲方规则计价'
+
+  if (isManualQuote) {
+    baseTitle = '费用'
+    pricingNote = '需要运营确认后报价'
+  } else if (isFixedLine) {
+    base = linePrice || rule.basePrice
+    serviceFee = base
+    baseTitle = selectedLine.name ? `${selectedLine.name}线路价` : '线路价格'
+    pricingNote = selectedLine.name ? `${draft.taskName || draft.service} · ${selectedLine.name}` : pricingNote
+  } else {
+    base = rule.basePrice
+    const extraKm = Math.max(distance - rule.baseDistanceKm, 0)
+    distanceFee = extraKm * rule.extraPerKm
+    const subtotal = base + distanceFee
+    const multiplier = pricingMode === 'distance_weather' && badWeather ? rule.badWeatherMultiplier : 1
+    weatherFee = subtotal * (multiplier - 1)
+    serviceFee = subtotal + weatherFee
+    baseTitle = `${rule.baseDistanceKm}公里内`
+    if (pricingMode === 'distance_weather') {
+      pricingNote = badWeather ? `恶劣天气 ×${rule.badWeatherMultiplier}` : `超出${rule.baseDistanceKm}公里按${rule.extraPerKm}元/公里`
+    } else {
+      pricingNote = `超出${rule.baseDistanceKm}公里按${rule.extraPerKm}元/公里`
+    }
+  }
+
+  const total = isManualQuote ? 0 : serviceFee + budget
+  const totalText = isManualQuote ? '待报价' : `￥${formatMoney(total)}`
   return {
     distance: distance.toFixed(1),
-    base: base.toFixed(1),
-    distanceFee: distanceFee.toFixed(1),
-    weightFee: weightFee.toFixed(1),
-    urgentFee: urgentFee.toFixed(1),
-    vehicleFee: vehicleFee.toFixed(1),
-    discount: discount.toFixed(1),
-    budget: budget.toFixed(1),
-    serviceFee: serviceFee.toFixed(1),
-    total: total.toFixed(1)
+    pricingMode,
+    pricingNote,
+    isManualQuote,
+    baseTitle,
+    base: formatMoney(base),
+    baseText: isManualQuote ? '待报价' : `￥${formatMoney(base)}`,
+    baseDistanceKm: rule.baseDistanceKm,
+    extraPerKm: rule.extraPerKm,
+    distanceFeeTitle,
+    distanceFee: formatMoney(distanceFee),
+    weatherFee: formatMoney(weatherFee),
+    weightFee: '0.0',
+    urgentFee: '0.0',
+    vehicleFee: '0.0',
+    discount: '0.0',
+    budget: formatMoney(budget),
+    serviceFee: formatMoney(serviceFee),
+    total: formatMoney(total),
+    totalText,
+    showDistanceFee: distanceFee > 0,
+    showWeatherFee: weatherFee > 0,
+    showWeightFee: false,
+    showVehicleFee: false,
+    showUrgentFee: false,
+    showDiscount: false
   }
 }
 
@@ -56,7 +197,38 @@ function getWeightLabel(weight) {
   return `${weight}公斤以上`
 }
 
+function ensureDraftVehicle(draft) {
+  if (!draft || draft.service === '帮买') return 'ebike'
+  const target = draft.recommendedVehicleType || (draft.cargoOptions && draft.cargoOptions.vehicleId) || 'ebike'
+  if (!draft.cargoOptions || draft.cargoOptions.vehicleId !== target) {
+    vehicleConfig.applyVehicleToDraft(draft, target)
+  }
+  return draft.cargoOptions.vehicleId
+}
+
+function prepareFormState(draft) {
+  const task = serviceConfig.getTask((draft && draft.taskId) || 'send_parcel')
+  const taskLines = task.lines || []
+  if (draft && taskLines.length && (!draft.selectedLine || !taskLines.some((item) => item.id === draft.selectedLine.id))) {
+    draft.selectedLine = taskLines[0]
+  }
+  const fieldConfig = getFieldPreset(draft)
+  if (draft && fieldConfig.itemTypes.length && !fieldConfig.itemTypes.includes(draft.item)) {
+    draft.item = inferPricingMode(draft) === 'manual_quote' && fieldConfig.itemTypes.includes(draft.service)
+      ? draft.service
+      : fieldConfig.itemTypes[0]
+  }
+  return {
+    taskLines,
+    selectedLineId: draft && draft.selectedLine ? draft.selectedLine.id : '',
+    fieldConfig,
+    itemTypes: fieldConfig.itemTypes
+  }
+}
+
 function buildLocalOrder(draft, estimate) {
+  const isManualQuote = Boolean(estimate.isManualQuote)
+  const fee = Number(estimate.total)
   return {
     id: `S${Date.now()}`,
     status: '待接单',
@@ -74,9 +246,15 @@ function buildLocalOrder(draft, estimate) {
     purchaseAddressDetail: draft.purchaseAddress ? draft.purchaseAddress.detail : draft.pickup.detail,
     vehicleName: draft.service === '帮买' ? '骑手代买' : (draft.cargoOptions ? draft.cargoOptions.vehicleName : '二轮电动'),
     weightLabel: draft.service === '帮买' ? '' : (draft.cargoOptions ? draft.cargoOptions.weightLabel : getWeightLabel(Number(draft.weight || 1))),
-    fee: Number(estimate.total),
+    fee,
+    feeText: isManualQuote ? '待报价' : `￥${fee}`,
+    pricingMode: estimate.pricingMode,
+    isManualQuote,
+    quoteStatus: isManualQuote ? 'PENDING' : 'NONE',
+    quotedFee: isManualQuote ? null : fee,
+    quoteNote: '',
     distance: Number(estimate.distance),
-    eta: draft.routeDuration ? `约 ${draft.routeDuration} 分钟` : '约 20 分钟',
+    eta: isManualQuote ? '等待运营报价' : (draft.routeDuration ? `约 ${draft.routeDuration} 分钟` : '约 20 分钟'),
     rider: '等待骑手接单',
     createTime: '刚刚',
     remark: draft.remark
@@ -101,7 +279,12 @@ function buildBackendPayload(draft) {
     distanceKm: getRouteDistance(draft),
     weightKg: Number(draft.weight || 1),
     vehicleId: cargoOptions.vehicleId || 'ebike',
+    vehicleName: cargoOptions.vehicleName || draft.recommendedVehicleName || '二轮车',
     cargoOptions,
+    pricingMode: draft.pricingMode || inferPricingMode(draft),
+    servicePricing: draft.servicePricing || {},
+    selectedLine: draft.selectedLine || null,
+    badWeather: !!draft.badWeather,
     routeDistanceSource: draft.routeDistanceSource || getRouteSource(draft),
     remark: draft.remark || ''
   }
@@ -123,6 +306,12 @@ Page({
     estimate: {},
     itemTypes: ['文件/小件', '鲜花蛋糕', '饮料日用', '数码配件', '家具家纺', '快递包裹'],
     weights: [1, 3, 5, 10, 15],
+    taskLines: [],
+    selectedLineId: '',
+    fieldConfig: FIELD_PRESETS.urgent_delivery,
+    vehicles: vehicleConfig.VEHICLES,
+    selectedVehicle: 'ebike',
+    isVehicleSelectorOpen: false,
     guarantee: true,
     routeSource: '地址簿距离',
     routeDuration: '',
@@ -131,10 +320,17 @@ Page({
 
   onShow() {
     const draft = app.globalData.draftOrder
+    const selectedVehicle = ensureDraftVehicle(draft)
+    const formState = prepareFormState(draft)
     this.setData({
       statusBarHeight: app.globalData.statusBarHeight,
       draft,
       estimate: estimateFee(draft),
+      selectedVehicle,
+      taskLines: formState.taskLines,
+      selectedLineId: formState.selectedLineId,
+      fieldConfig: formState.fieldConfig,
+      itemTypes: formState.itemTypes,
       routeSource: getRouteSource(draft),
       routeDuration: draft.routeDuration || ''
     })
@@ -143,9 +339,15 @@ Page({
 
   refreshLocalEstimate() {
     const draft = app.globalData.draftOrder
+    const formState = prepareFormState(draft)
     this.setData({
       draft,
       estimate: estimateFee(draft),
+      selectedVehicle: (draft.cargoOptions && draft.cargoOptions.vehicleId) || this.data.selectedVehicle,
+      taskLines: formState.taskLines,
+      selectedLineId: formState.selectedLineId,
+      fieldConfig: formState.fieldConfig,
+      itemTypes: formState.itemTypes,
       routeSource: getRouteSource(draft),
       routeDuration: draft.routeDuration || ''
     })
@@ -167,6 +369,7 @@ Page({
       this.setData({
         draft,
         estimate: estimateFee(draft),
+        selectedLineId: draft.selectedLine ? draft.selectedLine.id : '',
         routeSource: route.source,
         routeDuration: route.duration,
         isRouteLoading: false
@@ -177,7 +380,26 @@ Page({
   },
 
   selectItem(event) {
-    app.globalData.draftOrder.item = event.currentTarget.dataset.item
+    const item = event.currentTarget.dataset.item
+    const draft = app.globalData.draftOrder
+    const manualTaskId = inferPricingMode(draft) === 'manual_quote' ? MANUAL_QUOTE_TASKS[item] : ''
+    if (manualTaskId) {
+      const patch = serviceConfig.buildDraftService(manualTaskId)
+      Object.assign(draft, patch)
+      draft.item = serviceConfig.getDefaultItem(manualTaskId)
+      vehicleConfig.applyVehicleToDraft(draft, patch.recommendedVehicleType)
+      this.setData({ isVehicleSelectorOpen: false })
+    } else {
+      draft.item = item
+    }
+    this.refreshLocalEstimate()
+  },
+
+  selectLine(event) {
+    const lineId = event.currentTarget.dataset.id
+    const line = this.data.taskLines.find((item) => item.id === lineId)
+    if (!line) return
+    app.globalData.draftOrder.selectedLine = line
     this.refreshLocalEstimate()
   },
 
@@ -192,7 +414,17 @@ Page({
   },
 
   openCargoOptions() {
-    wx.navigateTo({ url: '/pages/cargo-options/cargo-options?from=order-create' })
+    this.setData({ isVehicleSelectorOpen: !this.data.isVehicleSelectorOpen })
+  },
+
+  selectVehicle(event) {
+    const vehicleId = event.currentTarget.dataset.id
+    vehicleConfig.applyVehicleToDraft(app.globalData.draftOrder, vehicleId)
+    this.setData({
+      draft: app.globalData.draftOrder,
+      selectedVehicle: vehicleId,
+      estimate: estimateFee(app.globalData.draftOrder)
+    })
   },
 
   inputRemark(event) {
@@ -211,6 +443,11 @@ Page({
 
   toggleGuarantee() {
     this.setData({ guarantee: !this.data.guarantee })
+  },
+
+  toggleBadWeather() {
+    app.globalData.draftOrder.badWeather = !app.globalData.draftOrder.badWeather
+    this.refreshLocalEstimate()
   },
 
   submitOrder() {

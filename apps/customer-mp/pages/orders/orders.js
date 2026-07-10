@@ -34,7 +34,9 @@ Page({
     const orders = allOrders.filter((item) => {
       if (filter === '全部') return true
       return item.status === filter
-    })
+    }).map((item) => Object.assign({}, item, {
+      feeText: item.feeText || (item.needsQuote ? '待报价' : `￥${item.fee}`)
+    }))
     this.setData({ orders })
   },
 

@@ -125,6 +125,9 @@ Page({
   },
 
   applyOrder(order) {
+    if (order && !order.feeText) {
+      order.feeText = order.needsQuote ? '待报价' : `￥${order.fee}`
+    }
     const merchantStatus = getMerchantStatus(order)
     this.setData({
       statusBarHeight: app.globalData.statusBarHeight,

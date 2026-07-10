@@ -33,25 +33,34 @@
   </view>
 
   <view class="order-panel">
-    <view class="service-tabs">
-      <block wx:for="{{services}}" wx:key="*this">
-        <view class="tab {{draft.service === item ? 'active' : ''}}" data-service="{{item}}" bindtap="chooseService">{{item}}</view>
+    <view class="panel-head">
+      <view>
+        <view class="panel-title">你要做什么？</view>
+        <view class="panel-sub">先选任务，系统自动推荐车型</view>
+      </view>
+      <view class="vehicle-pill">{{draft.recommendedVehicleName || '推荐车型'}}</view>
+    </view>
+
+    <view class="task-grid primary-task-grid">
+      <block wx:for="{{primaryTasks}}" wx:key="id">
+        <view class="task-card {{draft.taskId === item.id ? 'active' : ''}}" data-task="{{item.id}}" bindtap="chooseTask">
+          <view class="task-icon">{{item.icon}}</view>
+          <view class="task-name">{{item.name}}</view>
+        </view>
       </block>
     </view>
 
-    <view class="discount-line"><text class="ticket">券</text> 本单最高优惠<text class="price-red">9元</text>，下单立减!</view>
-
-    <view class="cargo-entry" wx:if="{{draft.service !== '帮买'}}" bindtap="openCargoOptions">
-      <view class="cargo-icon">🚚</view>
-      <view class="cargo-main">
-        <view class="cargo-title">{{draft.cargoOptions.vehicleName || '选择配送工具'}}</view>
-        <view class="cargo-sub">{{draft.cargoOptions.categoryName || '大件物品'}} · {{draft.cargoOptions.weightLabel || '≤1公斤'}} · {{draft.cargoOptions.vehicleCapacity || '请选择车型空间'}}</view>
+    <view class="price-strip" bindtap="openPricing">
+      <view class="price-tag">价</view>
+      <view class="price-main">
+        <view class="price-title">{{draft.taskName || '寄货'}} · {{draft.priceSummary || '按甲方规则计价'}}</view>
+        <view class="price-sub">推荐运力：{{draft.recommendedVehicleName || '小车'}} · {{draft.serviceDesc || '填写地址后下单'}}</view>
       </view>
-      <view class="cargo-change">更改</view>
+      <view class="price-arrow">›</view>
     </view>
 
     <view class="route-row" data-type="pickup" bindtap="chooseAddress">
-      <view class="tag-red">发</view>
+      <view class="tag-red">起</view>
       <view class="route-main">
         <view class="route-title">{{draft.pickup.name}} <text class="arrow">›</text></view>
         <view class="route-sub">{{draft.pickup.phone}}</view>
@@ -60,9 +69,9 @@
     </view>
 
     <view class="route-row dropoff" data-type="dropoff" bindtap="chooseAddress">
-      <view class="tag-green">收</view>
+      <view class="tag-green">到</view>
       <view class="route-main big-input">
-        <view class="route-title {{draft.dropoff ? '' : 'placeholder'}}">{{draft.dropoff ? draft.dropoff.name : '送到哪里？'}}</view>
+        <view class="route-title {{draft.dropoff ? '' : 'placeholder'}}">{{draft.dropoff ? draft.dropoff.name : '目的地/收货地？'}}</view>
         <view class="route-sub" wx:if="{{draft.dropoff}}">{{draft.dropoff.detail}}</view>
       </view>
       <button class="ghost-btn">地址簿</button>
@@ -75,15 +84,17 @@
     <view class="shortcut-head">
       <view>
         <view class="shortcut-title">常用服务</view>
-        <view class="shortcut-sub">饮料、文件、数码、代排队都能直接下单</view>
+        <view class="shortcut-sub">帮取、帮买、搬家、装卸货</view>
       </view>
-      <view class="shortcut-more" data-type="more" data-name="更多服务" bindtap="useQuick">全部 ›</view>
+      <view class="shortcut-more">更省心</view>
     </view>
-    <view class="quick-row">
-      <block wx:for="{{quickServices}}" wx:key="name">
-        <view class="quick-item" data-name="{{item.name}}" data-type="{{item.type}}" bindtap="useQuick">
-          <view class="quick-icon">{{item.icon}}</view>
-          <view>{{item.name}}</view>
+    <view class="common-grid">
+      <block wx:for="{{commonTasks}}" wx:key="id">
+        <view class="common-chip {{draft.taskId === item.id ? 'active' : ''}}" data-task="{{item.id}}" bindtap="chooseTask">
+          <view class="common-icon">{{item.icon}}</view>
+          <view class="common-text">
+            <view class="common-name">{{item.name}}</view>
+          </view>
         </view>
       </block>
     </view>

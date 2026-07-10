@@ -154,6 +154,21 @@ Page({
     }
 
     app.globalData.draftOrder.service = config.service
+    app.globalData.draftOrder.taskId = config.service === '帮取' ? 'pickup' : 'urgent_delivery'
+    app.globalData.draftOrder.taskName = config.service
+    app.globalData.draftOrder.pricingMode = 'distance_weather'
+    app.globalData.draftOrder.priceSummary = '4公里内10，超出1.8元/公里'
+    app.globalData.draftOrder.servicePricing = {
+      baseDistanceKm: 4,
+      basePrice: 10,
+      extraPerKm: 1.8,
+      badWeatherMultiplier: 1.2
+    }
+    app.globalData.draftOrder.recommendedVehicleType = 'ebike'
+    app.globalData.draftOrder.recommendedVehicleName = '二轮车'
+    app.globalData.draftOrder.selectedLine = null
+    app.globalData.draftOrder.serviceLimits = null
+    app.globalData.draftOrder.badWeather = false
     app.globalData.draftOrder.item = this.data.selectedOption || config.defaultItem
     app.globalData.draftOrder.weight = this.data.weight
     app.globalData.draftOrder.remark = this.data.remark || config.placeholder
@@ -168,13 +183,13 @@ Page({
       categoryId: config.id,
       categoryName: this.data.selectedOption || config.defaultItem,
       vehicleId: 'ebike',
-      vehicleName: '二轮电动',
+      vehicleName: '二轮车',
       vehicleShortName: '二轮',
-      vehicleCapacity: '45cm × 38cm × 35cm',
+      vehicleCapacity: '小件快速送达',
       vehicleFee: 0,
       baseFee: 10,
-      distanceRate: 3,
-      weightRate: 1.8,
+      distanceRate: 1.8,
+      weightRate: 0,
       maxWeight: 10,
       weight: this.data.weight,
       weightLabel: getWeightLabel(this.data.weight)

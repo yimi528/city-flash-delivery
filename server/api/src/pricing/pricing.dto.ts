@@ -1,4 +1,4 @@
-import { IsIn, IsNumber, IsOptional, Min } from 'class-validator'
+import { IsBoolean, IsIn, IsNumber, IsOptional, IsString, Min } from 'class-validator'
 import { Type } from 'class-transformer'
 import { SERVICE_TYPES, VEHICLE_TYPES, type ServiceType, type VehicleType } from '../common/constants/order.constants'
 
@@ -12,6 +12,52 @@ export class EstimatePriceDto {
   vehicleType?: VehicleType
 
   @IsOptional()
+  @IsString()
+  serviceName?: string
+
+  @IsOptional()
+  @IsString()
+  vehicleName?: string
+
+  @IsOptional()
+  @IsString()
+  pricingMode?: string
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  linePrice?: number
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  baseDistanceKm?: number
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  basePrice?: number
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  extraPerKm?: number
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
+  badWeatherMultiplier?: number
+
+  @IsOptional()
+  @IsBoolean()
+  badWeather?: boolean
+
+  @IsOptional()
   @Type(() => Number)
   @IsNumber()
   @Min(0)
@@ -22,4 +68,10 @@ export class EstimatePriceDto {
   @IsNumber()
   @Min(0)
   weightKg?: number
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  budget?: number
 }
