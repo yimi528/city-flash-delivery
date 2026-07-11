@@ -128,10 +128,11 @@ function inferPricingMode(draft) {
 function getPricingRule(draft) {
   const vehicle = (draft && draft.cargoOptions) || {}
   const servicePricing = (draft && draft.servicePricing) || {}
+  const hasServiceRule = Number(servicePricing.basePrice || 0) > 0
   return {
-    baseDistanceKm: Number(servicePricing.baseDistanceKm || 4),
-    basePrice: Number(servicePricing.basePrice || vehicle.baseFee || 10),
-    extraPerKm: Number(servicePricing.extraPerKm || vehicle.distanceRate || 1.8),
+    baseDistanceKm: hasServiceRule ? Number(servicePricing.baseDistanceKm || 4) : 4,
+    basePrice: hasServiceRule ? Number(servicePricing.basePrice) : Number(vehicle.baseFee || 10),
+    extraPerKm: hasServiceRule ? Number(servicePricing.extraPerKm || 0) : Number(vehicle.distanceRate || 1.8),
     badWeatherMultiplier: Number(servicePricing.badWeatherMultiplier || 1.2)
   }
 }
@@ -155,10 +156,7 @@ function estimateFee(draft) {
   let distanceFeeTitle = `超出${rule.baseDistanceKm}公里费用`
   let pricingNote = (draft && draft.priceSummary) || '按甲方规则计价'
 
-  if (isManualQuote) {
-    baseTitle = '费用'
-    pricingNote = '需要运营确认后报价'
-  } else if (isFixedLine) {
+  if (isFixedLine) {
     base = linePrice || rule.basePrice
     serviceFee = base
     baseTitle = selectedLine.name ? `${selectedLine.name}线路价` : '线路价格'
@@ -174,14 +172,16 @@ function estimateFee(draft) {
     baseTitle = `${rule.baseDistanceKm}公里内`
     if (pricingMode === 'distance_weather') {
       pricingNote = badWeather ? `天气预报触发恶劣天气 ×${rule.badWeatherMultiplier}` : `超出${rule.baseDistanceKm}公里按${rule.extraPerKm}元/公里`
+    } else if (isManualQuote) {
+      pricingNote = '系统预估价，仅供下单参考；商家报价后需再次确认'
     } else {
       pricingNote = `超出${rule.baseDistanceKm}公里按${rule.extraPerKm}元/公里`
     }
   }
 
   const deliveryFee = serviceFee
-  const total = isManualQuote ? 0 : deliveryFee + productFee
-  const totalText = isManualQuote ? '待报价' : `￥${formatMoney(total)}`
+  const total = deliveryFee + productFee
+  const totalText = `￥${formatMoney(total)}`
   return {
     distance: distance.toFixed(1),
     pricingMode,
@@ -189,7 +189,7 @@ function estimateFee(draft) {
     isManualQuote,
     baseTitle,
     base: formatMoney(base),
-    baseText: isManualQuote ? '待报价' : `￥${formatMoney(base)}`,
+    baseText: `￥${formatMoney(base)}`,
     baseDistanceKm: rule.baseDistanceKm,
     extraPerKm: rule.extraPerKm,
     distanceFeeTitle,
@@ -272,7 +272,8 @@ function buildLocalOrder(draft, estimate) {
     vehicleName: draft.service === '帮买' ? '骑手代买' : (draft.cargoOptions ? draft.cargoOptions.vehicleName : '二轮电动'),
     weightLabel: draft.service === '帮买' ? '' : (draft.cargoOptions ? draft.cargoOptions.weightLabel : getWeightLabel(Number(draft.weight || 1))),
     fee,
-    feeText: isManualQuote ? '待报价' : `￥${fee}`,
+    estimatedFee: fee,
+    feeText: isManualQuote ? `预估￥${fee}` : `￥${fee}`,
     pricingMode: estimate.pricingMode,
     isManualQuote,
     badWeather: !!draft.badWeather,
@@ -281,7 +282,11 @@ function buildLocalOrder(draft, estimate) {
     quotedFee: isManualQuote ? null : fee,
     quoteNote: '',
     distance: Number(estimate.distance),
-    eta: isManualQuote ? '等待运营报价' : (draft.routeDuration ? `约 ${draft.routeDuration} 分钟` : '约 20 分钟'),
+    quoteStatusText: isManualQuote ? '等待商家报价' : '',
+    needsQuote: isManualQuote,
+    needsQuoteConfirmation: false,
+    quoteAccepted: false,
+    eta: isManualQuote ? '等待商家报价' : (draft.routeDuration ? `约 ${draft.routeDuration} 分钟` : '约 20 分钟'),
     rider: '等待骑手接单',
     createTime: '刚刚',
     remark: draft.remark

@@ -502,6 +502,42 @@ h1 {
   font-weight: 750;
 }
 
+.quote-state {
+  margin-top: 14px;
+  padding: 14px 16px;
+  border: 1px solid #dbe3ee;
+  border-radius: 18px;
+  background: #f8fafc;
+}
+
+.quote-state strong,
+.quote-state span {
+  display: block;
+}
+
+.quote-state strong {
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 950;
+}
+
+.quote-state span {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.quote-state.waiting {
+  border-color: rgba(249, 115, 22, 0.24);
+  background: #fff7ed;
+}
+
+.quote-state.accepted {
+  border-color: rgba(16, 185, 129, 0.24);
+  background: #ecfdf5;
+}
+
 .quote-input,
 .quote-note {
   height: 42px;

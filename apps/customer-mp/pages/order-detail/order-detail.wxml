@@ -40,6 +40,43 @@
     <view class="cancel-tip" wx:if="{{order.status === '已取消'}}">该订单已取消，可返回首页重新下单。</view>
   </view>
 
+  <view class="card quote-confirm-card" wx:if="{{order.isManualQuote}}">
+    <view class="quote-confirm-head">
+      <view>
+        <view class="section-title">价格确认</view>
+        <view class="section-sub">下单前预估仅供参考，最终价格由商家报价</view>
+      </view>
+      <view class="quote-confirm-pill {{order.quoteStatus}}">{{order.quoteStatusText}}</view>
+    </view>
+
+    <view class="quote-waiting" wx:if="{{order.quoteStatus === 'PENDING'}}">
+      <view class="quote-waiting-label">规则预估价</view>
+      <view class="quote-waiting-price">￥{{order.estimatedFee}}</view>
+      <view class="quote-waiting-note">商家正在结合实际需求确定最终价格，报价后需要你再次确认。</view>
+    </view>
+
+    <view class="quote-final" wx:elif="{{order.quoteStatus === 'QUOTED'}}">
+      <view class="quote-compare"><text>下单前预估</text><text>￥{{order.estimatedFee}}</text></view>
+      <view class="quote-compare final"><text>商家最终报价</text><text>￥{{order.quotedFee || order.fee}}</text></view>
+      <view class="quote-note" wx:if="{{order.quoteNote}}">{{order.quoteNote}}</view>
+      <view class="quote-warning">接受后订单才会进入接单和履约流程</view>
+      <view class="quote-actions">
+        <button class="quote-reject" disabled="{{isQuoteResponding}}" bindtap="rejectQuote">拒绝报价</button>
+        <button class="quote-accept" loading="{{isQuoteResponding}}" disabled="{{isQuoteResponding}}" bindtap="confirmQuote">接受并继续</button>
+      </view>
+    </view>
+
+    <view class="quote-result rejected" wx:elif="{{order.quoteStatus === 'REJECTED'}}">
+      <view class="quote-result-title">你已拒绝本次报价</view>
+      <view class="quote-result-note">商家可以根据实际情况重新报价，新的价格仍需你确认。</view>
+    </view>
+
+    <view class="quote-result accepted" wx:elif="{{order.quoteStatus === 'ACCEPTED'}}">
+      <view class="quote-result-title">已接受商家报价 ￥{{order.quotedFee || order.fee}}</view>
+      <view class="quote-result-note">价格已确认，运营人员现在可以继续处理订单。</view>
+    </view>
+  </view>
+
   <view class="card merchant-card" wx:if="{{isMerchantMode && order.service === '帮买'}}">
     <view class="merchant-head">
       <view>
@@ -71,8 +108,8 @@
     <view class="info-row" wx:if="{{order.service !== '帮买'}}"><text>物品类型</text><text>{{order.item}}</text></view>
     <view class="info-row" wx:if="{{order.service !== '帮买' && order.vehicleName}}"><text>配送工具</text><text>{{order.vehicleName}}</text></view>
     <view class="info-row" wx:if="{{order.service !== '帮买' && order.weightLabel}}"><text>物品重量</text><text>{{order.weightLabel}}</text></view>
-    <view class="info-row" wx:if="{{order.needsQuote}}"><text>报价状态</text><text>等待运营报价</text></view>
-    <view class="info-row" wx:if="{{order.quoteStatus === 'QUOTED'}}"><text>运营报价</text><text>￥{{order.quotedFee || order.fee}}</text></view>
+    <view class="info-row" wx:if="{{order.isManualQuote}}"><text>规则预估价</text><text>￥{{order.estimatedFee}}</text></view>
+    <view class="info-row" wx:if="{{order.quoteStatus === 'QUOTED' || order.quoteStatus === 'ACCEPTED' || order.quoteStatus === 'REJECTED'}}"><text>商家报价</text><text>￥{{order.quotedFee || order.fee}}</text></view>
     <view class="info-row" wx:if="{{order.quoteNote}}"><text>报价说明</text><text>{{order.quoteNote}}</text></view>
     <view class="info-row"><text>配送距离</text><text>{{order.distance}}km</text></view>
     <view class="info-row"><text>下单时间</text><text>{{order.createTime}}</text></view>

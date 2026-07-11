@@ -33,12 +33,13 @@ export type ApiOrder = {
   deliveryFee?: number
   budget?: number
   serviceFee?: number
+  estimatedFee?: number
   totalFee?: number
   fee?: number
   pricingMode?: string
   isManualQuote?: boolean
   quotedFee?: number | null
-  quoteStatus?: 'NONE' | 'PENDING' | 'QUOTED' | string
+  quoteStatus?: 'NONE' | 'PENDING' | 'QUOTED' | 'ACCEPTED' | 'REJECTED' | string
   quoteNote?: string
   quoteUpdatedAt?: string | null
   remark?: string
@@ -64,6 +65,8 @@ export type Order = ApiOrder & {
   actionText: string
   feeText: string
   needsQuote: boolean
+  awaitingQuoteConfirmation: boolean
+  quoteAccepted: boolean
   quoteStatus: string
 }
 

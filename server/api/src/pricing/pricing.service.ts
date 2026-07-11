@@ -23,16 +23,14 @@ export class PricingService {
     let weatherFee = 0
     let serviceFee = 0
 
-    if (isManualQuote) {
-      serviceFee = 0
-    } else if (isFixedLine) {
+    if (isFixedLine) {
       baseFee = linePrice || basePrice
       serviceFee = baseFee
     } else {
       baseFee = basePrice
       distanceFee = Math.max(distanceKm - baseDistanceKm, 0) * extraPerKm
       const subtotal = baseFee + distanceFee
-      const multiplier = pricingMode === 'distance_weather' && dto.badWeather
+      const multiplier = !isManualQuote && pricingMode === 'distance_weather' && dto.badWeather
         ? Number(dto.badWeatherMultiplier || 1.2)
         : 1
       weatherFee = subtotal * (multiplier - 1)
@@ -43,7 +41,7 @@ export class PricingService {
     const vehicleFee = 0
     const discountFee = 0
     const deliveryFee = serviceFee
-    const total = isManualQuote ? 0 : deliveryFee + productFee
+    const total = deliveryFee + productFee
 
     return {
       serviceType: dto.serviceType || 'DELIVERY',

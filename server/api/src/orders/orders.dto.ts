@@ -171,3 +171,9 @@ export class QuoteOrderDto {
   @IsString()
   quoteNote?: string
 }
+
+export class QuoteDecisionDto {
+  @IsOptional()
+  @IsString()
+  note?: string
+}

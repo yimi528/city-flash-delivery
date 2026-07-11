@@ -87,13 +87,24 @@ export function normalizeOrder(order: ApiOrder): Order {
   const service = order.serviceName || SERVICE_LABELS[order.serviceType || ''] || order.service || '帮送'
   const productFee = Number(order.productFee ?? order.budget ?? 0)
   const fee = Number(order.totalFee ?? order.fee ?? 0)
+  const estimatedFee = Number(order.estimatedFee ?? fee)
   const deliveryFee = Number(order.deliveryFee ?? order.serviceFee ?? Math.max(fee - productFee, 0))
   const distance = Number(order.distanceKm ?? order.distance ?? 0)
   const weight = Number(order.weightKg ?? order.weight ?? 1)
   const vehicleName = order.vehicleName || VEHICLE_LABELS[order.vehicleType || ''] || '配送单'
   const quoteStatus = order.quoteStatus || (order.isManualQuote ? 'PENDING' : 'NONE')
-  const needsQuote = Boolean(order.isManualQuote || order.pricingMode === 'manual_quote') && quoteStatus !== 'QUOTED'
-  const actionText = needsQuote ? '' : actionLabel(status)
+  const isManualQuote = Boolean(order.isManualQuote || order.pricingMode === 'manual_quote')
+  const needsQuote = isManualQuote && (quoteStatus === 'PENDING' || quoteStatus === 'REJECTED')
+  const awaitingQuoteConfirmation = isManualQuote && quoteStatus === 'QUOTED'
+  const quoteAccepted = isManualQuote && quoteStatus === 'ACCEPTED'
+  const actionText = !isManualQuote || quoteAccepted ? actionLabel(status) : ''
+  const feeText = quoteStatus === 'PENDING'
+    ? `预估￥${estimatedFee}`
+    : quoteStatus === 'QUOTED'
+      ? `待确认￥${fee}`
+      : quoteStatus === 'REJECTED'
+        ? '用户已拒绝'
+        : `￥${fee}`
 
   return {
     ...order,
@@ -101,6 +112,7 @@ export function normalizeOrder(order: ApiOrder): Order {
     statusIndex: typeof order.statusIndex === 'number' ? order.statusIndex : Math.max(statusOrder.indexOf(status), 0),
     service,
     fee,
+    estimatedFee,
     productFee,
     deliveryFee,
     budget: productFee,
@@ -115,8 +127,10 @@ export function normalizeOrder(order: ApiOrder): Order {
     vehicleName,
     weightLabel: weightLabel(weight),
     actionText,
-    feeText: needsQuote ? '待报价' : `￥${fee}`,
+    feeText,
     needsQuote,
+    awaitingQuoteConfirmation,
+    quoteAccepted,
     quoteStatus
   }
 }

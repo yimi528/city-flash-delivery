@@ -160,6 +160,141 @@
   padding: 30rpx;
 }
 
+.quote-confirm-card {
+  border: 2rpx solid #ffd9bd;
+  background: linear-gradient(180deg, #fffaf5, #ffffff);
+}
+
+.quote-confirm-head,
+.quote-compare,
+.quote-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20rpx;
+}
+
+.quote-confirm-pill {
+  flex-shrink: 0;
+  padding: 10rpx 16rpx;
+  border-radius: 999rpx;
+  color: #a44b0b;
+  background: #ffead8;
+  font-size: 22rpx;
+  font-weight: 900;
+}
+
+.quote-confirm-pill.ACCEPTED {
+  color: #087a53;
+  background: #dcfbed;
+}
+
+.quote-confirm-pill.REJECTED {
+  color: #b42318;
+  background: #ffe8e5;
+}
+
+.quote-waiting,
+.quote-final,
+.quote-result {
+  margin-top: 26rpx;
+  padding: 24rpx;
+  border-radius: 24rpx;
+  background: #fff;
+  box-shadow: inset 0 0 0 2rpx rgba(255, 184, 126, 0.28);
+}
+
+.quote-waiting-label,
+.quote-result-note,
+.quote-warning,
+.quote-note {
+  color: #7a8498;
+  font-size: 24rpx;
+  line-height: 1.55;
+}
+
+.quote-waiting-price {
+  margin-top: 8rpx;
+  color: #f04400;
+  font-size: 48rpx;
+  font-weight: 950;
+}
+
+.quote-waiting-note {
+  margin-top: 10rpx;
+  color: #68738a;
+  font-size: 24rpx;
+  line-height: 1.55;
+}
+
+.quote-compare {
+  min-height: 60rpx;
+  color: #667085;
+  font-size: 26rpx;
+}
+
+.quote-compare.final {
+  margin-top: 8rpx;
+  color: #111c34;
+  font-weight: 900;
+}
+
+.quote-compare.final text:last-child {
+  color: #f04400;
+  font-size: 38rpx;
+}
+
+.quote-note,
+.quote-warning {
+  margin-top: 16rpx;
+  padding: 16rpx 18rpx;
+  border-radius: 16rpx;
+  background: #f7f8fb;
+}
+
+.quote-warning {
+  color: #a44b0b;
+  background: #fff3e8;
+}
+
+.quote-actions {
+  margin-top: 22rpx;
+}
+
+.quote-reject,
+.quote-accept {
+  height: 82rpx;
+  border-radius: 18rpx;
+  font-size: 27rpx;
+  font-weight: 900;
+}
+
+.quote-reject {
+  width: 210rpx;
+  color: #596579;
+  background: #edf1f6;
+}
+
+.quote-accept {
+  flex: 1;
+  color: #fff;
+  background: linear-gradient(90deg, #ff7b00, #ff2517);
+}
+
+.quote-result-title {
+  color: #111c34;
+  font-size: 29rpx;
+  font-weight: 950;
+}
+
+.quote-result-note {
+  margin-top: 10rpx;
+}
+
+.quote-result.accepted {
+  box-shadow: inset 0 0 0 2rpx rgba(16, 166, 109, 0.22);
+}
+
 .timeline {
   margin-top: 26rpx;
   display: flex;

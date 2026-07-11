@@ -28,4 +28,20 @@ describe('PricingService', () => {
     expect(estimate.productFee).toBe(0)
     expect(estimate.totalFee).toBe(10)
   })
+
+  it('returns a rule-based estimate before a manual quote order is created', () => {
+    const estimate = service.estimate({
+      serviceType: 'CARGO',
+      serviceName: '搬家/搬店',
+      vehicleType: 'ETRIKE',
+      pricingMode: 'manual_quote',
+      distanceKm: 2.5,
+      basePrice: 58,
+      extraPerKm: 5,
+    })
+
+    expect(estimate.isManualQuote).toBe(true)
+    expect(estimate.deliveryFee).toBe(58)
+    expect(estimate.totalFee).toBe(58)
+  })
 })

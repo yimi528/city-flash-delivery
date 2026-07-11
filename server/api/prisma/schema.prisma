@@ -46,6 +46,8 @@ enum QuoteStatus {
   NONE
   PENDING
   QUOTED
+  ACCEPTED
+  REJECTED
 }
 
 model User {
@@ -118,54 +120,56 @@ model VehicleProfile {
 }
 
 model Order {
-  id              String                                 @id @default(cuid())
-  orderNo         String                                 @unique
-  userId          String
-  user            User                                   @relation(fields: [userId], references: [id])
-  serviceType     ServiceType
-  serviceName     String                                 @default("")
-  status          OrderStatus                            @default(PENDING)
-  paymentStatus   PaymentStatus                          @default(UNPAID)
-  pickupName      String
-  pickupDetail    String
-  pickupContact   String
-  pickupPhone     String
-  pickupLat       Decimal?                               @db.Decimal(10, 7)
-  pickupLng       Decimal?                               @db.Decimal(10, 7)
-  pickupLocation  Unsupported("geography(Point, 4326)")?
-  dropoffName     String
-  dropoffDetail   String
-  dropoffContact  String
-  dropoffPhone    String
-  dropoffLat      Decimal?                               @db.Decimal(10, 7)
-  dropoffLng      Decimal?                               @db.Decimal(10, 7)
-  dropoffLocation Unsupported("geography(Point, 4326)")?
-  itemName        String
-  buyItems        String                                 @default("")
-  weightKg        Decimal                                @db.Decimal(8, 2)
-  distanceKm      Decimal                                @db.Decimal(8, 2)
-  vehicleType     VehicleType                            @default(EBIKE)
-  vehicleName     String                                 @default("")
-  vehicleId       String?
-  vehicle         VehicleProfile?                        @relation(fields: [vehicleId], references: [id])
-  pricingMode     String                                 @default("distance")
-  isManualQuote   Boolean                                @default(false)
-  quotedFee       Decimal?                               @db.Decimal(8, 2)
-  quoteStatus     QuoteStatus                            @default(NONE)
-  quoteNote       String                                 @default("")
-  quoteUpdatedAt  DateTime?
-  baseFee         Decimal                                @db.Decimal(8, 2)
-  distanceFee     Decimal                                @db.Decimal(8, 2)
-  weightFee       Decimal                                @db.Decimal(8, 2)
-  vehicleFee      Decimal                                @db.Decimal(8, 2)
-  discountFee     Decimal                                @db.Decimal(8, 2)
-  productFee      Decimal                                @default(0) @db.Decimal(8, 2)
-  deliveryFee     Decimal                                @default(0) @db.Decimal(8, 2)
-  totalFee        Decimal                                @db.Decimal(8, 2)
-  remark          String                                 @default("")
-  statusLogs      OrderStatusLog[]
-  createdAt       DateTime                               @default(now())
-  updatedAt       DateTime                               @updatedAt
+  id               String                                 @id @default(cuid())
+  orderNo          String                                 @unique
+  userId           String
+  user             User                                   @relation(fields: [userId], references: [id])
+  serviceType      ServiceType
+  serviceName      String                                 @default("")
+  status           OrderStatus                            @default(PENDING)
+  paymentStatus    PaymentStatus                          @default(UNPAID)
+  pickupName       String
+  pickupDetail     String
+  pickupContact    String
+  pickupPhone      String
+  pickupLat        Decimal?                               @db.Decimal(10, 7)
+  pickupLng        Decimal?                               @db.Decimal(10, 7)
+  pickupLocation   Unsupported("geography(Point, 4326)")?
+  dropoffName      String
+  dropoffDetail    String
+  dropoffContact   String
+  dropoffPhone     String
+  dropoffLat       Decimal?                               @db.Decimal(10, 7)
+  dropoffLng       Decimal?                               @db.Decimal(10, 7)
+  dropoffLocation  Unsupported("geography(Point, 4326)")?
+  itemName         String
+  buyItems         String                                 @default("")
+  weightKg         Decimal                                @db.Decimal(8, 2)
+  distanceKm       Decimal                                @db.Decimal(8, 2)
+  vehicleType      VehicleType                            @default(EBIKE)
+  vehicleName      String                                 @default("")
+  vehicleId        String?
+  vehicle          VehicleProfile?                        @relation(fields: [vehicleId], references: [id])
+  pricingMode      String                                 @default("distance")
+  isManualQuote    Boolean                                @default(false)
+  quotedFee        Decimal?                               @db.Decimal(8, 2)
+  quoteStatus      QuoteStatus                            @default(NONE)
+  quoteNote        String                                 @default("")
+  quoteUpdatedAt   DateTime?
+  quoteRespondedAt DateTime?
+  baseFee          Decimal                                @db.Decimal(8, 2)
+  distanceFee      Decimal                                @db.Decimal(8, 2)
+  weightFee        Decimal                                @db.Decimal(8, 2)
+  vehicleFee       Decimal                                @db.Decimal(8, 2)
+  discountFee      Decimal                                @db.Decimal(8, 2)
+  productFee       Decimal                                @default(0) @db.Decimal(8, 2)
+  deliveryFee      Decimal                                @default(0) @db.Decimal(8, 2)
+  estimatedFee     Decimal                                @default(0) @db.Decimal(8, 2)
+  totalFee         Decimal                                @db.Decimal(8, 2)
+  remark           String                                 @default("")
+  statusLogs       OrderStatusLog[]
+  createdAt        DateTime                               @default(now())
+  updatedAt        DateTime                               @updatedAt
 
   @@index([userId, createdAt])
   @@index([status, createdAt])

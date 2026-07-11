@@ -99,33 +99,42 @@ const COMMON_TASKS = [
     icon: '搬',
     name: '搬家/搬店',
     subtitle: '推荐货三轮',
-    desc: '价格待确认',
+    desc: '系统先预估，商家下单后报价',
     vehicleType: 'cargo_tricycle',
     vehicleName: '货三轮车',
-    priceSummary: '价格待甲方确认',
-    pricingMode: 'manual_quote'
+    priceSummary: '预估58元起，最终价格下单后确认',
+    pricingMode: 'manual_quote',
+    baseDistanceKm: 4,
+    basePrice: 58,
+    extraPerKm: 5
   },
   {
     id: 'load_goods',
     icon: '装',
     name: '装货',
     subtitle: '人力服务',
-    desc: '可做附加服务',
+    desc: '系统先预估，商家下单后报价',
     vehicleType: 'manual_labor',
     vehicleName: '人力服务',
-    priceSummary: '价格待甲方确认',
-    pricingMode: 'manual_quote'
+    priceSummary: '预估58元起，最终价格下单后确认',
+    pricingMode: 'manual_quote',
+    baseDistanceKm: 4,
+    basePrice: 58,
+    extraPerKm: 0
   },
   {
     id: 'unload_goods',
     icon: '卸',
     name: '卸货',
     subtitle: '人力服务',
-    desc: '可做附加服务',
+    desc: '系统先预估，商家下单后报价',
     vehicleType: 'manual_labor',
     vehicleName: '人力服务',
-    priceSummary: '价格待甲方确认',
-    pricingMode: 'manual_quote'
+    priceSummary: '预估58元起，最终价格下单后确认',
+    pricingMode: 'manual_quote',
+    baseDistanceKm: 4,
+    basePrice: 58,
+    extraPerKm: 0
   },
   {
     id: 'pedicab_delivery',

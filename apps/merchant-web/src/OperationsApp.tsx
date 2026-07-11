@@ -126,23 +126,25 @@ function OrderCard({
       </div>
       <div className="status-row">
         <span>用户端状态：<strong>{order.status}</strong></span>
-        <span>运营操作：<strong>{order.needsQuote ? '填写报价' : (order.actionText || '无需操作')}</strong></span>
+        <span>运营操作：<strong>{order.needsQuote ? (order.quoteStatus === 'REJECTED' ? '重新报价' : '填写报价') : order.awaitingQuoteConfirmation ? '等待用户确认' : (order.actionText || '无需操作')}</strong></span>
       </div>
       <div className="goods-box">
         <div className="goods-title">{order.displayItems}</div>
         <div className="goods-meta">
           {order.service === '帮买'
             ? `商品 ￥${order.productFee || 0} · 配送 ￥${order.deliveryFee || 0} · 合计 ${order.feeText}`
-            : `${order.vehicleName} · ${order.weightLabel} · 合计 ${order.feeText}`}
+            : order.isManualQuote
+              ? `${order.vehicleName} · 规则预估 ￥${order.estimatedFee || 0} · 当前 ${order.feeText}`
+              : `${order.vehicleName} · ${order.weightLabel} · 合计 ${order.feeText}`}
         </div>
         {order.remark ? <div className="goods-note">备注：{order.remark}</div> : null}
-        {order.quoteStatus === 'QUOTED' && order.quoteNote ? <div className="goods-note">报价说明：{order.quoteNote}</div> : null}
+        {order.quoteStatus !== 'PENDING' && order.quoteNote ? <div className="goods-note">报价说明：{order.quoteNote}</div> : null}
       </div>
       {order.needsQuote ? (
         <div className="quote-box">
           <div>
-            <strong>待报价</strong>
-            <span>搬家/装货/卸货类订单需要运营先确认价格。</span>
+            <strong>{order.quoteStatus === 'REJECTED' ? '用户已拒绝，请重新报价' : '填写商家最终报价'}</strong>
+            <span>系统预估 ￥{order.estimatedFee || 0}，最终报价需由用户确认后才能履约。</span>
           </div>
           <label className="quote-input">
             <span>￥</span>
@@ -164,6 +166,16 @@ function OrderCard({
           </button>
         </div>
       ) : null}
+      {order.awaitingQuoteConfirmation ? (
+        <div className="quote-state waiting">
+          <div><strong>等待用户确认报价</strong><span>最终报价 ￥{order.quotedFee || order.fee}，确认前订单不能进入履约。</span></div>
+        </div>
+      ) : null}
+      {order.quoteAccepted ? (
+        <div className="quote-state accepted">
+          <div><strong>用户已接受报价</strong><span>最终价格 ￥{order.quotedFee || order.fee}，现在可以继续处理订单。</span></div>
+        </div>
+      ) : null}
       <div className="route-line">
         <span className="pin buy">{order.sourcePin}</span>
         <div className="route-main"><strong>{order.sourceName}</strong><span>{order.sourceDetail}</span></div>
@@ -175,7 +187,7 @@ function OrderCard({
       <div className="order-bottom">
         <button className="light-btn" type="button" onClick={onTicket}>打印小票</button>
         <button className="action-btn" type="button" disabled={!order.actionText} onClick={() => onAdvance(order.id)}>
-          {order.actionText || '已同步'}
+          {order.actionText || (order.awaitingQuoteConfirmation ? '等待用户确认' : '报价尚未确认')}
         </button>
       </div>
     </article>
@@ -307,7 +319,7 @@ export function OperationsApp() {
   const quoteOrder = useCallback(async (orderId: string, quotedFee: number, quoteNote: string) => {
     try {
       await api.quoteOrder(orderId, quotedFee, quoteNote)
-      showToast(`已报价 ￥${quotedFee}，用户端会自动同步`)
+      showToast(`已报价 ￥${quotedFee}，等待用户确认`)
       await loadDashboard(true)
     } catch (error) {
       showToast(`报价失败：${error instanceof Error ? error.message : '未知错误'}`)

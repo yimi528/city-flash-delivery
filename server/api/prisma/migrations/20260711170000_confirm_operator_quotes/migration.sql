@@ -1,0 +1,9 @@
+ALTER TYPE "QuoteStatus" ADD VALUE IF NOT EXISTS 'ACCEPTED';
+ALTER TYPE "QuoteStatus" ADD VALUE IF NOT EXISTS 'REJECTED';
+
+ALTER TABLE "orders"
+  ADD COLUMN "quoteRespondedAt" TIMESTAMP(3),
+  ADD COLUMN "estimatedFee" DECIMAL(8,2) NOT NULL DEFAULT 0;
+
+UPDATE "orders"
+SET "estimatedFee" = "totalFee";

@@ -196,11 +196,31 @@ function normalizeOrder(order) {
   const weight = Number(order.weightKg || order.weight || 1)
   const vehicleType = order.vehicleType || (order.cargoOptions && order.cargoOptions.vehicleId)
   const quoteStatus = order.quoteStatus || (order.isManualQuote || order.pricingMode === 'manual_quote' ? 'PENDING' : 'NONE')
-  const needsQuote = Boolean(order.isManualQuote || order.pricingMode === 'manual_quote') && quoteStatus !== 'QUOTED'
+  const isManualQuote = Boolean(order.isManualQuote || order.pricingMode === 'manual_quote')
+  const needsQuote = isManualQuote && (quoteStatus === 'PENDING' || quoteStatus === 'REJECTED')
+  const needsQuoteConfirmation = isManualQuote && quoteStatus === 'QUOTED'
+  const quoteAccepted = isManualQuote && quoteStatus === 'ACCEPTED'
   const productFee = Number(order.productFee || order.budget || 0)
   const storedDeliveryFee = Number(order.deliveryFee || order.serviceFee || 0)
   const fee = Number(order.totalFee || order.fee || productFee + storedDeliveryFee || 0)
   const deliveryFee = Number(order.deliveryFee || order.serviceFee || Math.max(fee - productFee, 0))
+  const estimatedFee = Number(order.estimatedFee || (quoteStatus === 'PENDING' ? fee : 0) || fee)
+  const feeText = quoteStatus === 'PENDING'
+    ? `预估￥${estimatedFee}`
+    : quoteStatus === 'QUOTED'
+      ? `待确认￥${fee}`
+      : quoteStatus === 'REJECTED'
+        ? '已拒绝报价'
+        : `￥${fee}`
+  const quoteStatusText = quoteStatus === 'PENDING'
+    ? '等待商家报价'
+    : quoteStatus === 'QUOTED'
+      ? '等待用户确认'
+      : quoteStatus === 'ACCEPTED'
+        ? '用户已接受'
+        : quoteStatus === 'REJECTED'
+          ? '用户已拒绝'
+          : ''
   return Object.assign({}, order, {
     status,
     statusIndex: Number.isInteger(order.statusIndex) ? order.statusIndex : getStatusIndex(status),
@@ -213,17 +233,27 @@ function normalizeOrder(order) {
     vehicleName: toVehicleLabel(vehicleType, order.vehicleName),
     weightLabel: order.weightLabel || getWeightLabel(weight),
     fee,
-    feeText: needsQuote ? '待报价' : `￥${fee}`,
+    estimatedFee,
+    feeText,
     productFee,
     deliveryFee,
     budget: productFee,
     serviceFee: deliveryFee,
     quoteStatus,
     needsQuote,
-    quotedFee: order.quotedFee || (quoteStatus === 'QUOTED' ? fee : null),
+    needsQuoteConfirmation,
+    quoteAccepted,
+    quoteStatusText,
+    quotedFee: order.quotedFee || (['QUOTED', 'ACCEPTED', 'REJECTED'].includes(quoteStatus) ? fee : null),
     quoteNote: order.quoteNote || '',
     distance: Number(order.distanceKm || order.distance || 0),
-    eta: needsQuote ? '等待运营报价' : (order.eta || getEta(status)),
+    eta: quoteStatus === 'PENDING'
+      ? '等待商家报价'
+      : quoteStatus === 'QUOTED'
+        ? '等待你确认价格'
+        : quoteStatus === 'REJECTED'
+          ? '等待商家重新报价'
+          : (order.eta || getEta(status)),
     rider: order.rider || (status === '待接单' ? '等待运营接单' : '同城速送配送员'),
     createTime: order.createTime || formatTime(order.createdAt),
     remark: order.remark || ''
@@ -428,6 +458,20 @@ function updateOrderStatus(id, payload) {
   }).then(normalizeOrder)
 }
 
+function confirmOrderQuote(id) {
+  return request(`/orders/${encodeURIComponent(id)}/quote/confirm`, {
+    method: 'PATCH',
+    data: {}
+  }).then(normalizeOrder)
+}
+
+function rejectOrderQuote(id) {
+  return request(`/orders/${encodeURIComponent(id)}/quote/reject`, {
+    method: 'PATCH',
+    data: {}
+  }).then(normalizeOrder)
+}
+
 function getMerchantDashboard(merchantId) {
   if (isNestApi()) return request('/operations/orders')
   return request(`/merchant/dashboard?merchantId=${encodeURIComponent(merchantId || 'merchant-demo')}`)
@@ -472,6 +516,8 @@ module.exports = {
   getOrders,
   getOrder,
   updateOrderStatus,
+  confirmOrderQuote,
+  rejectOrderQuote,
   getMerchantDashboard,
   getMerchantOrders,
   updateMerchantOrderStatus,

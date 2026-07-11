@@ -57,6 +57,7 @@ Page({
     merchantActionText: '',
     isMerchantMode: false,
     isSyncing: false,
+    isQuoteResponding: false,
     syncText: '等待同步'
   },
 
@@ -125,8 +126,22 @@ Page({
   },
 
   applyOrder(order) {
-    if (order && !order.feeText) {
-      order.feeText = order.needsQuote ? '待报价' : `￥${order.fee}`
+    if (order && order.isManualQuote) {
+      const quoteStatus = order.quoteStatus || 'PENDING'
+      order.estimatedFee = Number(order.estimatedFee || order.fee || 0)
+      order.needsQuote = quoteStatus === 'PENDING' || quoteStatus === 'REJECTED'
+      order.needsQuoteConfirmation = quoteStatus === 'QUOTED'
+      order.quoteAccepted = quoteStatus === 'ACCEPTED'
+      order.quoteStatusText = quoteStatus === 'PENDING'
+        ? '等待商家报价'
+        : quoteStatus === 'QUOTED'
+          ? '等待你确认'
+          : quoteStatus === 'ACCEPTED'
+            ? '已接受'
+            : '已拒绝'
+      if (!order.feeText) order.feeText = quoteStatus === 'PENDING' ? `预估￥${order.estimatedFee}` : `￥${order.fee}`
+    } else if (order && !order.feeText) {
+      order.feeText = `￥${order.fee}`
     }
     const merchantStatus = getMerchantStatus(order)
     this.setData({
@@ -142,6 +157,47 @@ Page({
 
   manualSync() {
     this.syncOrder({ silent: false, toast: true })
+  },
+
+  confirmQuote() {
+    this.respondToQuote(true)
+  },
+
+  rejectQuote() {
+    this.respondToQuote(false)
+  },
+
+  respondToQuote(accepted) {
+    const order = this.data.order
+    if (!order || order.quoteStatus !== 'QUOTED' || this.data.isQuoteResponding) return
+    this.setData({ isQuoteResponding: true })
+    if (app.globalData.useBackend) {
+      const request = accepted ? api.confirmOrderQuote(order.id) : api.rejectOrderQuote(order.id)
+      request.then((remoteOrder) => {
+        this.cacheOrder(remoteOrder)
+        this.applyOrder(remoteOrder)
+        wx.showToast({ title: accepted ? '已接受商家报价' : '已拒绝，等待重新报价', icon: 'none' })
+      }).catch((error) => {
+        wx.showToast({ title: error.message || '价格确认失败', icon: 'none' })
+      }).finally(() => {
+        this.setData({ isQuoteResponding: false })
+      })
+      return
+    }
+
+    const updated = Object.assign({}, order, {
+      quoteStatus: accepted ? 'ACCEPTED' : 'REJECTED',
+      quoteStatusText: accepted ? '已接受' : '已拒绝',
+      needsQuote: !accepted,
+      needsQuoteConfirmation: false,
+      quoteAccepted: accepted,
+      feeText: accepted ? `￥${order.fee}` : '已拒绝报价',
+      eta: accepted ? '等待运营接单' : '等待商家重新报价'
+    })
+    this.cacheOrder(updated)
+    this.applyOrder(updated)
+    this.setData({ isQuoteResponding: false })
+    wx.showToast({ title: accepted ? '已接受商家报价' : '已拒绝，等待重新报价', icon: 'none' })
   },
 
   cacheOrder(order) {

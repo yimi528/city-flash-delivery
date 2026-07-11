@@ -158,6 +158,6 @@
       <view class="muted">需支付</view>
       <view class="money">{{estimate.totalText}}</view>
     </view>
-    <button class="pay-btn" bindtap="submitOrder">{{estimate.isManualQuote ? '提交需求，等待报价' : '微信支付并下单'}}</button>
+    <button class="pay-btn" bindtap="submitOrder">{{estimate.isManualQuote ? '按预估价确认下单' : '微信支付并下单'}}</button>
   </view>
 </view>

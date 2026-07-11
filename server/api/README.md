@@ -68,6 +68,8 @@ This skeleton includes route/module placeholders for:
 
 Customer orders, operator quotes, and order status changes now write to PostgreSQL. `order_status_logs` stores the status timeline, while quote fields on `orders` keep pending/quoted state visible to the customer mini program and operations web.
 
+Manual-quote services use a two-stage price flow. Before ordering, the existing vehicle and distance rules return `estimatedFee` so the customer can decide whether to submit. After ordering, the operator sets the final `quotedFee`; the customer must accept it through `PATCH /api/orders/:id/quote/confirm` before operations can advance the order. A rejection through `PATCH /api/orders/:id/quote/reject` returns the order for a new quote.
+
 Buy-for-me orders persist `productFee` and `deliveryFee` separately. Their payable `totalFee` is always calculated as `productFee + deliveryFee`; the legacy `budget` and `serviceFee` response aliases remain available to older clients.
 
 Bad-weather pricing should be system-driven, not user-selected. The mini program calls `GET /api/maps/weather-risk` on the order confirmation page and applies the returned `isBadWeather` result to the estimate. The endpoint reads forecast data by coordinate, applies keyword/weather-code/wind/rain thresholds, and supports `BAD_WEATHER_OVERRIDE=true|false` for local demos.

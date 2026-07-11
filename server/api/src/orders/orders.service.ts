@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common'
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common'
 import {
   OrderStatus as PrismaOrderStatus,
   Prisma,
@@ -14,7 +14,7 @@ import {
 import { VEHICLE_PRICING } from '../common/constants/pricing.constants'
 import { PrismaService } from '../common/prisma/prisma.service'
 import { PricingService } from '../pricing/pricing.service'
-import { CreateOrderDto, QuoteOrderDto, UpdateOrderStatusDto } from './orders.dto'
+import { CreateOrderDto, QuoteDecisionDto, QuoteOrderDto, UpdateOrderStatusDto } from './orders.dto'
 
 type PersistedOrder = Prisma.OrderGetPayload<{ include: { vehicle: true } }>
 type Decimalish = Prisma.Decimal | number | string | null | undefined
@@ -99,6 +99,7 @@ export class OrdersService {
         quoteStatus: estimate.isManualQuote ? PrismaQuoteStatus.PENDING : PrismaQuoteStatus.NONE,
         quoteNote: '',
         quoteUpdatedAt: null,
+        quoteRespondedAt: null,
         baseFee: estimate.baseFee,
         distanceFee: estimate.distanceFee,
         weightFee: estimate.weightFee,
@@ -106,6 +107,7 @@ export class OrdersService {
         discountFee: estimate.discountFee,
         productFee: estimate.productFee,
         deliveryFee: estimate.deliveryFee,
+        estimatedFee: estimate.totalFee,
         totalFee: estimate.totalFee,
         remark: dto.remark || '',
         statusLogs: {
@@ -125,6 +127,10 @@ export class OrdersService {
   async updateStatus(id: string, dto: UpdateOrderStatusDto) {
     const order = await this.findOrderEntity(id)
     const status = (dto.status || this.nextPersistedStatus(order.status)) as PrismaOrderStatus
+    const isProgressing = status !== PrismaOrderStatus.PENDING && status !== PrismaOrderStatus.CANCELLED
+    if (order.isManualQuote && order.quoteStatus !== PrismaQuoteStatus.ACCEPTED && isProgressing) {
+      throw new ConflictException('用户尚未确认商家报价，订单不能进入履约流程')
+    }
     const updated = await this.prisma.order.update({
       where: { id: order.id },
       data: {
@@ -144,6 +150,13 @@ export class OrdersService {
 
   async quote(id: string, dto: QuoteOrderDto) {
     const order = await this.findOrderEntity(id)
+    if (!order.isManualQuote) throw new BadRequestException('该订单不需要商家报价')
+    if (order.status !== PrismaOrderStatus.PENDING) {
+      throw new ConflictException('订单已进入履约流程，不能重新报价')
+    }
+    if (order.quoteStatus === PrismaQuoteStatus.ACCEPTED) {
+      throw new ConflictException('用户已确认报价，不能再修改价格')
+    }
     const quotedFee = Number(Number(dto.quotedFee).toFixed(1))
     const updated = await this.prisma.order.update({
       where: { id: order.id },
@@ -152,7 +165,41 @@ export class OrdersService {
         quoteStatus: PrismaQuoteStatus.QUOTED,
         quoteNote: dto.quoteNote || '',
         quoteUpdatedAt: new Date(),
+        quoteRespondedAt: null,
         totalFee: quotedFee,
+      },
+      include: { vehicle: true },
+    })
+    return this.toApiOrder(updated)
+  }
+
+  async confirmQuote(id: string, dto: QuoteDecisionDto) {
+    return this.respondToQuote(id, true, dto)
+  }
+
+  async rejectQuote(id: string, dto: QuoteDecisionDto) {
+    return this.respondToQuote(id, false, dto)
+  }
+
+  private async respondToQuote(id: string, accepted: boolean, dto: QuoteDecisionDto) {
+    const order = await this.findOrderEntity(id)
+    if (!order.isManualQuote) throw new BadRequestException('该订单不需要确认报价')
+    if (order.quoteStatus !== PrismaQuoteStatus.QUOTED) {
+      throw new ConflictException('当前没有等待确认的商家报价')
+    }
+    const quoteStatus = accepted ? PrismaQuoteStatus.ACCEPTED : PrismaQuoteStatus.REJECTED
+    const updated = await this.prisma.order.update({
+      where: { id: order.id },
+      data: {
+        quoteStatus,
+        quoteRespondedAt: new Date(),
+        statusLogs: {
+          create: {
+            status: order.status,
+            note: dto.note || (accepted ? '用户确认商家报价' : '用户拒绝商家报价'),
+            createdBy: order.userId,
+          },
+        },
       },
       include: { vehicle: true },
     })
@@ -248,6 +295,7 @@ export class OrdersService {
       quoteStatus: order.quoteStatus,
       quoteNote: order.quoteNote,
       quoteUpdatedAt: order.quoteUpdatedAt ? order.quoteUpdatedAt.toISOString() : null,
+      quoteRespondedAt: order.quoteRespondedAt ? order.quoteRespondedAt.toISOString() : null,
       baseFee: this.toNumber(order.baseFee) || 0,
       distanceFee: this.toNumber(order.distanceFee) || 0,
       weightFee: this.toNumber(order.weightFee) || 0,
@@ -255,6 +303,7 @@ export class OrdersService {
       discountFee: this.toNumber(order.discountFee) || 0,
       productFee: this.toNumber(order.productFee) || 0,
       deliveryFee: this.toNumber(order.deliveryFee) || 0,
+      estimatedFee: this.toNumber(order.estimatedFee) || 0,
       budget: this.toNumber(order.productFee) || 0,
       serviceFee: this.toNumber(order.deliveryFee) || 0,
       totalFee,
