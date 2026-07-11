@@ -43,7 +43,7 @@ App({
     city: '宁德市',
     currentLocation: null,
     mapConfig: {
-      // 填入腾讯位置服务 WebService Key 后可使用真实地址搜索/逆地址解析/距离矩阵。
+      // Key 默认由 NestJS 后端托管；此处仅用于无后端时的腾讯地图直连回退。
       tencentKey: '',
       defaultRegion: '宁德市',
       distanceMode: 'bicycling',

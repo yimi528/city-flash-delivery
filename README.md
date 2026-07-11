@@ -66,19 +66,25 @@ npm run dev
 
 ## 腾讯地图配置
 
-用户端默认保留本地模拟 POI，填入腾讯位置服务 WebService Key 后会切换为真实搜索、逆地址解析和距离矩阵。
+腾讯位置服务 WebService Key 由 NestJS 后端托管，避免把密钥放进小程序代码。在 `server/api/.env` 中填写：
 
-在 `apps/customer-mp/app.js` 中填写：
-
-```js
-mapConfig: {
-  tencentKey: '你的腾讯位置服务Key',
-  defaultRegion: '宁德市',
-  distanceMode: 'bicycling'
-}
+```bash
+TENCENT_MAP_KEY=你的腾讯位置服务WebServiceKey
+BAD_WEATHER_MULTIPLIER=1.15
 ```
 
-微信小程序后台的 request 合法域名需要加入：`https://apis.map.qq.com`。用户端 `app.json` 已声明定位权限。
+重启后端后，小程序会通过以下接口使用真实地图数据：
+
+```text
+GET /api/maps/suggestion
+GET /api/maps/reverse-geocode
+GET /api/maps/distance
+GET /api/maps/weather-risk
+```
+
+天气预报由后端调用 Open-Meteo，并根据未来 3 小时天气代码、降水和风速自动判断恶劣天气。腾讯地图或后端暂时不可用时，小程序会自动退回本地地址建议和直线距离估算，不影响下单。
+
+正式发布时，微信小程序后台的 request 合法域名只需加入部署后的 API HTTPS 域名。用户端 `app.json` 已声明定位权限。
 
 ## 当前功能
 

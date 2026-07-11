@@ -89,7 +89,7 @@ function getMapKey() {
 
 function hasMapKey() {
   const key = getMapKey()
-  return !!key && !/YOUR|DEMO|TEST|请|填入|替换|KEY/i.test(key)
+  return !!key && !/YOUR|DEMO|TEST|请|填入|替换/i.test(key)
 }
 
 function requestMap(path, data) {
@@ -115,6 +115,45 @@ function requestMap(path, data) {
           return
         }
         reject(new Error(body.message || `Tencent map request failed with ${res.statusCode}`))
+      },
+      fail(error) {
+        reject(error)
+      }
+    })
+  })
+}
+
+function getBackendMapBaseUrl() {
+  const globalData = getGlobalData()
+  return String(globalData.apiBaseUrl || '').replace(/\/$/, '')
+}
+
+function shouldUseBackendMap() {
+  const globalData = getGlobalData()
+  return Boolean(globalData.useBackend && getBackendMapBaseUrl() && typeof wx !== 'undefined' && wx.request)
+}
+
+function requestBackendMap(path, data) {
+  return new Promise((resolve, reject) => {
+    if (!shouldUseBackendMap()) {
+      reject(new Error('Backend map service is unavailable'))
+      return
+    }
+    const globalData = getGlobalData()
+    const headers = { 'x-app-role': globalData.appRole || 'customer' }
+    if (globalData.authToken) headers.Authorization = `Bearer ${globalData.authToken}`
+    wx.request({
+      url: `${getBackendMapBaseUrl()}${path}`,
+      method: 'GET',
+      data: data || {},
+      header: headers,
+      timeout: 5000,
+      success(res) {
+        if (res.statusCode >= 200 && res.statusCode < 300) {
+          resolve(res.data || {})
+          return
+        }
+        reject(new Error((res.data && res.data.message) || `Backend map request failed with ${res.statusCode}`))
       },
       fail(error) {
         reject(error)
@@ -245,6 +284,21 @@ function searchAddress(keyword, options) {
   if (!clean) return Promise.resolve([])
   const config = getConfig()
   const location = (options && options.location) || getGlobalData().currentLocation
+  if (shouldUseBackendMap() && !(options && options.skipBackendMap)) {
+    const point = normalizePoint(location)
+    return requestBackendMap('/maps/suggestion', {
+      keyword: clean,
+      region: (options && options.region) || config.defaultRegion,
+      lat: point ? point.latitude : '',
+      lng: point ? point.longitude : ''
+    }).then((body) => {
+      const items = body && Array.isArray(body.items) ? body.items : []
+      if (items.length) {
+        return items.map((item) => normalizeSuggestion(Object.assign({}, item, { source: 'tencent' }), Object.assign({}, options, { location })))
+      }
+      return searchAddress(clean, Object.assign({}, options, { location, skipBackendMap: true }))
+    }).catch(() => searchAddress(clean, Object.assign({}, options, { location, skipBackendMap: true })))
+  }
   if (!hasMapKey()) return Promise.resolve(mockSuggest(clean, Object.assign({}, options, { location })))
 
   const data = {
@@ -279,33 +333,43 @@ function mockCurrentAddress(location) {
   }, { location: point })
 }
 
-function reverseGeocode(location) {
+function reverseGeocode(location, options) {
   const point = normalizePoint(location)
   if (!point) return Promise.resolve(mockCurrentAddress(getConfig().fallbackLocation))
+  if (shouldUseBackendMap() && !(options && options.skipBackendMap)) {
+    return requestBackendMap('/maps/reverse-geocode', {
+      lat: point.latitude,
+      lng: point.longitude
+    }).then((body) => {
+      if (body && body.result) return normalizeReverseGeocode(body.result, point)
+      return reverseGeocode(point, { skipBackendMap: true })
+    }).catch(() => reverseGeocode(point, { skipBackendMap: true }))
+  }
   if (!hasMapKey()) return Promise.resolve(mockCurrentAddress(point))
 
   return requestMap('/ws/geocoder/v1/', {
     location: formatLocation(point),
     get_poi: 1
-  }).then((body) => {
-    const result = body.result || {}
-    const component = result.address_component || {}
-    const formatted = result.formatted_addresses || {}
-    const poi = result.pois && result.pois[0] ? result.pois[0] : {}
-    return normalizeSuggestion({
-      id: 'current-location',
-      title: formatted.recommend || poi.title || component.street_number || '当前位置',
-      address: result.address || formatted.rough || `${component.city || ''}${component.district || ''}${component.street || ''}`,
-      category: '定位',
-      city: component.city,
-      district: component.district,
-      adcode: component.adcode,
-      tag: '定位',
-      distanceKm: 0.1,
-      location: point,
-      source: 'tencent'
-    }, { location: point })
-  }).catch(() => mockCurrentAddress(point))
+  }).then((body) => normalizeReverseGeocode(body.result || {}, point)).catch(() => mockCurrentAddress(point))
+}
+
+function normalizeReverseGeocode(result, point) {
+  const component = result.address_component || {}
+  const formatted = result.formatted_addresses || {}
+  const poi = result.pois && result.pois[0] ? result.pois[0] : {}
+  return normalizeSuggestion({
+    id: 'current-location',
+    title: formatted.recommend || poi.title || component.street_number || '当前位置',
+    address: result.address || formatted.rough || `${component.city || ''}${component.district || ''}${component.street || ''}`,
+    category: '定位',
+    city: component.city,
+    district: component.district,
+    adcode: component.adcode,
+    tag: '定位',
+    distanceKm: 0.1,
+    location: point,
+    source: 'tencent'
+  }, { location: point })
 }
 
 function getCurrentLocation() {
@@ -349,7 +413,29 @@ function estimateDistance(from, to, options) {
     duration: Math.max(8, Math.round(fallbackDistance * 7)),
     source: start && end ? '直线估算' : '地址簿距离'
   }
-  if (!start || !end || !hasMapKey()) return Promise.resolve(fallback)
+  if (!start || !end) return Promise.resolve(fallback)
+
+  if (shouldUseBackendMap() && !(options && options.skipBackendMap)) {
+    return requestBackendMap('/maps/distance', {
+      fromLat: start.latitude,
+      fromLng: start.longitude,
+      toLat: end.latitude,
+      toLng: end.longitude,
+      mode: (options && options.mode) || getConfig().distanceMode
+    }).then((body) => {
+      if (body && body.route) {
+        return {
+          distanceKm: Number(body.route.distanceKm),
+          distance: Number(body.route.distanceKm),
+          duration: Number(body.route.duration || fallback.duration),
+          source: body.route.source || '腾讯地图'
+        }
+      }
+      return estimateDistance(from, to, Object.assign({}, options, { skipBackendMap: true }))
+    }).catch(() => estimateDistance(from, to, Object.assign({}, options, { skipBackendMap: true })))
+  }
+
+  if (!hasMapKey()) return Promise.resolve(fallback)
 
   const config = getConfig()
   return requestMap('/ws/distance/v1/matrix', {

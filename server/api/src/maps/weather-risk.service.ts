@@ -113,7 +113,7 @@ export class WeatherRiskService {
       longitude: input.longitude ?? null,
       isBadWeather,
       badWeather: isBadWeather,
-      multiplier: isBadWeather ? 1.2 : 1,
+      multiplier: isBadWeather ? this.badWeatherMultiplier() : 1,
       weatherText: input.weatherText || input.forecastText || '暂无恶劣天气预警',
       reason,
       source: input.forecastSource || (text ? 'forecast-rule' : 'forecast-placeholder'),
@@ -203,5 +203,10 @@ export class WeatherRiskService {
   private weatherCodeLabel(code?: number) {
     if (code === undefined) return '暂无恶劣天气预警'
     return WEATHER_CODE_LABELS[code] || `天气代码${code}`
+  }
+
+  private badWeatherMultiplier() {
+    const value = Number(this.config.get<string>('BAD_WEATHER_MULTIPLIER') || 1.15)
+    return Number.isFinite(value) && value >= 1 && value <= 2 ? value : 1.15
   }
 }
