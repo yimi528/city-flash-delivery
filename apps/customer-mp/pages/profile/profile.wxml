@@ -10,9 +10,9 @@
     <view class="member-main">
       <view class="member-phone">{{displayPhone}}</view>
       <view class="member-level">{{memberLevel}}</view>
-      <view class="member-desc">升级后享受多项权益</view>
+      <view class="member-desc">账户信息与常用服务</view>
     </view>
-    <view class="member-more">查看更多›</view>
+    <view class="member-more">账户信息›</view>
     <view class="diamond">
       <view class="diamond-top"></view>
       <view class="diamond-core"></view>
@@ -30,21 +30,6 @@
     </block>
   </view>
 
-  <view class="panel order-panel">
-    <view class="panel-head">
-      <view class="panel-title">我的订单</view>
-      <view class="panel-link" bindtap="openOrders">全部订单›</view>
-    </view>
-    <view class="status-grid">
-      <block wx:for="{{orderStatus}}" wx:key="name">
-        <view class="status-item" data-filter="{{item.filter}}" bindtap="openOrderStatus">
-          <view class="order-icon {{item.iconClass}}"></view>
-          <view>{{item.name}}</view>
-        </view>
-      </block>
-    </view>
-  </view>
-
   <view class="panel service-panel">
     <view class="panel-title">我的服务</view>
     <view class="service-grid">
@@ -55,13 +40,5 @@
         </view>
       </block>
     </view>
-  </view>
-
-  <view class="promo-strip">
-    <view>
-      <view class="promo-title">送加享专属福利官</view>
-      <view class="promo-sub">邀请好友注册得优惠券</view>
-    </view>
-    <view class="rider-face">速</view>
   </view>
 </view>

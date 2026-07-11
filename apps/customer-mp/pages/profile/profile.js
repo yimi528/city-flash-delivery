@@ -1,13 +1,6 @@
 const app = getApp()
 const api = require('../../utils/api')
 
-const orderStatus = [
-  { iconClass: 'pay', name: '待接单', filter: '待接单' },
-  { iconClass: 'publish', name: '已接单', filter: '已接单' },
-  { iconClass: 'progress', name: '配送中', filter: '配送中' },
-  { iconClass: 'done', name: '已完成', filter: '已完成' }
-]
-
 const services = [
   { iconClass: 'address', name: '地址簿', action: 'address' },
   { iconClass: 'service', name: '联系客服', action: 'todo' },
@@ -37,10 +30,9 @@ Page({
     displayPhone: '点击登录',
     memberLevel: '登录领取权益',
     stats: [
-      { label: '余额·充值', value: '0', badge: '最高享750元券包' },
+      { label: '账户余额', value: '0', badge: '' },
       { label: '优惠券', value: '6', badge: '' }
     ],
-    orderStatus,
     services
   },
 
@@ -106,15 +98,6 @@ Page({
 
   openCoupons() {
     wx.showToast({ title: '券包功能开发中', icon: 'none' })
-  },
-
-  openOrders() {
-    wx.switchTab({ url: '/pages/orders/orders' })
-  },
-
-  openOrderStatus(event) {
-    app.globalData.orderFilter = event.currentTarget.dataset.filter
-    wx.switchTab({ url: '/pages/orders/orders' })
   },
 
   openTool(event) {

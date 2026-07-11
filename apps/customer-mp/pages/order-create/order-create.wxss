@@ -432,6 +432,19 @@ textarea {
   gap: 18rpx;
 }
 
+.cargo-emoji {
+  width: 86rpx;
+  height: 86rpx;
+  border-radius: 20rpx;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 48rpx;
+  flex-shrink: 0;
+  box-shadow: 0 8rpx 20rpx rgba(20, 35, 60, 0.08);
+}
+
 .cargo-visual {
   position: relative;
   width: 118rpx;
@@ -613,7 +626,7 @@ textarea {
   border-radius: 24rpx;
   background: linear-gradient(135deg, #eef3fb, #ffffff);
   color: #111c34;
-  font-size: 28rpx;
+  font-size: 38rpx;
   font-weight: 950;
   display: flex;
   align-items: center;

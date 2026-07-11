@@ -124,11 +124,12 @@ function inferPricingMode(draft) {
 function getPricingRule(draft) {
   const vehicle = (draft && draft.cargoOptions) || {}
   const servicePricing = (draft && draft.servicePricing) || {}
+  const hasVehicleRule = Boolean(vehicle.vehicleId)
   const hasServiceRule = Number(servicePricing.basePrice || 0) > 0
   return {
     baseDistanceKm: hasServiceRule ? Number(servicePricing.baseDistanceKm || 4) : 4,
-    basePrice: hasServiceRule ? Number(servicePricing.basePrice) : Number(vehicle.baseFee || 10),
-    extraPerKm: hasServiceRule ? Number(servicePricing.extraPerKm || 0) : Number(vehicle.distanceRate || 1.8),
+    basePrice: hasVehicleRule ? Number(vehicle.baseFee || 0) : (hasServiceRule ? Number(servicePricing.basePrice) : 10),
+    extraPerKm: hasVehicleRule ? Number(vehicle.distanceRate || 0) : (hasServiceRule ? Number(servicePricing.extraPerKm || 0) : 1.8),
     badWeatherMultiplier: Number(servicePricing.badWeatherMultiplier || 1.2)
   }
 }
@@ -219,7 +220,7 @@ function getWeightLabel(weight) {
 function ensureDraftVehicle(draft) {
   if (!draft || draft.service === '帮买') return 'ebike'
   const target = draft.recommendedVehicleType || (draft.cargoOptions && draft.cargoOptions.vehicleId) || 'ebike'
-  if (!draft.cargoOptions || draft.cargoOptions.vehicleId !== target) {
+  if (!draft.cargoOptions || draft.cargoOptions.vehicleId !== target || !draft.cargoOptions.icon) {
     vehicleConfig.applyVehicleToDraft(draft, target)
   }
   return draft.cargoOptions.vehicleId
@@ -529,11 +530,23 @@ Page({
 
   selectVehicle(event) {
     const vehicleId = event.currentTarget.dataset.id
-    vehicleConfig.applyVehicleToDraft(app.globalData.draftOrder, vehicleId)
+    const draft = app.globalData.draftOrder
+    const vehicle = vehicleConfig.applyVehicleToDraft(draft, vehicleId)
+    if (inferPricingMode(draft) !== 'fixed_line_parcel' && inferPricingMode(draft) !== 'fixed_line_ride') {
+      draft.servicePricing = {
+        baseDistanceKm: 4,
+        basePrice: vehicle.baseFee,
+        extraPerKm: vehicle.distanceRate,
+        badWeatherMultiplier: Number((draft.servicePricing && draft.servicePricing.badWeatherMultiplier) || 1)
+      }
+      draft.priceSummary = vehicle.distanceRate
+        ? `${vehicle.name} · 4公里内${vehicle.baseFee}元，超出${vehicle.distanceRate}元/公里`
+        : `${vehicle.name} · 预估${vehicle.baseFee}元起`
+    }
     this.setData({
-      draft: app.globalData.draftOrder,
+      draft,
       selectedVehicle: vehicleId,
-      estimate: estimateFee(app.globalData.draftOrder)
+      estimate: estimateFee(draft)
     })
   },
 

@@ -114,10 +114,7 @@
       <view class="edit-link" bindtap="openCargoOptions">{{isVehicleSelectorOpen ? '收起' : '重新选择'}}</view>
     </view>
     <view class="cargo-summary" bindtap="openCargoOptions">
-      <view class="cargo-visual {{draft.cargoOptions.vehicleId}}">
-        <view class="cargo-body"></view>
-        <view class="cargo-box"></view>
-      </view>
+      <view class="cargo-emoji">{{draft.cargoOptions.icon}}</view>
       <view class="cargo-info">
         <view class="cargo-name">{{draft.cargoOptions.vehicleName}}</view>
         <view class="cargo-desc">{{draft.cargoOptions.categoryName}} · {{draft.pricingMode === 'manual_quote' ? '按现场需求' : draft.cargoOptions.weightLabel}} · {{draft.cargoOptions.vehicleCapacity}}</view>

@@ -23,13 +23,6 @@
     <view class="accept-bubble"><text>1分钟</text>内接单</view>
     <view class="pin"><view class="pin-head"></view><view class="pin-tail"></view></view>
     <view class="locate" bindtap="refreshLocation">⌖</view>
-    <view class="safe-tip"><text class="shield">盾</text> 购买保价，若发生物损，最高全额赔</view>
-    <view class="coupon-float"><text class="small">社群券包</text><text class="money">300</text><text class="unit">元</text><text class="get">点击领取</text></view>
-  </view>
-
-  <view class="new-coupon">
-    <view class="coupon-text">新人首单低至<text>2折起</text></view>
-    <view class="coupon-pocket">2折起</view>
   </view>
 
   <view class="order-panel">
@@ -61,20 +54,20 @@
 
     <view class="route-row" data-type="pickup" bindtap="chooseAddress">
       <view class="tag-red">起</view>
-      <view class="route-main">
+      <view class="route-main address-field">
         <view class="route-title">{{draft.pickup.name}} <text class="arrow">›</text></view>
         <view class="route-sub">{{draft.pickup.phone}}</view>
       </view>
-      <button class="ghost-btn">地址簿</button>
+      <button class="address-book-btn">地址簿</button>
     </view>
 
     <view class="route-row dropoff" data-type="dropoff" bindtap="chooseAddress">
       <view class="tag-green">到</view>
-      <view class="route-main big-input">
+      <view class="route-main address-field big-input">
         <view class="route-title {{draft.dropoff ? '' : 'placeholder'}}">{{draft.dropoff ? draft.dropoff.name : '目的地/收货地？'}}</view>
         <view class="route-sub" wx:if="{{draft.dropoff}}">{{draft.dropoff.detail}}</view>
       </view>
-      <button class="ghost-btn">地址簿</button>
+      <button class="address-book-btn">地址簿</button>
     </view>
 
     <button class="primary-btn order-btn" bindtap="goOrder">去下单</button>
@@ -99,14 +92,5 @@
         </view>
       </block>
     </view>
-  </view>
-
-  <view class="promo-card">
-    <view>
-      <view class="promo-kicker">夏日加速计划</view>
-      <view class="promo-title">邀请好友下单，赢免单红包</view>
-      <view class="promo-desc">附近 {{nearbyRiders}} 位骑手在线，可接急送单</view>
-    </view>
-    <view class="rider-helmet">骑</view>
   </view>
 </view>

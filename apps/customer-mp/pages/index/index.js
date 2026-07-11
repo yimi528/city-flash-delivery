@@ -27,7 +27,6 @@ Page({
     primaryTasks: serviceConfig.PRIMARY_TASKS,
     commonTasks: serviceConfig.COMMON_TASKS,
     activeTask: serviceConfig.PRIMARY_TASKS[0],
-    nearbyRiders: 12,
     locationText: '定位附近'
   },
 
@@ -64,8 +63,7 @@ Page({
       if (address.city) app.globalData.city = address.city
       this.setData({
         city: app.globalData.city,
-        locationText: address.name || '当前位置',
-        nearbyRiders: Math.floor(Math.random() * 8) + 9
+        locationText: address.name || '当前位置'
       })
       wx.hideLoading()
       wx.showToast({ title: '已定位附近地址', icon: 'success' })

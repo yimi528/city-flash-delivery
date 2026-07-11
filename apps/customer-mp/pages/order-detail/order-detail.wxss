@@ -174,6 +174,13 @@
   gap: 20rpx;
 }
 
+.quote-confirm-head {
+  flex-direction: column;
+  justify-content: center;
+  gap: 12rpx;
+  text-align: center;
+}
+
 .quote-title-group {
   flex: 1;
   min-width: 0;
@@ -186,7 +193,7 @@
 }
 
 .quote-title-group .section-sub {
-  max-width: 430rpx;
+  max-width: none;
   line-height: 1.45;
 }
 
@@ -218,6 +225,10 @@
   border-radius: 24rpx;
   background: #fff;
   box-shadow: inset 0 0 0 2rpx rgba(255, 184, 126, 0.28);
+}
+
+.quote-final {
+  text-align: center;
 }
 
 .quote-waiting-label,
@@ -346,6 +357,7 @@
   background: #fff3e8;
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 14rpx;
 }
 
@@ -357,6 +369,7 @@
 
 .quote-note-content {
   margin-top: 6rpx;
+  text-align: center;
 }
 
 .quote-warning-icon {
@@ -376,32 +389,37 @@
 .quote-warning-title {
   font-size: 23rpx;
   font-weight: 950;
+  text-align: left;
 }
 
 .quote-warning-sub {
   margin-top: 4rpx;
   color: #a85c25;
   font-size: 20rpx;
+  text-align: left;
 }
 
 .quote-actions {
   display: grid;
-  grid-template-columns: 0.9fr 1.1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14rpx;
   margin-top: 24rpx;
+  width: 100%;
 }
 
 .quote-button {
   width: 100%;
+  min-width: 0;
+  max-width: 100%;
   height: 98rpx;
   margin: 0;
-  padding: 0 16rpx;
+  padding: 0 10rpx;
   border: 2rpx solid transparent;
   border-radius: 16rpx;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 12rpx;
+  gap: 8rpx;
   line-height: 1.2;
   overflow: hidden;
   transition: transform 120ms ease, opacity 120ms ease;
@@ -443,28 +461,33 @@
 }
 
 .quote-button-copy {
+  width: auto;
   min-width: 0;
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  text-align: left;
+  align-items: center;
+  text-align: center;
+  overflow: hidden;
 }
 
 .quote-button-title,
 .quote-button-sub {
+  max-width: 100%;
   display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .quote-button-title {
-  font-size: 26rpx;
+  font-size: 24rpx;
   font-weight: 950;
 }
 
 .quote-button-sub {
   margin-top: 4rpx;
   color: #8a94a8;
-  font-size: 19rpx;
+  font-size: 17rpx;
   font-weight: 700;
 }
 

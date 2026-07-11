@@ -276,6 +276,16 @@ function buildNestLoginPayload(payload) {
   }
 }
 
+function firstNumber() {
+  for (let index = 0; index < arguments.length; index += 1) {
+    const value = arguments[index]
+    if (value === undefined || value === null || value === '') continue
+    const numberValue = Number(value)
+    if (Number.isFinite(numberValue)) return numberValue
+  }
+  return 0
+}
+
 function buildNestPricePayload(payload) {
   const source = payload || {}
   const cargoOptions = source.cargoOptions || {}
@@ -290,8 +300,8 @@ function buildNestPricePayload(payload) {
     pricingMode: source.pricingMode || '',
     linePrice: Number(source.linePrice || selectedLine.price || 0),
     baseDistanceKm: Number(source.baseDistanceKm || servicePricing.baseDistanceKm || 0),
-    basePrice: Number(source.basePrice || servicePricing.basePrice || 0),
-    extraPerKm: Number(source.extraPerKm || servicePricing.extraPerKm || 0),
+    basePrice: firstNumber(source.basePrice, cargoOptions.baseFee, servicePricing.basePrice),
+    extraPerKm: firstNumber(source.extraPerKm, cargoOptions.distanceRate, servicePricing.extraPerKm),
     badWeatherMultiplier: Number(source.badWeatherMultiplier || servicePricing.badWeatherMultiplier || 1.2),
     badWeather: !!(source.badWeather || source.isBadWeather || weatherRisk.isBadWeather || weatherRisk.badWeather),
     distanceKm: Number(source.distanceKm || source.distance || 2.6),
@@ -318,8 +328,8 @@ function buildNestOrderPayload(payload) {
     pricingMode: source.pricingMode || '',
     linePrice: Number(source.linePrice || selectedLine.price || 0),
     baseDistanceKm: Number(source.baseDistanceKm || servicePricing.baseDistanceKm || 0),
-    basePrice: Number(source.basePrice || servicePricing.basePrice || 0),
-    extraPerKm: Number(source.extraPerKm || servicePricing.extraPerKm || 0),
+    basePrice: firstNumber(source.basePrice, cargoOptions.baseFee, servicePricing.basePrice),
+    extraPerKm: firstNumber(source.extraPerKm, cargoOptions.distanceRate, servicePricing.extraPerKm),
     badWeatherMultiplier: Number(source.badWeatherMultiplier || servicePricing.badWeatherMultiplier || 1.2),
     badWeather: !!(source.badWeather || source.isBadWeather || weatherRisk.isBadWeather || weatherRisk.badWeather),
     pickupName: source.pickupName || pickup.name || '取货地址',
