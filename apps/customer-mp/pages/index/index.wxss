@@ -444,10 +444,11 @@
 }
 
 .address-book-btn {
-  width: auto;
-  min-width: 0;
+  width: 64rpx;
+  min-width: 64rpx;
+  max-width: 64rpx;
   height: 38rpx;
-  padding: 0 5rpx;
+  padding: 0;
   border: 2rpx solid #dce2ec;
   border-radius: 8rpx;
   color: #7b8497;
@@ -455,7 +456,7 @@
   font-size: 17rpx;
   font-weight: 800;
   white-space: nowrap;
-  flex-shrink: 0;
+  flex: 0 0 64rpx;
   display: flex;
   align-items: center;
   justify-content: center;

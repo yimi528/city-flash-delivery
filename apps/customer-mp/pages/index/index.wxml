@@ -58,7 +58,7 @@
         <view class="route-title">{{draft.pickup.name}} <text class="arrow">›</text></view>
         <view class="route-sub">{{draft.pickup.phone}}</view>
       </view>
-      <button class="address-book-btn">地址簿</button>
+      <view class="address-book-btn">地址簿</view>
     </view>
 
     <view class="route-row dropoff" data-type="dropoff" bindtap="chooseAddress">
@@ -67,7 +67,7 @@
         <view class="route-title {{draft.dropoff ? '' : 'placeholder'}}">{{draft.dropoff ? draft.dropoff.name : '目的地/收货地？'}}</view>
         <view class="route-sub" wx:if="{{draft.dropoff}}">{{draft.dropoff.detail}}</view>
       </view>
-      <button class="address-book-btn">地址簿</button>
+      <view class="address-book-btn">地址簿</view>
     </view>
 
     <button class="primary-btn order-btn" bindtap="goOrder">去下单</button>
