@@ -385,7 +385,7 @@
   min-height: 102rpx;
   display: flex;
   align-items: center;
-  gap: 14rpx;
+  gap: 10rpx;
   margin-bottom: 22rpx;
 }
 
@@ -444,15 +444,15 @@
 }
 
 .address-book-btn {
-  width: 92rpx;
-  min-width: 92rpx;
-  height: 48rpx;
+  width: 72rpx;
+  min-width: 72rpx;
+  height: 40rpx;
   padding: 0;
   border: 2rpx solid #dce2ec;
-  border-radius: 12rpx;
+  border-radius: 10rpx;
   color: #7b8497;
   background: #fff;
-  font-size: 21rpx;
+  font-size: 18rpx;
   font-weight: 800;
   display: flex;
   align-items: center;
