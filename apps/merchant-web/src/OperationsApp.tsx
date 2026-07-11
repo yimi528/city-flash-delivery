@@ -25,19 +25,21 @@ function Toast({ message }: { message: string }) {
 function Sidebar({ onTodo }: { onTodo: (message: string) => void }) {
   return (
     <aside className="sidebar">
-      <div className="brand-mark">速</div>
-      <div>
-        <div className="brand-name">同城速送</div>
-        <div className="brand-sub">Operations Console</div>
+      <div className="brand-lockup">
+        <div className="brand-mark">速</div>
+        <div>
+          <div className="brand-name">同城速送</div>
+          <div className="brand-sub">运营管理台</div>
+        </div>
       </div>
       <nav className="nav-list" aria-label="运营后台导航">
-        <button className="nav-item active" type="button">订单工作台</button>
-        <button className="nav-item" type="button" onClick={() => onTodo('价格规则下一步接入')}>价格规则</button>
-        <button className="nav-item" type="button" onClick={() => onTodo('服务范围下一步接入')}>服务范围</button>
-        <button className="nav-item" type="button" onClick={() => onTodo('系统设置下一步接入')}>系统设置</button>
+        <button className="nav-item active" type="button"><span>01</span>订单调度</button>
+        <button className="nav-item" type="button" onClick={() => onTodo('价格规则下一步接入')}><span>02</span>价格规则</button>
+        <button className="nav-item" type="button" onClick={() => onTodo('服务范围下一步接入')}><span>03</span>服务范围</button>
+        <button className="nav-item" type="button" onClick={() => onTodo('系统设置下一步接入')}><span>04</span>系统设置</button>
       </nav>
       <div className="sidebar-note">
-        <span>固定配送流</span>
+        <span>标准履约流程</span>
         <strong>接单 → 取货 → 配送 → 完成</strong>
       </div>
     </aside>
@@ -54,10 +56,13 @@ function StorePanel({ store, connected, healthText }: { store: Store | null; con
   return (
     <section className="store-panel">
       <div className="store-card">
-        <div>
-          <div className="store-kicker">{current.category}</div>
-          <h2>{current.name}</h2>
-          <p>{current.address} · 状态 {current.status}</p>
+        <div className="store-identity">
+          <div className="store-symbol">配</div>
+          <div>
+            <div className="store-kicker">{current.category}</div>
+            <h2>{current.name}</h2>
+            <p>{current.address}</p>
+          </div>
         </div>
         <div className={`status-pill ${current.status === '营业中' ? 'online' : ''}`}>{current.status}</div>
       </div>
@@ -131,66 +136,72 @@ function OrderCard({
         <span>用户端状态：<strong>{order.status}</strong></span>
         <span>运营操作：<strong>{order.needsQuote ? (order.quoteStatus === 'REJECTED' ? '重新报价' : '填写报价') : order.awaitingQuoteConfirmation ? '等待用户确认' : (order.actionText || '无需操作')}</strong></span>
       </div>
-      <div className="goods-box">
-        <div className="goods-title">{order.displayItems}</div>
-        <div className="goods-meta">
-          {order.service === '帮买'
-            ? `商品 ￥${order.productFee || 0} · 配送 ￥${order.deliveryFee || 0} · 合计 ${order.feeText}`
-            : order.isManualQuote
-              ? `${order.vehicleName} · 规则预估 ￥${order.estimatedFee || 0} · 当前 ${order.feeText}`
-              : `${order.vehicleName} · ${order.weightLabel} · 合计 ${order.feeText}`}
-        </div>
-        {order.remark ? <div className="goods-note">备注：{order.remark}</div> : null}
-        {order.quoteStatus !== 'PENDING' && order.quoteNote ? <div className="goods-note">报价说明：{order.quoteNote}</div> : null}
-      </div>
-      {order.needsQuote ? (
-        <div className="quote-box">
-          <div>
-            <strong>{order.quoteStatus === 'REJECTED' ? '用户已拒绝，请重新报价' : '填写商家最终报价'}</strong>
-            <span>系统预估 ￥{order.estimatedFee || 0}，最终报价需由用户确认后才能履约。</span>
+      <div className="order-content">
+        <div className="order-info">
+          <div className="goods-box">
+            <div className="goods-title">{order.displayItems}</div>
+            <div className="goods-meta">
+              {order.service === '帮买'
+                ? `商品 ￥${order.productFee || 0} · 配送 ￥${order.deliveryFee || 0} · 合计 ${order.feeText}`
+                : order.isManualQuote
+                  ? `${order.vehicleName} · 规则预估 ￥${order.estimatedFee || 0} · 当前 ${order.feeText}`
+                  : `${order.vehicleName} · ${order.weightLabel} · 合计 ${order.feeText}`}
+            </div>
+            {order.remark ? <div className="goods-note">备注：{order.remark}</div> : null}
+            {order.quoteStatus !== 'PENDING' && order.quoteNote ? <div className="goods-note">报价说明：{order.quoteNote}</div> : null}
           </div>
-          <label className="quote-input">
-            <span>￥</span>
-            <input
-              inputMode="decimal"
-              placeholder="输入报价"
-              value={quoteValue}
-              onChange={(event) => setQuoteValue(event.target.value)}
-            />
-          </label>
-          <input
-            className="quote-note"
-            placeholder="报价说明，可选"
-            value={quoteNote}
-            onChange={(event) => setQuoteNote(event.target.value)}
-          />
-          <button className="quote-btn" type="button" disabled={isQuoting || Number(quoteValue) <= 0} onClick={submitQuote}>
-            {isQuoting ? '提交中' : '确认报价'}
-          </button>
+          {order.needsQuote ? (
+            <div className="quote-box">
+              <div>
+                <strong>{order.quoteStatus === 'REJECTED' ? '用户已拒绝，请重新报价' : '填写商家最终报价'}</strong>
+                <span>系统预估 ￥{order.estimatedFee || 0}，最终报价需由用户确认后才能履约。</span>
+              </div>
+              <label className="quote-input">
+                <span>￥</span>
+                <input
+                  inputMode="decimal"
+                  placeholder="输入报价"
+                  value={quoteValue}
+                  onChange={(event) => setQuoteValue(event.target.value)}
+                />
+              </label>
+              <input
+                className="quote-note"
+                placeholder="报价说明，可选"
+                value={quoteNote}
+                onChange={(event) => setQuoteNote(event.target.value)}
+              />
+              <button className="quote-btn" type="button" disabled={isQuoting || Number(quoteValue) <= 0} onClick={submitQuote}>
+                {isQuoting ? '提交中' : '确认报价'}
+              </button>
+            </div>
+          ) : null}
+          {order.awaitingQuoteConfirmation ? (
+            <div className="quote-state waiting">
+              <div><strong>等待用户确认报价</strong><span>最终报价 ￥{order.quotedFee || order.fee}，确认前订单不能进入履约。</span></div>
+            </div>
+          ) : null}
+          {order.quoteAccepted ? (
+            <div className="quote-state accepted">
+              <div><strong>用户已接受报价</strong><span>最终价格 ￥{order.quotedFee || order.fee}，现在可以继续处理订单。</span></div>
+            </div>
+          ) : null}
         </div>
-      ) : null}
-      {order.awaitingQuoteConfirmation ? (
-        <div className="quote-state waiting">
-          <div><strong>等待用户确认报价</strong><span>最终报价 ￥{order.quotedFee || order.fee}，确认前订单不能进入履约。</span></div>
+        <div className="route-stack" aria-label="取送路线">
+          <div className="route-line">
+            <span className="pin buy">{order.sourcePin}</span>
+            <div className="route-main"><strong>{order.sourceName}</strong><span>{order.sourceDetail}</span></div>
+          </div>
+          <div className="route-line">
+            <span className="pin send">收</span>
+            <div className="route-main"><strong>{order.dropoffName || ''}</strong><span>{order.dropoffDetail || ''}</span></div>
+          </div>
         </div>
-      ) : null}
-      {order.quoteAccepted ? (
-        <div className="quote-state accepted">
-          <div><strong>用户已接受报价</strong><span>最终价格 ￥{order.quotedFee || order.fee}，现在可以继续处理订单。</span></div>
-        </div>
-      ) : null}
-      <div className="route-line">
-        <span className="pin buy">{order.sourcePin}</span>
-        <div className="route-main"><strong>{order.sourceName}</strong><span>{order.sourceDetail}</span></div>
-      </div>
-      <div className="route-line">
-        <span className="pin send">收</span>
-        <div className="route-main"><strong>{order.dropoffName || ''}</strong><span>{order.dropoffDetail || ''}</span></div>
       </div>
       <div className="order-bottom">
         <button className="light-btn" type="button" onClick={onTicket}>打印小票</button>
         <button
-          className={`action-btn ${isTerminal ? 'terminal-action' : ''} ${isCancelled ? 'cancelled' : ''}`}
+          className={`action-btn ${isTerminal ? 'terminal-action' : ''} ${isCancelled ? 'cancelled' : ''} ${!isTerminal && (order.needsQuote || order.awaitingQuoteConfirmation) ? 'pending-action' : ''}`}
           type="button"
           disabled={isTerminal || !order.actionText}
           onClick={() => onAdvance(order.id)}
@@ -226,8 +237,8 @@ function OrdersWorkspace({
     <section className="workspace">
       <div className="toolbar">
         <div>
-          <h2>订单列表</h2>
-          <p className="muted">React 运营 Web，默认连接 NestJS 后端，处理帮送、帮取、送货订单。</p>
+          <h2>实时订单</h2>
+          <p className="muted">按状态筛选订单，处理报价与履约进度。</p>
         </div>
         <div className="toolbar-actions">
           <div className="filters">
@@ -352,18 +363,18 @@ export function OperationsApp() {
       <main className="main">
         <header className="topbar">
           <div>
-            <p className="eyebrow">运营后台 React Web</p>
-            <h1>同城配送订单工作台</h1>
-            <p className="muted">甲方单运营方使用：查看全部用户订单，并按固定配送流程更新状态。</p>
+            <p className="eyebrow">今日运营</p>
+            <h1>订单调度中心</h1>
+            <p className="muted">集中处理用户订单、最终报价与配送进度。</p>
           </div>
           <div className="top-actions">
             <label className="api-field">
-              <span>API</span>
+              <span>服务地址</span>
               <input value={apiBase} aria-label="API 地址" onChange={(event) => setApiBase(event.target.value)} />
             </label>
-            <button className="ghost-btn" type="button" onClick={login}>运营登录</button>
+            <button className="ghost-btn" type="button" onClick={login}>登录</button>
             <button className="primary-btn" type="button" onClick={() => loadDashboard(false)} disabled={refreshing}>
-              {refreshing ? '刷新中' : '刷新订单'}
+              {refreshing ? '刷新中' : '刷新'}
             </button>
           </div>
         </header>
