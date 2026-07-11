@@ -20,7 +20,7 @@ city-flash-delivery/
 
 ## 多端职责
 
-- 用户端 `apps/customer-mp/`：首页下单、取送饮料/文件/数码、帮送/帮取/送货、送货车型、地址定位搜索、确认订单、订单列表、消息、我的。
+- 用户端 `apps/customer-mp/`：寄货、拼车、拉货、急送、帮取、帮买、搬运装卸、送货/送客、车型选择、地址定位、订单确认与查询。
 - 运营后台 `apps/merchant-web/`：Web 订单工作台、全部订单状态同步、接单、开始取货、开始配送、完成订单、订单筛选。
 - 后端 `server/`：用户、地址、车型、订单、运营后台、骑手预留、优惠券、订单状态流转接口。
 
@@ -82,8 +82,8 @@ mapConfig: {
 
 ## 当前功能
 
-- 用户下单：帮送、帮取、送货、快捷服务、车型选择（二轮电动/三轮电动/面包车）、地址搜索、费用预估。
-- 功能开关：帮买功能暂时隐藏但不删除代码，后续确认商品预算、垫付、退款规则后再开启。
+- 用户下单：八类服务、车型联动计价、地址搜索、天气自动判断、费用预估和帮买商品价拆分。
+- 报价确认：搬运装卸先显示系统预估价，商家报价后必须由用户确认才能进入履约流程。
 - 运营履约：Web 后台“全部订单”同步用户端状态，固定处理 `待接单 -> 已接单 -> 取货中 -> 配送中 -> 已完成`。
 - 角色隔离：用户端使用 customer token，运营后台使用 merchant token，后端已阻止用户端直接访问后台接单接口。
 - 接单规则：MVP 只保留固定配送流程，不做自定义接单；用户端不能手动推进订单状态。
@@ -93,8 +93,12 @@ mapConfig: {
 
 ```bash
 cd /Users/Admin1/Documents/Codex/2026-07-09/xian
-node work/test-miniapp-flow.js
-python3 server/smoke_test.py
+node --test apps/customer-mp/tests/service-flow.test.js
+
+cd server/api
+npm test -- --runInBand
+npm run build
+npm run lint
 ```
 
 ## 正式后端迁移方向

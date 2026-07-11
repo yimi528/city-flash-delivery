@@ -130,6 +130,13 @@ export class OrdersService {
   async updateStatus(id: string, dto: UpdateOrderStatusDto) {
     const order = await this.findOrderEntity(id)
     const status = (dto.status || this.nextPersistedStatus(order.status)) as PrismaOrderStatus
+    if (order.status === PrismaOrderStatus.COMPLETED || order.status === PrismaOrderStatus.CANCELLED) {
+      throw new ConflictException('订单已结束，不能再次更新状态')
+    }
+    const expectedStatus = this.nextPersistedStatus(order.status)
+    if (status !== PrismaOrderStatus.CANCELLED && status !== expectedStatus) {
+      throw new ConflictException('订单状态必须按接单、取货、配送、完成的顺序更新')
+    }
     const isProgressing = status !== PrismaOrderStatus.PENDING && status !== PrismaOrderStatus.CANCELLED
     if (order.isManualQuote && order.quoteStatus !== PrismaQuoteStatus.ACCEPTED && isProgressing) {
       throw new ConflictException('用户尚未确认商家报价，订单不能进入履约流程')
@@ -170,6 +177,7 @@ export class OrdersService {
         quoteUpdatedAt: new Date(),
         quoteRespondedAt: null,
         totalFee: quotedFee,
+        deliveryFee: quotedFee,
       },
       include: { vehicle: true },
     })

@@ -267,11 +267,16 @@ function prepareFormState(draft) {
   }
 }
 
+function generateLocalOrderId() {
+  const suffix = Math.random().toString(36).slice(2, 6).toUpperCase()
+  return `S${Date.now()}${suffix}`
+}
+
 function buildLocalOrder(draft, estimate) {
   const isManualQuote = Boolean(estimate.isManualQuote)
   const fee = Number(estimate.total)
   return {
-    id: `S${Date.now()}`,
+    id: generateLocalOrderId(),
     status: '待接单',
     statusIndex: 0,
     service: draft.service,

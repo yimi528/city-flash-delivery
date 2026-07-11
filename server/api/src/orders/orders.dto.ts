@@ -1,10 +1,10 @@
 import { Type } from 'class-transformer'
 import { IsBoolean, IsIn, IsNumber, IsOptional, IsString, Min } from 'class-validator'
 import {
-  ORDER_STATUS_FLOW,
+  ORDER_UPDATE_STATUSES,
   SERVICE_TYPES,
   VEHICLE_TYPES,
-  type OrderStatus,
+  type OrderUpdateStatus,
   type ServiceType,
   type VehicleType,
 } from '../common/constants/order.constants'
@@ -171,8 +171,8 @@ export class CreateOrderDto {
 
 export class UpdateOrderStatusDto {
   @IsOptional()
-  @IsIn(ORDER_STATUS_FLOW)
-  status?: OrderStatus
+  @IsIn(ORDER_UPDATE_STATUSES)
+  status?: OrderUpdateStatus
 
   @IsOptional()
   @IsString()

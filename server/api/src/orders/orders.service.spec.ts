@@ -107,4 +107,64 @@ describe('OrdersService quote confirmation', () => {
       data: expect.objectContaining({ quoteStatus: QuoteStatus.REJECTED }),
     }))
   })
+
+  it('prevents skipping or reversing fulfillment statuses', async () => {
+    const accepted = { ...manualQuoteOrder(QuoteStatus.ACCEPTED), status: OrderStatus.PENDING }
+    orderApi.findFirst.mockResolvedValue(accepted)
+
+    await expect(service.updateStatus(accepted.id, { status: OrderStatus.DELIVERING }))
+      .rejects.toThrow('订单状态必须按接单、取货、配送、完成的顺序更新')
+    expect(orderApi.update).not.toHaveBeenCalled()
+  })
+
+  it('prevents updates after an order is completed', async () => {
+    const completed = { ...manualQuoteOrder(QuoteStatus.ACCEPTED), status: OrderStatus.COMPLETED }
+    orderApi.findFirst.mockResolvedValue(completed)
+
+    await expect(service.updateStatus(completed.id, { status: OrderStatus.ACCEPTED }))
+      .rejects.toThrow('订单已结束')
+    expect(orderApi.update).not.toHaveBeenCalled()
+  })
+
+  it('advances through the complete fulfillment flow in order', async () => {
+    const base = manualQuoteOrder(QuoteStatus.ACCEPTED)
+    const statuses = [
+      OrderStatus.PENDING,
+      OrderStatus.ACCEPTED,
+      OrderStatus.PICKING_UP,
+      OrderStatus.DELIVERING,
+      OrderStatus.COMPLETED,
+    ]
+    for (let index = 0; index < statuses.length - 1; index += 1) {
+      orderApi.findFirst.mockResolvedValueOnce({ ...base, status: statuses[index] })
+      orderApi.update.mockResolvedValueOnce({ ...base, status: statuses[index + 1] })
+    }
+
+    for (let index = 1; index < statuses.length; index += 1) {
+      const result = await service.updateStatus(base.id, { status: statuses[index] })
+      expect(result.status).toBe(statuses[index])
+    }
+
+    expect(orderApi.update).toHaveBeenCalledTimes(4)
+  })
+
+  it('copies a merchant quote into the final delivery fee', async () => {
+    const pending = manualQuoteOrder(QuoteStatus.PENDING)
+    const quoted = {
+      ...pending,
+      quotedFee: 66,
+      quoteStatus: QuoteStatus.QUOTED,
+      totalFee: 66,
+      deliveryFee: 66,
+    }
+    orderApi.findFirst.mockResolvedValue(pending)
+    orderApi.update.mockResolvedValue(quoted)
+
+    const result = await service.quote(pending.id, { quotedFee: 66, quoteNote: '现场搬运报价' })
+
+    expect(result.deliveryFee).toBe(66)
+    expect(orderApi.update).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ totalFee: 66, deliveryFee: 66 }),
+    }))
+  })
 })
