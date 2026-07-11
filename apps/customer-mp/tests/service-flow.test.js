@@ -127,6 +127,48 @@ test('all eight services create an order and react to vehicle changes', () => {
   })
 })
 
+test('all eight services have distinct and capped prices across every vehicle option', () => {
+  const taskIds = [
+    'send_parcel',
+    'carpool_ride',
+    'cargo_haul',
+    'urgent_delivery',
+    'pickup',
+    'buy_for_me',
+    'moving_handling',
+    'pedicab_delivery'
+  ]
+  const vehicleIds = ['small_car', 'cargo_tricycle', 'human_tricycle', 'ebike', 'manual_labor']
+
+  taskIds.forEach((taskId) => {
+    const { app, event, loadPage } = createHarness()
+    const index = loadPage('pages/index/index.js')
+    index.onShow()
+    index.chooseTask(event({ task: taskId }))
+    const draft = app.globalData.draftOrder
+    draft.pickup = app.globalData.addresses[0]
+    draft.dropoff = app.globalData.addresses[1]
+    draft.routeDistanceKm = 2.5
+    if (taskId === 'buy_for_me') {
+      draft.buyItems = '测试商品'
+      draft.budget = 50
+    }
+
+    const page = loadPage('pages/order-create/order-create.js')
+    page.onShow()
+    const deliveryFees = vehicleIds.map((vehicleId) => {
+      page.selectVehicle(event({ id: vehicleId }))
+      const deliveryFee = Number(page.data.estimate.deliveryFee)
+      const total = Number(page.data.estimate.total)
+      assert.ok(deliveryFee > 0 && deliveryFee <= 168, `${taskId}/${vehicleId} delivery fee should be reasonable`)
+      assert.equal(total, deliveryFee + (taskId === 'buy_for_me' ? 50 : 0))
+      return deliveryFee
+    })
+
+    assert.equal(new Set(deliveryFees).size, vehicleIds.length, `${taskId} should price every vehicle differently`)
+  })
+})
+
 test('manual quote requires customer confirmation before fulfillment', () => {
   const harness = createHarness()
   const { app, event, loadPage } = harness
