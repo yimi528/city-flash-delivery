@@ -48,23 +48,27 @@ This skeleton includes route/module placeholders for:
 - `auth`: WeChat/customer login and operator login placeholders.
 - `users`: user profile placeholder.
 - `addresses`: address list placeholder.
-- `orders`: create/list/detail/status APIs with in-memory demo storage.
-- `operations`: operator order list and status update endpoints.
+- `orders`: create/list/detail/status APIs persisted with Prisma/PostgreSQL.
+- `operations`: operator order list, quote, and status update endpoints.
 - `pricing`: delivery price estimate using fixed vehicle rules.
-- `maps`: Tencent map integration placeholder.
+- `maps`: Tencent map integration placeholder and automatic bad-weather risk endpoint.
 - `health`: health check.
 
 ## Migration Plan
 
 1. Keep `server/app.py` running as the stable MVP backend.
 2. Use this NestJS API to model the final modules and database schema.
-3. Move data persistence from in-memory placeholders to Prisma/PostgreSQL.
+3. Continue replacing remaining demo placeholders with Prisma-backed modules.
 4. Point customer mini program and operations web to `http://127.0.0.1:3000/api` after endpoint parity.
 5. Remove the Python backend only after NestJS covers the complete user order + operations workflow.
 
 ## Database Notes
 
 `prisma/schema.prisma` stores latitude/longitude as decimals and reserves PostGIS columns with Prisma `Unsupported("geography(...)")` fields. The initial Prisma migration enables PostGIS extensions before creating tables. The SQL file `prisma/sql/001_enable_postgis.sql` also enables PostGIS when the Docker Postgres container first initializes.
+
+Customer orders, operator quotes, and order status changes now write to PostgreSQL. `order_status_logs` stores the status timeline, while quote fields on `orders` keep pending/quoted state visible to the customer mini program and operations web.
+
+Bad-weather pricing should be system-driven, not user-selected. The mini program calls `GET /api/maps/weather-risk` on the order confirmation page and applies the returned `isBadWeather` result to the estimate. The endpoint reads forecast data by coordinate, applies keyword/weather-code/wind/rain thresholds, and supports `BAD_WEATHER_OVERRIDE=true|false` for local demos.
 
 Core delivery flow:
 

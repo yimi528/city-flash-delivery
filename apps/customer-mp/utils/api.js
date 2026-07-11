@@ -243,6 +243,7 @@ function buildNestPricePayload(payload) {
   const cargoOptions = source.cargoOptions || {}
   const selectedLine = source.selectedLine || {}
   const servicePricing = source.servicePricing || {}
+  const weatherRisk = source.weatherRisk || {}
   return {
     serviceType: toServiceValue(source.serviceType || source.service),
     serviceName: source.service || source.serviceName || '',
@@ -254,7 +255,7 @@ function buildNestPricePayload(payload) {
     basePrice: Number(source.basePrice || servicePricing.basePrice || 0),
     extraPerKm: Number(source.extraPerKm || servicePricing.extraPerKm || 0),
     badWeatherMultiplier: Number(source.badWeatherMultiplier || servicePricing.badWeatherMultiplier || 1.2),
-    badWeather: !!(source.badWeather || source.isBadWeather),
+    badWeather: !!(source.badWeather || source.isBadWeather || weatherRisk.isBadWeather || weatherRisk.badWeather),
     distanceKm: Number(source.distanceKm || source.distance || 2.6),
     weightKg: Number(source.weightKg || source.weight || cargoOptions.weight || 1),
     budget: Number(source.budget || 0)
@@ -268,6 +269,7 @@ function buildNestOrderPayload(payload) {
   const cargoOptions = source.cargoOptions || {}
   const selectedLine = source.selectedLine || {}
   const servicePricing = source.servicePricing || {}
+  const weatherRisk = source.weatherRisk || {}
   return {
     userId: source.userId || 'demo-user',
     serviceType: toServiceValue(source.serviceType || source.service),
@@ -280,12 +282,21 @@ function buildNestOrderPayload(payload) {
     basePrice: Number(source.basePrice || servicePricing.basePrice || 0),
     extraPerKm: Number(source.extraPerKm || servicePricing.extraPerKm || 0),
     badWeatherMultiplier: Number(source.badWeatherMultiplier || servicePricing.badWeatherMultiplier || 1.2),
-    badWeather: !!(source.badWeather || source.isBadWeather),
+    badWeather: !!(source.badWeather || source.isBadWeather || weatherRisk.isBadWeather || weatherRisk.badWeather),
     pickupName: source.pickupName || pickup.name || '取货地址',
     pickupDetail: source.pickupDetail || pickup.detail || '',
+    pickupContact: source.pickupContact || pickup.contact || '',
+    pickupPhone: source.pickupPhone || pickup.phone || '',
+    pickupLat: Number(source.pickupLat || pickup.latitude || 0),
+    pickupLng: Number(source.pickupLng || pickup.longitude || 0),
     dropoffName: source.dropoffName || dropoff.name || '收货地址',
     dropoffDetail: source.dropoffDetail || dropoff.detail || '',
+    dropoffContact: source.dropoffContact || dropoff.contact || '',
+    dropoffPhone: source.dropoffPhone || dropoff.phone || '',
+    dropoffLat: Number(source.dropoffLat || dropoff.latitude || 0),
+    dropoffLng: Number(source.dropoffLng || dropoff.longitude || 0),
     item: source.item || source.itemName || source.buyItems || '同城配送物品',
+    buyItems: source.buyItems || '',
     distanceKm: Number(source.distanceKm || source.distance || 2.6),
     weightKg: Number(source.weightKg || source.weight || cargoOptions.weight || 1),
     budget: Number(source.budget || 0),
@@ -356,6 +367,29 @@ function getVehicleTypes() {
   return request('/vehicle-types')
 }
 
+function getWeatherRisk(payload) {
+  const source = payload || {}
+  const query = [
+    ['city', source.city || '宁德市'],
+    ['lat', source.latitude || source.lat || ''],
+    ['lng', source.longitude || source.lng || '']
+  ].filter((item) => item[1] !== undefined && item[1] !== null && item[1] !== '')
+    .map((item) => `${encodeURIComponent(item[0])}=${encodeURIComponent(item[1])}`)
+    .join('&')
+
+  if (!isNestApi()) {
+    return Promise.resolve({
+      isBadWeather: false,
+      badWeather: false,
+      multiplier: 1,
+      weatherText: '旧版后端暂未接入天气预报',
+      reason: '按正常天气计价',
+      source: 'legacy-fallback'
+    })
+  }
+  return request(`/maps/weather-risk${query ? `?${query}` : ''}`)
+}
+
 function estimatePrice(payload) {
   return request('/pricing/estimate', {
     method: 'POST',
@@ -423,6 +457,7 @@ module.exports = {
   updateAddress,
   deleteAddress,
   getVehicleTypes,
+  getWeatherRisk,
   estimatePrice,
   createOrder,
   getOrders,

@@ -5,6 +5,7 @@ export type BackendVehicle = 'EBIKE' | 'ETRIKE' | 'VAN'
 
 export type ApiOrder = {
   id: string
+  orderNo?: string
   userId?: string
   serviceType?: BackendService | string
   serviceName?: string
@@ -15,8 +16,12 @@ export type ApiOrder = {
   vehicleName?: string
   pickupName?: string
   pickupDetail?: string
+  pickupContact?: string
+  pickupPhone?: string
   dropoffName?: string
   dropoffDetail?: string
+  dropoffContact?: string
+  dropoffPhone?: string
   item?: string
   itemName?: string
   buyItems?: string

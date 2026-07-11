@@ -9,9 +9,9 @@ export class OperationsController {
   constructor(private readonly ordersService: OrdersService) {}
 
   @Get('orders')
-  listOrders() {
+  async listOrders() {
     return {
-      orders: this.ordersService.list(),
+      orders: await this.ordersService.list(),
       updatedAt: new Date().toISOString(),
     }
   }

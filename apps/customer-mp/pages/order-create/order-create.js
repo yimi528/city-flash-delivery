@@ -91,6 +91,26 @@ function getRouteSource(draft) {
   return map.normalizePoint(getRouteOrigin(draft)) && map.normalizePoint(draft && draft.dropoff) ? '直线估算' : '地址簿距离'
 }
 
+function getWeatherPoint(draft) {
+  const target = (draft && draft.dropoff) || getRouteOrigin(draft) || {}
+  const location = target.location || {}
+  return {
+    latitude: target.latitude || location.latitude || '',
+    longitude: target.longitude || location.longitude || ''
+  }
+}
+
+function buildWeatherRisk(reason) {
+  return {
+    isBadWeather: false,
+    badWeather: false,
+    multiplier: 1,
+    weatherText: '暂无恶劣天气预警',
+    reason: reason || '天气预报未触发恶劣天气规则',
+    source: 'local-auto-fallback'
+  }
+}
+
 function formatMoney(value) {
   return Number(value || 0).toFixed(1)
 }
@@ -153,7 +173,7 @@ function estimateFee(draft) {
     serviceFee = subtotal + weatherFee
     baseTitle = `${rule.baseDistanceKm}公里内`
     if (pricingMode === 'distance_weather') {
-      pricingNote = badWeather ? `恶劣天气 ×${rule.badWeatherMultiplier}` : `超出${rule.baseDistanceKm}公里按${rule.extraPerKm}元/公里`
+      pricingNote = badWeather ? `天气预报触发恶劣天气 ×${rule.badWeatherMultiplier}` : `超出${rule.baseDistanceKm}公里按${rule.extraPerKm}元/公里`
     } else {
       pricingNote = `超出${rule.baseDistanceKm}公里按${rule.extraPerKm}元/公里`
     }
@@ -250,6 +270,8 @@ function buildLocalOrder(draft, estimate) {
     feeText: isManualQuote ? '待报价' : `￥${fee}`,
     pricingMode: estimate.pricingMode,
     isManualQuote,
+    badWeather: !!draft.badWeather,
+    weatherRisk: draft.weatherRisk || buildWeatherRisk(),
     quoteStatus: isManualQuote ? 'PENDING' : 'NONE',
     quotedFee: isManualQuote ? null : fee,
     quoteNote: '',
@@ -285,6 +307,7 @@ function buildBackendPayload(draft) {
     servicePricing: draft.servicePricing || {},
     selectedLine: draft.selectedLine || null,
     badWeather: !!draft.badWeather,
+    weatherRisk: draft.weatherRisk || null,
     routeDistanceSource: draft.routeDistanceSource || getRouteSource(draft),
     remark: draft.remark || ''
   }
@@ -315,7 +338,9 @@ Page({
     guarantee: true,
     routeSource: '地址簿距离',
     routeDuration: '',
-    isRouteLoading: false
+    isRouteLoading: false,
+    isWeatherLoading: false,
+    weatherRisk: buildWeatherRisk()
   },
 
   onShow() {
@@ -332,9 +357,11 @@ Page({
       fieldConfig: formState.fieldConfig,
       itemTypes: formState.itemTypes,
       routeSource: getRouteSource(draft),
-      routeDuration: draft.routeDuration || ''
+      routeDuration: draft.routeDuration || '',
+      weatherRisk: draft.weatherRisk || buildWeatherRisk()
     })
     this.refreshRouteEstimate()
+    this.refreshWeatherRisk()
   },
 
   refreshLocalEstimate() {
@@ -349,7 +376,65 @@ Page({
       fieldConfig: formState.fieldConfig,
       itemTypes: formState.itemTypes,
       routeSource: getRouteSource(draft),
-      routeDuration: draft.routeDuration || ''
+      routeDuration: draft.routeDuration || '',
+      weatherRisk: draft.weatherRisk || buildWeatherRisk()
+    })
+  },
+
+  refreshWeatherRisk() {
+    const draft = app.globalData.draftOrder
+    if (inferPricingMode(draft) !== 'distance_weather') {
+      draft.badWeather = false
+      draft.weatherRisk = buildWeatherRisk('当前服务不使用天气加价')
+      this.setData({
+        draft,
+        estimate: estimateFee(draft),
+        weatherRisk: draft.weatherRisk,
+        isWeatherLoading: false
+      })
+      return
+    }
+
+    if (!app.globalData.useBackend) {
+      draft.badWeather = false
+      draft.weatherRisk = buildWeatherRisk('本地演示按正常天气计价，真实环境由后端天气预报判断')
+      this.setData({
+        draft,
+        estimate: estimateFee(draft),
+        weatherRisk: draft.weatherRisk,
+        isWeatherLoading: false
+      })
+      return
+    }
+
+    const weatherSeq = (this.weatherSeq || 0) + 1
+    this.weatherSeq = weatherSeq
+    this.setData({ isWeatherLoading: true })
+    const point = getWeatherPoint(draft)
+    api.getWeatherRisk({
+      city: app.globalData.city || '宁德市',
+      latitude: point.latitude,
+      longitude: point.longitude
+    }).then((risk) => {
+      if (this.weatherSeq !== weatherSeq) return
+      draft.badWeather = !!(risk && (risk.isBadWeather || risk.badWeather))
+      draft.weatherRisk = risk || buildWeatherRisk()
+      this.setData({
+        draft,
+        estimate: estimateFee(draft),
+        weatherRisk: draft.weatherRisk,
+        isWeatherLoading: false
+      })
+    }).catch(() => {
+      if (this.weatherSeq !== weatherSeq) return
+      draft.badWeather = false
+      draft.weatherRisk = buildWeatherRisk('天气预报获取失败，按正常天气计价')
+      this.setData({
+        draft,
+        estimate: estimateFee(draft),
+        weatherRisk: draft.weatherRisk,
+        isWeatherLoading: false
+      })
     })
   },
 
@@ -393,6 +478,7 @@ Page({
       draft.item = item
     }
     this.refreshLocalEstimate()
+    this.refreshWeatherRisk()
   },
 
   selectLine(event) {
@@ -446,8 +532,7 @@ Page({
   },
 
   toggleBadWeather() {
-    app.globalData.draftOrder.badWeather = !app.globalData.draftOrder.badWeather
-    this.refreshLocalEstimate()
+    wx.showToast({ title: '恶劣天气由系统自动判断', icon: 'none' })
   },
 
   submitOrder() {

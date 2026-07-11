@@ -136,14 +136,13 @@
     <view class="price-row discount" wx:if="{{estimate.showDiscount}}"><text>新人优惠</text><text>-￥{{estimate.discount}}</text></view>
     <view class="price-row service-fee" wx:if="{{draft.service === '帮买'}}"><text>跑腿服务费</text><text>￥{{estimate.serviceFee}}</text></view>
     <view class="price-row budget-fee" wx:if="{{draft.service === '帮买'}}"><text>商品预算</text><text>￥{{estimate.budget}}</text></view>
-    <view class="weather-row" wx:if="{{estimate.pricingMode === 'distance_weather'}}" bindtap="toggleBadWeather">
+    <view class="weather-row {{draft.badWeather ? 'active' : ''}}" wx:if="{{estimate.pricingMode === 'distance_weather'}}">
       <view>
-        <view class="weather-title">恶劣天气</view>
-        <view class="weather-sub">开启后价格按 {{draft.servicePricing.badWeatherMultiplier || 1.2}} 倍计算</view>
+        <view class="weather-title">天气预报自动判断</view>
+        <view class="weather-sub">{{isWeatherLoading ? '正在同步天气预报...' : weatherRisk.reason}}</view>
+        <view class="weather-meta">{{weatherRisk.weatherText}}</view>
       </view>
-      <view class="switch {{draft.badWeather ? 'on' : ''}}">
-        <view class="switch-dot"></view>
-      </view>
+      <view class="weather-badge {{draft.badWeather ? 'bad' : ''}}">{{isWeatherLoading ? '同步中' : (draft.badWeather ? '已触发' : '正常')}}</view>
     </view>
     <view class="guarantee" wx:if="{{!estimate.isManualQuote && draft.service !== '拼车'}}" bindtap="toggleGuarantee">
       <view class="check {{guarantee ? 'checked' : ''}}">✓</view>

@@ -72,6 +72,24 @@ export class CreateOrderDto {
   @IsString()
   pickupDetail!: string
 
+  @IsOptional()
+  @IsString()
+  pickupContact?: string
+
+  @IsOptional()
+  @IsString()
+  pickupPhone?: string
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  pickupLat?: number
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  pickupLng?: number
+
   @IsString()
   dropoffName!: string
 
@@ -80,7 +98,29 @@ export class CreateOrderDto {
 
   @IsOptional()
   @IsString()
+  dropoffContact?: string
+
+  @IsOptional()
+  @IsString()
+  dropoffPhone?: string
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  dropoffLat?: number
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  dropoffLng?: number
+
+  @IsOptional()
+  @IsString()
   item?: string
+
+  @IsOptional()
+  @IsString()
+  buyItems?: string
 
   @IsOptional()
   @Type(() => Number)
@@ -106,8 +146,9 @@ export class CreateOrderDto {
 }
 
 export class UpdateOrderStatusDto {
+  @IsOptional()
   @IsIn(ORDER_STATUS_FLOW)
-  status!: OrderStatus
+  status?: OrderStatus
 
   @IsOptional()
   @IsString()

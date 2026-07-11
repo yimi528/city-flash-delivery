@@ -624,6 +624,11 @@ textarea {
   gap: 20rpx;
 }
 
+.weather-row.active {
+  background: linear-gradient(135deg, #fff0df, #fff8ea);
+  border: 2rpx solid rgba(255, 126, 0, 0.2);
+}
+
 .weather-title {
   color: #111c34;
   font-size: 27rpx;
@@ -635,6 +640,32 @@ textarea {
   color: #a76200;
   font-size: 23rpx;
   font-weight: 750;
+}
+
+.weather-meta {
+  margin-top: 6rpx;
+  color: #7f4b00;
+  font-size: 22rpx;
+}
+
+.weather-badge {
+  min-width: 96rpx;
+  height: 48rpx;
+  padding: 0 18rpx;
+  border-radius: 999rpx;
+  background: #edf5ff;
+  color: #4470a8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 23rpx;
+  font-weight: 900;
+  flex-shrink: 0;
+}
+
+.weather-badge.bad {
+  color: #fff;
+  background: linear-gradient(90deg, #ff8a00, #ff1d16);
 }
 
 .switch {
