@@ -101,6 +101,13 @@ npm run build
 npm run lint
 ```
 
+后端、PostgreSQL 都已启动时，可运行一次真实 API 履约验收。脚本会自动清理自己创建的测试订单：
+
+```bash
+cd /Users/Admin1/Documents/Codex/2026-07-09/xian/server/api
+npm run test:live
+```
+
 ## 正式后端迁移方向
 
 已新增 `server/api/` 作为下一阶段正式后端骨架，技术栈为：
