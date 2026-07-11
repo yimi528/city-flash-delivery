@@ -546,16 +546,24 @@
 .task-card {
   min-height: 126rpx;
   padding: 18rpx 8rpx 14rpx;
-  border: 3rpx solid #eef2f7;
+  border: 3rpx solid #dce5ef;
   border-radius: 26rpx;
-  background: linear-gradient(180deg, #fff, #f8fafc);
+  background: #f1f5f9;
   text-align: center;
-  box-shadow: 0 10rpx 24rpx rgba(16, 36, 66, 0.04);
+  box-shadow: 0 10rpx 24rpx rgba(16, 36, 66, 0.06);
 }
+
+.task-card.tone-blue { background: #eaf2ff; border-color: #bfd3f3; }
+.task-card.tone-mint { background: #eaf8f1; border-color: #bfe4d2; }
+.task-card.tone-amber { background: #fff3dc; border-color: #efd29f; }
+.task-card.tone-coral { background: #ffece8; border-color: #f5c3b8; }
+.task-card.tone-aqua { background: #e8f7f8; border-color: #b8dee2; }
+.task-card.tone-pink { background: #fcecf2; border-color: #e8bed0; }
+.task-card.tone-yellow { background: #fff7d9; border-color: #ead68c; }
+.task-card.tone-green { background: #edf6e8; border-color: #c6dfb8; }
 
 .task-card.active {
   border-color: #ff1712;
-  background: linear-gradient(180deg, #fff7f3, #fff);
   box-shadow: 0 14rpx 30rpx rgba(255, 23, 18, 0.11);
 }
 
@@ -563,18 +571,19 @@
   width: 58rpx;
   height: 58rpx;
   margin: 0 auto 10rpx;
-  border: 2rpx solid #e7ebf2;
+  border: 2rpx solid rgba(255, 255, 255, 0.9);
   border-radius: 18rpx;
-  background: #f4f7fb;
+  background: rgba(255, 255, 255, 0.78);
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 32rpx;
+  box-shadow: 0 5rpx 12rpx rgba(16, 36, 66, 0.08);
 }
 
 .task-card.active .task-icon {
-  border-color: #ffd5d0;
-  background: #fff0ed;
+  border-color: #fff;
+  background: #fff;
 }
 
 .task-name {
