@@ -1,140 +1,292 @@
-# 同城速送多端 MVP
+# 同城速送 City Flash Delivery
 
-这是一个参考“同城即时配送/跑腿下单”业务的多端 MVP，品牌与界面已改成自有名称“同城速送”。当前产品定位为“甲方单运营方自营同城配送平台”，不是多商家入驻平台。仓库已按主流 GitHub monorepo 方式拆分为用户端微信小程序、运营 Web 后台，共用同一个本地后端和订单数据库。骑手端暂时删除，后续需要时再恢复。
+“同城速送”是一个面向单一运营方的同城配送业务 Demo。项目包含用户端微信小程序、运营 Web 后台和 NestJS 后端，重点验证从用户下单、价格确认、运营接单到订单完成的完整业务闭环。
 
-## 目录结构
+当前版本适合用于产品演示、业务规则确认和下一阶段开发评估，尚未达到直接商业上线标准。
+
+## 产品定位
+
+- 单一运营方统一接单和履约，不是多商家入驻平台。
+- 用户下单前可以看到系统预估价格，并根据车型变化实时更新。
+- 搬运装卸等复杂服务由运营方最终报价，必须经过用户确认后才能履约。
+- 用户端和运营后台共享同一套订单、报价和状态数据。
+
+## 当前已实现功能
+
+### 用户端微信小程序
+
+首页以 `2 × 4` 宫格提供八类服务：
+
+| 服务 | 主要用途 | 默认推荐运力 |
+| --- | --- | --- |
+| 📦 寄货 | 文件、小件、固定线路寄送 | 小车 |
+| 🚘 拼车 | 固定线路拼车 | 小车 |
+| 🚚 拉货 | 门店补货、大件或多件货物 | 货三轮车 |
+| ⚡ 急送 | 一对一快速送达 | 二轮车 |
+| 📥 帮取 | 代取快递或物品后送达 | 二轮车 |
+| 🛍️ 帮买 | 代买商品并配送 | 二轮车 |
+| 🏗️ 搬运装卸 | 搬家、搬店、装货、卸货 | 货三轮车或人力服务 |
+| 🛺 送货/送客 | 短途送货或送客 | 人力三轮车 |
+
+用户端当前支持：
+
+- 起点、终点和地址簿选择。
+- 腾讯地图地址搜索、逆地址解析和路线距离。
+- 地图服务不可用时自动使用本地地址与直线距离估算。
+- 二轮车、人力三轮车、货三轮车、小车和人力服务选择。
+- 车型切换后即时更新预估价格。
+- Open-Meteo 未来三小时天气预报与恶劣天气自动判断。
+- 帮买订单分别显示商品价格、配送价格和应付合计。
+- 搬运装卸订单显示规则预估价，并等待运营方最终报价。
+- 用户接受或拒绝运营方最终报价。
+- 订单列表、订单详情和状态自动同步。
+- 已完成订单保持终态，不能重复履约。
+
+### 运营 Web 后台
+
+运营后台地址默认为 `http://127.0.0.1:5173`，当前支持：
+
+- 运营账号登录占位流程，默认账号为 `operator-demo`。
+- 全部订单列表、状态筛选和今日订单统计。
+- 查看服务、车型、距离、地址和价格信息。
+- 为搬运装卸订单填写最终报价和报价说明。
+- 等待用户接受报价，确认前不能进入履约。
+- 按固定顺序执行接单、取货、配送和完成。
+- 已完成、已取消订单显示明确终态。
+- 模拟打印小票。
+
+### NestJS 后端
+
+正式 Demo 主后端位于 `server/api/`，当前支持：
+
+- PostgreSQL + Prisma 持久化用户、订单、车型和状态日志。
+- 用户订单创建、列表、详情和状态查询。
+- 运营订单列表、报价和履约状态更新。
+- 报价确认、报价拒绝和重新报价规则。
+- 禁止订单跨级、倒退或在终态后重复更新。
+- 帮买商品费与配送费分开存储。
+- 腾讯地图 WebService 服务端代理，避免在小程序中暴露 Key。
+- Open-Meteo 天气预报和恶劣天气规则判断。
+- Swagger API 文档和健康检查接口。
+
+## 核心业务流程
+
+### 普通配送订单
+
+```text
+选择服务和地址
+  -> 系统计算路线与预估价格
+  -> 用户选择车型并下单
+  -> 运营接单
+  -> 取货中
+  -> 配送中
+  -> 已完成
+```
+
+状态必须按以下顺序推进：
+
+```text
+待接单 -> 已接单 -> 取货中 -> 配送中 -> 已完成
+```
+
+### 搬运装卸报价订单
+
+```text
+系统先给出规则预估价
+  -> 用户决定是否下单
+  -> 运营方填写最终报价
+  -> 用户接受或拒绝
+  -> 接受后才能进入履约
+  -> 拒绝后运营方可以重新报价
+```
+
+这套流程用于避免运营方单方面改价后直接履约。
+
+## 当前定价模型
+
+以下是基础参考规则，最终价格还会受到服务类型、固定线路、服务附加费和天气规则影响：
+
+| 运力 | 起步价 | 超出 4 公里 | 配送费上限 |
+| --- | ---: | ---: | ---: |
+| 🛵 二轮车 | 10 元 | 1.6 元/公里 | 68 元 |
+| 🛺 人力三轮车 | 15 元 | 2 元/公里 | 88 元 |
+| 🛻 货三轮车 | 28 元 | 2.8 元/公里 | 138 元 |
+| 🚗 小车 | 35 元 | 3.2 元/公里 | 168 元 |
+| 👷 人力服务 | 38 元 | 按需求报价 | 88 元 |
+
+- 急送、帮买、拉货和搬运装卸会增加对应的小额服务费。
+- 寄货和拼车使用固定线路基础价，并根据所选车型计算。
+- 恶劣天气由系统判断，当前默认倍率为 `1.15`。
+- 长距离订单使用配送费封顶，并在费用明细中显示封顶优惠。
+
+## 技术架构
+
+```text
+微信小程序 apps/customer-mp
+            |
+            | HTTP API
+            v
+NestJS server/api ---------------- React 运营后台 apps/merchant-web
+      |                                      |
+      v                                      |
+PostgreSQL + Prisma <------------------------+
+      |
+      +-- 腾讯地图 WebService
+      +-- Open-Meteo 天气预报
+```
+
+主要技术：
+
+- 用户端：微信原生小程序。
+- 运营后台：React、TypeScript、Vite。
+- 后端：NestJS、TypeScript、Prisma。
+- 数据库：PostgreSQL、PostGIS。
+- 本地环境：Docker Compose。
+
+## 项目结构
 
 ```text
 city-flash-delivery/
   apps/
-    customer-mp/      # 用户端微信小程序
-    merchant-web/     # 运营 Web 后台（当前保留目录名，后续可改为 operations-web）
-    merchant-mp/      # 旧版商家小程序，暂保留为 legacy，不作为主入口
-  packages/
-    shared/           # 多端共享业务状态/角色约定
-  server/             # Python + SQLite 后端 MVP；server/api 为 NestJS 正式后端骨架
-  docs/               # UI 参考和产品资料
+    customer-mp/       用户端微信小程序
+    merchant-web/      React 运营 Web 后台
+    merchant-mp/       旧版商家小程序，仅保留对照
+  server/
+    api/               当前 NestJS + Prisma 主后端
+    app.py             早期 Python MVP，暂时保留
+  packages/shared/     多端共享状态约定
+  docs/                UI 参考与产品资料
+  project.config.json  微信开发者工具根项目配置
 ```
 
-根目录 `project.config.json` 默认指向 `apps/customer-mp/`，方便直接导入根目录打开用户端。运营后台主入口为 React Web：`http://127.0.0.1:5173`。
+## 本地运行
 
-## 多端职责
+### 环境要求
 
-- 用户端 `apps/customer-mp/`：寄货、拼车、拉货、急送、帮取、帮买、搬运装卸、送货/送客、车型选择、地址定位、订单确认与查询。
-- 运营后台 `apps/merchant-web/`：Web 订单工作台、全部订单状态同步、接单、开始取货、开始配送、完成订单、订单筛选。
-- 后端 `server/`：用户、地址、车型、订单、运营后台、骑手预留、优惠券、订单状态流转接口。
+- Node.js 20 或更高版本。
+- Docker Desktop。
+- 微信开发者工具。
+- 腾讯位置服务 WebService Key，未配置时使用地图降级数据。
 
-## 如何运行
-
-### 1. 启动正式后端
+### 1. 启动数据库和后端
 
 ```bash
-cd /Users/Admin1/Documents/Codex/2026-07-09/xian/server/api
-/Applications/Docker.app/Contents/Resources/bin/docker compose up -d
+cd server/api
+cp .env.example .env
 npm install
+docker compose up -d
+npm run prisma:generate
 npm run prisma:deploy
 npm run start:dev
 ```
 
-NestJS 后端接口地址：`http://127.0.0.1:3000/api`。
+后端启动后：
 
-Swagger 文档：`http://127.0.0.1:3000/api/docs`。
+- API：`http://127.0.0.1:3000/api`
+- Swagger：`http://127.0.0.1:3000/api/docs`
+- 健康检查：`http://127.0.0.1:3000/api/health`
 
-### 2. 打开用户端
+### 2. 配置地图和天气
 
-- 微信开发者工具选择“导入项目”。
-- 项目目录选择仓库根目录：`/Users/Admin1/Documents/Codex/2026-07-09/xian`。
-- 根目录 `project.config.json` 已配置 `miniprogramRoot: "apps/customer-mp/"`。
-
-也可以直接导入：`apps/customer-mp/`。
-
-### 3. 打开运营 Web 后台
-
-- 确保 NestJS 后端已启动。
-- 启动 React 运营后台：
-
-```bash
-cd /Users/Admin1/Documents/Codex/2026-07-09/xian/apps/merchant-web
-npm install
-npm run dev
-```
-
-- 浏览器打开：`http://127.0.0.1:5173`。
-- 点击“运营登录”，默认运营账号为 `operator-demo`。
-
-旧版商家小程序 `apps/merchant-mp/` 暂时保留用于对照，后续确认 Web 端稳定后可以删除。
-
-## 腾讯地图配置
-
-腾讯位置服务 WebService Key 由 NestJS 后端托管，避免把密钥放进小程序代码。在 `server/api/.env` 中填写：
+在 `server/api/.env` 中填写：
 
 ```bash
 TENCENT_MAP_KEY=你的腾讯位置服务WebServiceKey
 BAD_WEATHER_MULTIPLIER=1.15
 ```
 
-重启后端后，小程序会通过以下接口使用真实地图数据：
+真实 Key 只能放在 `.env` 中，不要写入小程序代码或提交到 GitHub。修改后需要重启 NestJS 后端。
 
-```text
-GET /api/maps/suggestion
-GET /api/maps/reverse-geocode
-GET /api/maps/distance
-GET /api/maps/weather-risk
-```
-
-天气预报由后端调用 Open-Meteo，并根据未来 3 小时天气代码、降水和风速自动判断恶劣天气。腾讯地图或后端暂时不可用时，小程序会自动退回本地地址建议和直线距离估算，不影响下单。
-
-正式发布时，微信小程序后台的 request 合法域名只需加入部署后的 API HTTPS 域名。用户端 `app.json` 已声明定位权限。
-
-## 当前功能
-
-- 用户下单：八类服务、车型联动计价、地址搜索、天气自动判断、费用预估和帮买商品价拆分。
-- 报价确认：搬运装卸先显示系统预估价，商家报价后必须由用户确认才能进入履约流程。
-- 运营履约：Web 后台“全部订单”同步用户端状态，固定处理 `待接单 -> 已接单 -> 取货中 -> 配送中 -> 已完成`。
-- 角色隔离：用户端使用 customer token，运营后台使用 merchant token，后端已阻止用户端直接访问后台接单接口。
-- 接单规则：MVP 只保留固定配送流程，不做自定义接单；用户端不能手动推进订单状态。
-- 后端同步：用户端和 React 运营 Web 后台通过同一个 NestJS 订单接口共享状态；运营后台每 5 秒自动刷新一次，也可手动刷新。
-
-## 测试
+### 3. 启动运营后台
 
 ```bash
-cd /Users/Admin1/Documents/Codex/2026-07-09/xian
-node --test apps/customer-mp/tests/service-flow.test.js
+cd apps/merchant-web
+npm install
+npm run dev
+```
 
+浏览器打开 `http://127.0.0.1:5173`，点击“运营登录”。
+
+### 4. 打开用户端
+
+在微信开发者工具中导入仓库根目录。根目录 `project.config.json` 已设置：
+
+```json
+{
+  "miniprogramRoot": "apps/customer-mp/"
+}
+```
+
+本地开发使用 `http://127.0.0.1:3000/api`。真机或正式发布时需要部署 HTTPS API，并在微信公众平台配置 request 合法域名。
+
+## 测试与验收
+
+### 小程序业务和地图测试
+
+```bash
+node --test \
+  apps/customer-mp/tests/service-flow.test.js \
+  apps/customer-mp/tests/map-backend.test.js
+```
+
+### NestJS 测试和代码检查
+
+```bash
 cd server/api
 npm test -- --runInBand
 npm run build
 npm run lint
+npx prisma validate
 ```
 
-后端、PostgreSQL 都已启动时，可运行一次真实 API 履约验收。脚本会自动清理自己创建的测试订单：
+### 真实 API 履约验收
+
+确保 PostgreSQL 和 NestJS 已启动后运行：
 
 ```bash
-cd /Users/Admin1/Documents/Codex/2026-07-09/xian/server/api
+cd server/api
 npm run test:live
 ```
 
-## 正式后端迁移方向
+该脚本会创建普通急送和搬运报价测试订单，完成报价确认与履约流程，并自动清理自己创建的数据。
 
-已新增 `server/api/` 作为下一阶段正式后端骨架，技术栈为：
+## 推荐 Demo 演示方式
 
-```text
-TypeScript + NestJS + Prisma + PostgreSQL/PostGIS + Redis + Swagger + Docker Compose
-```
+建议只演示两个场景，控制在 8 至 10 分钟：
 
-当前策略是渐进式迁移：保留 `server/app.py` 作为可演示 MVP 后端，同时在 `server/api/` 逐步补齐正式 API、Prisma 数据模型和 PostgreSQL/PostGIS 数据库。等 NestJS 覆盖完整“用户下单 -> 运营后台接单 -> 订单状态同步”闭环后，再删除 Python 后端。
+1. 急送：选择地址、切换车型、观察价格变化，然后在运营后台依次接单、取货、配送和完成。
+2. 搬运装卸：展示系统预估价、运营最终报价、用户确认，以及确认前禁止履约。
 
-NestJS 后端本地启动说明见：`server/api/README.md`。
+帮买功能可以用一句话说明“商品价格 + 配送价格 = 应付合计”。
 
-## UI 参考素材
+## 当前边界
 
-用户提供的页面参考图已整理到 `docs/reference-ui/`，用于后续 UI 对齐和版本追踪。当前产品界面继续使用自有品牌“同城速送”，不会在小程序内直接使用第三方品牌标识。
+以下能力尚未达到正式生产标准：
+
+- 微信登录目前是 Demo/占位流程，尚未完成正式 `code2session` 和生产 Token 管理。
+- 尚未接入微信支付、支付回调、退款和对账。
+- 尚未接入微信订阅消息或短信通知。
+- 运营后台打印小票目前为模拟操作。
+- 暂无独立骑手端，订单由运营后台统一推进。
+- 尚未完成线上服务器、HTTPS、监控、备份和灾难恢复。
+- 定价规则目前写在代码中，尚未提供后台可视化配置。
+- 腾讯地图正式调用依赖有效 Key 和账号免费额度。
 
 ## 下一阶段建议
 
-- 升级正式登录：微信 code2session、服务端签发 token、token 过期刷新。
-- 增加路线规划地图展示：把当前距离估算升级为可视化配送路线。
-- 接入微信支付：统一下单、支付回调、退款。
-- 新增正式运营后台：订单、城市、价格规则、服务范围、优惠券配置。
-- 接入订阅消息：待接单、已接单、配送中、已送达通知。
-- 后续如重新需要骑手端，再恢复 `apps/rider-mp` 并接入骑手权限。
+1. 完成微信正式登录和用户身份体系。
+2. 接入微信支付、退款和账务状态。
+3. 部署测试环境 HTTPS API，完成真机联调。
+4. 增加价格规则、服务范围和城市配置后台。
+5. 接入订阅消息，通知报价、接单、配送和完成状态。
+6. 根据实际运营模式决定是否恢复独立骑手端。
+
+## 安全说明
+
+- `.env`、数据库文件、构建产物和微信开发者私有配置均已加入 `.gitignore`。
+- 不要在 Issue、提交记录、截图或聊天中公开地图 Key、数据库密码和生产 Token。
+- 正式环境应为腾讯地图 Key 配置服务器公网 IP 白名单，并为开发、测试和生产分别创建 Key。
+
+## License
+
+当前仓库未声明开源许可证，默认保留全部权利。对外发布或开放源代码前，请补充明确的许可证和第三方服务使用条款。
