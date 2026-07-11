@@ -95,7 +95,9 @@ function OrderCard({
   onQuote: (id: string, quotedFee: number, quoteNote: string) => Promise<void>
   onTicket: () => void
 }) {
-  const isTerminal = order.status === '已完成' || order.status === '已取消'
+  const isCompleted = order.status === '已完成'
+  const isCancelled = order.status === '已取消'
+  const isTerminal = isCompleted || isCancelled
   const [quoteValue, setQuoteValue] = useState(order.quotedFee ? String(order.quotedFee) : '')
   const [quoteNote, setQuoteNote] = useState(order.quoteNote || '')
   const [isQuoting, setIsQuoting] = useState(false)
@@ -187,15 +189,18 @@ function OrderCard({
       </div>
       <div className="order-bottom">
         <button className="light-btn" type="button" onClick={onTicket}>打印小票</button>
-        {isTerminal ? (
-          <span className={`finished-state ${order.status === '已取消' ? 'cancelled' : ''}`}>
-            {order.status === '已完成' ? '履约已完成' : '订单已取消'}
-          </span>
-        ) : (
-          <button className="action-btn" type="button" disabled={!order.actionText} onClick={() => onAdvance(order.id)}>
-            {order.actionText || (order.awaitingQuoteConfirmation ? '等待用户确认' : '报价尚未确认')}
-          </button>
-        )}
+        <button
+          className={`action-btn ${isTerminal ? 'terminal-action' : ''} ${isCancelled ? 'cancelled' : ''}`}
+          type="button"
+          disabled={isTerminal || !order.actionText}
+          onClick={() => onAdvance(order.id)}
+        >
+          {isCompleted
+            ? '已完成'
+            : isCancelled
+              ? '已取消'
+              : order.actionText || (order.awaitingQuoteConfirmation ? '等待用户确认' : '报价尚未确认')}
+        </button>
       </div>
     </article>
   )

@@ -623,25 +623,13 @@ h1 {
   background: linear-gradient(90deg, var(--orange), var(--red));
 }
 
-.finished-state {
-  min-width: 130px;
-  height: 42px;
-  padding: 0 16px;
-  border: 1px solid rgba(16, 185, 129, 0.24);
-  border-radius: 14px;
-  color: #047857;
-  background: #ecfdf5;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 13px;
-  font-weight: 900;
+.action-btn.terminal-action:disabled {
+  cursor: default;
+  opacity: 1;
 }
 
-.finished-state.cancelled {
-  color: #64748b;
-  border-color: #dbe3ee;
-  background: #f8fafc;
+.action-btn.terminal-action.cancelled {
+  background: #94a3b8;
 }
 
 .empty {
