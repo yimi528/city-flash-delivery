@@ -546,24 +546,16 @@
 .task-card {
   min-height: 126rpx;
   padding: 18rpx 8rpx 14rpx;
-  border: 3rpx solid #dce5ef;
+  border: 3rpx solid #c9d9e8;
   border-radius: 26rpx;
-  background: #f1f5f9;
+  background: #edf4fb;
   text-align: center;
   box-shadow: 0 10rpx 24rpx rgba(16, 36, 66, 0.06);
 }
 
-.task-card.tone-blue { background: #eaf2ff; border-color: #bfd3f3; }
-.task-card.tone-mint { background: #eaf8f1; border-color: #bfe4d2; }
-.task-card.tone-amber { background: #fff3dc; border-color: #efd29f; }
-.task-card.tone-coral { background: #ffece8; border-color: #f5c3b8; }
-.task-card.tone-aqua { background: #e8f7f8; border-color: #b8dee2; }
-.task-card.tone-pink { background: #fcecf2; border-color: #e8bed0; }
-.task-card.tone-yellow { background: #fff7d9; border-color: #ead68c; }
-.task-card.tone-green { background: #edf6e8; border-color: #c6dfb8; }
-
 .task-card.active {
   border-color: #ff1712;
+  background: #fff0ed;
   box-shadow: 0 14rpx 30rpx rgba(255, 23, 18, 0.11);
 }
 

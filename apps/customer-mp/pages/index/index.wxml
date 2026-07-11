@@ -36,7 +36,7 @@
 
     <view class="task-grid all-task-grid">
       <block wx:for="{{allTasks}}" wx:key="id">
-        <view class="task-card tone-{{item.tone}} {{draft.taskId === item.id ? 'active' : ''}}" data-task="{{item.id}}" bindtap="chooseTask">
+        <view class="task-card {{draft.taskId === item.id ? 'active' : ''}}" data-task="{{item.id}}" bindtap="chooseTask">
           <view class="task-icon">{{item.icon}}</view>
           <view class="task-name">{{item.name}}</view>
         </view>

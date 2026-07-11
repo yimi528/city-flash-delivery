@@ -3,7 +3,6 @@ const PRIMARY_TASKS = [
     id: 'send_parcel',
     name: '寄货',
     icon: '📦',
-    tone: 'blue',
     subtitle: '拼小车寄货',
     desc: '30kg内，小于1立方米',
     vehicleType: 'small_car',
@@ -23,7 +22,6 @@ const PRIMARY_TASKS = [
     id: 'carpool_ride',
     name: '拼车',
     icon: '🚘',
-    tone: 'mint',
     subtitle: '拼小车拼车',
     desc: '固定线路拼车',
     vehicleType: 'small_car',
@@ -40,7 +38,6 @@ const PRIMARY_TASKS = [
     id: 'cargo_haul',
     name: '拉货',
     icon: '🚚',
-    tone: 'amber',
     subtitle: '货三轮车',
     desc: '市场拉货、商家补货',
     vehicleType: 'cargo_tricycle',
@@ -56,7 +53,6 @@ const PRIMARY_TASKS = [
     id: 'urgent_delivery',
     name: '急送',
     icon: '⚡',
-    tone: 'coral',
     subtitle: '二轮急送',
     desc: '一对一快速送达',
     vehicleType: 'ebike',
@@ -105,7 +101,6 @@ const COMMON_TASKS = [
   {
     id: 'pickup',
     icon: '📥',
-    tone: 'aqua',
     name: '帮取',
     subtitle: '二轮车',
     desc: '帮你取件再送达',
@@ -122,7 +117,6 @@ const COMMON_TASKS = [
   {
     id: 'buy_for_me',
     icon: '🛍️',
-    tone: 'pink',
     name: '帮买',
     subtitle: '二轮车',
     desc: '帮买商品并送达',
@@ -139,7 +133,6 @@ const COMMON_TASKS = [
   {
     id: 'moving_handling',
     icon: '🏗️',
-    tone: 'yellow',
     name: '搬运装卸',
     subtitle: '搬家 · 搬店 · 装卸',
     desc: '统一提交搬运需求',
@@ -155,7 +148,6 @@ const COMMON_TASKS = [
   {
     id: 'pedicab_delivery',
     icon: '🛺',
-    tone: 'green',
     name: '送货/送客',
     subtitle: '人力三轮车',
     desc: '短途送货或送客',
