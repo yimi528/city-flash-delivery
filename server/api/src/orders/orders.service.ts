@@ -54,6 +54,7 @@ export class OrdersService {
       extraPerKm: dto.extraPerKm,
       badWeatherMultiplier: dto.badWeatherMultiplier,
       badWeather: dto.badWeather,
+      productFee: dto.productFee,
       budget: dto.budget,
     })
     const userId = dto.userId || 'demo-user'
@@ -103,6 +104,8 @@ export class OrdersService {
         weightFee: estimate.weightFee,
         vehicleFee: estimate.vehicleFee,
         discountFee: estimate.discountFee,
+        productFee: estimate.productFee,
+        deliveryFee: estimate.deliveryFee,
         totalFee: estimate.totalFee,
         remark: dto.remark || '',
         statusLogs: {
@@ -250,6 +253,10 @@ export class OrdersService {
       weightFee: this.toNumber(order.weightFee) || 0,
       vehicleFee: this.toNumber(order.vehicleFee) || 0,
       discountFee: this.toNumber(order.discountFee) || 0,
+      productFee: this.toNumber(order.productFee) || 0,
+      deliveryFee: this.toNumber(order.deliveryFee) || 0,
+      budget: this.toNumber(order.productFee) || 0,
+      serviceFee: this.toNumber(order.deliveryFee) || 0,
       totalFee,
       fee: totalFee,
       remark: order.remark,

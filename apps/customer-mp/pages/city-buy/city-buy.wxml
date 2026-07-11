@@ -50,8 +50,8 @@
     <textarea value="{{buyItems}}" maxlength="120" auto-height placeholder="例如：帮我买两杯奶茶，一杯少糖一杯正常糖" bindinput="inputBuyItems" />
     <view class="budget-row">
       <view>
-        <view class="budget-title">商品预算</view>
-        <view class="budget-sub">骑手按预算购买，差价正式版可走多退少补</view>
+        <view class="budget-title">商品价格</view>
+        <view class="budget-sub">商品金额会和配送费一起计入订单合计</view>
       </view>
       <view class="budget-input"><text>￥</text><input type="digit" value="{{budget}}" bindinput="inputBudget" /></view>
     </view>

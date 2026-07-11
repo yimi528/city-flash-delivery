@@ -197,7 +197,10 @@ function normalizeOrder(order) {
   const vehicleType = order.vehicleType || (order.cargoOptions && order.cargoOptions.vehicleId)
   const quoteStatus = order.quoteStatus || (order.isManualQuote || order.pricingMode === 'manual_quote' ? 'PENDING' : 'NONE')
   const needsQuote = Boolean(order.isManualQuote || order.pricingMode === 'manual_quote') && quoteStatus !== 'QUOTED'
-  const fee = Number(order.totalFee || order.fee || order.serviceFee || 0)
+  const productFee = Number(order.productFee || order.budget || 0)
+  const storedDeliveryFee = Number(order.deliveryFee || order.serviceFee || 0)
+  const fee = Number(order.totalFee || order.fee || productFee + storedDeliveryFee || 0)
+  const deliveryFee = Number(order.deliveryFee || order.serviceFee || Math.max(fee - productFee, 0))
   return Object.assign({}, order, {
     status,
     statusIndex: Number.isInteger(order.statusIndex) ? order.statusIndex : getStatusIndex(status),
@@ -211,6 +214,10 @@ function normalizeOrder(order) {
     weightLabel: order.weightLabel || getWeightLabel(weight),
     fee,
     feeText: needsQuote ? '待报价' : `￥${fee}`,
+    productFee,
+    deliveryFee,
+    budget: productFee,
+    serviceFee: deliveryFee,
     quoteStatus,
     needsQuote,
     quotedFee: order.quotedFee || (quoteStatus === 'QUOTED' ? fee : null),
@@ -258,6 +265,7 @@ function buildNestPricePayload(payload) {
     badWeather: !!(source.badWeather || source.isBadWeather || weatherRisk.isBadWeather || weatherRisk.badWeather),
     distanceKm: Number(source.distanceKm || source.distance || 2.6),
     weightKg: Number(source.weightKg || source.weight || cargoOptions.weight || 1),
+    productFee: Number(source.productFee || source.budget || 0),
     budget: Number(source.budget || 0)
   }
 }
@@ -299,6 +307,7 @@ function buildNestOrderPayload(payload) {
     buyItems: source.buyItems || '',
     distanceKm: Number(source.distanceKm || source.distance || 2.6),
     weightKg: Number(source.weightKg || source.weight || cargoOptions.weight || 1),
+    productFee: Number(source.productFee || source.budget || 0),
     budget: Number(source.budget || 0),
     remark: source.remark || ''
   }

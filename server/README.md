@@ -92,7 +92,7 @@ X-App-Role: merchant
 }
 ```
 
-返回订单会包含 `buyItems`、`budget`、`purchaseAddressName`、`serviceFee` 和 `fee`。其中 `serviceFee` 是跑腿服务费，`fee` 是商品预算 + 跑腿服务费的预估合计。
+返回订单会包含 `buyItems`、`productFee`、`deliveryFee` 和 `totalFee`。其中 `productFee` 是商品价格，`deliveryFee` 是配送费，`totalFee` 始终为商品价格 + 配送费；`budget` 和 `serviceFee` 作为旧客户端兼容字段继续返回。
 
 ### 运营后台状态流转
 

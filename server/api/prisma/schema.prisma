@@ -159,6 +159,8 @@ model Order {
   weightFee       Decimal                                @db.Decimal(8, 2)
   vehicleFee      Decimal                                @db.Decimal(8, 2)
   discountFee     Decimal                                @db.Decimal(8, 2)
+  productFee      Decimal                                @default(0) @db.Decimal(8, 2)
+  deliveryFee     Decimal                                @default(0) @db.Decimal(8, 2)
   totalFee        Decimal                                @db.Decimal(8, 2)
   remark          String                                 @default("")
   statusLogs      OrderStatusLog[]

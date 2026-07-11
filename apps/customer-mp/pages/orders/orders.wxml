@@ -36,7 +36,7 @@
           <view class="route-name">{{item.dropoffName}}</view>
         </view>
         <view class="order-foot">
-          <text wx:if="{{item.service === '帮买'}}">{{item.buyItems || item.item}} · 预算￥{{item.budget}} · {{item.createTime}}</text>
+          <text wx:if="{{item.service === '帮买'}}">{{item.buyItems || item.item}} · 商品￥{{item.productFee}} + 配送￥{{item.deliveryFee}} · {{item.createTime}}</text>
           <text wx:else>{{item.item}} · {{item.vehicleName || '二轮电动'}} · {{item.distance}}km · {{item.createTime}}</text>
           <text class="fee">{{item.feeText}}</text>
         </view>

@@ -14,7 +14,8 @@ export class PricingService {
     const basePrice = Number(dto.basePrice || rule.baseFee)
     const extraPerKm = Number(dto.extraPerKm || rule.distanceRate)
     const linePrice = Number(dto.linePrice || 0)
-    const budget = Number(dto.budget || 0)
+    const isBuyForMe = dto.serviceType === 'BUY_FOR_ME' || dto.serviceName === '帮买'
+    const productFee = isBuyForMe ? Number(dto.productFee ?? dto.budget ?? 0) : 0
     const isFixedLine = pricingMode === 'fixed_line_parcel' || pricingMode === 'fixed_line_ride'
     const isManualQuote = pricingMode === 'manual_quote'
     let baseFee = 0
@@ -41,7 +42,8 @@ export class PricingService {
     const weightFee = 0
     const vehicleFee = 0
     const discountFee = 0
-    const total = isManualQuote ? 0 : serviceFee + budget
+    const deliveryFee = serviceFee
+    const total = isManualQuote ? 0 : deliveryFee + productFee
 
     return {
       serviceType: dto.serviceType || 'DELIVERY',
@@ -59,8 +61,10 @@ export class PricingService {
       vehicleFee,
       weatherFee: Number(weatherFee.toFixed(1)),
       discountFee,
+      productFee: Number(productFee.toFixed(1)),
+      deliveryFee: Number(deliveryFee.toFixed(1)),
       serviceFee: Number(serviceFee.toFixed(1)),
-      budget: Number(budget.toFixed(1)),
+      budget: Number(productFee.toFixed(1)),
       totalFee: Number(total.toFixed(1)),
       isManualQuote,
     }

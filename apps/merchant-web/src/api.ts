@@ -85,7 +85,9 @@ function weightLabel(weight?: number) {
 export function normalizeOrder(order: ApiOrder): Order {
   const status = toStatusLabel(order.status)
   const service = order.serviceName || SERVICE_LABELS[order.serviceType || ''] || order.service || '帮送'
+  const productFee = Number(order.productFee ?? order.budget ?? 0)
   const fee = Number(order.totalFee ?? order.fee ?? 0)
+  const deliveryFee = Number(order.deliveryFee ?? order.serviceFee ?? Math.max(fee - productFee, 0))
   const distance = Number(order.distanceKm ?? order.distance ?? 0)
   const weight = Number(order.weightKg ?? order.weight ?? 1)
   const vehicleName = order.vehicleName || VEHICLE_LABELS[order.vehicleType || ''] || '配送单'
@@ -99,6 +101,10 @@ export function normalizeOrder(order: ApiOrder): Order {
     statusIndex: typeof order.statusIndex === 'number' ? order.statusIndex : Math.max(statusOrder.indexOf(status), 0),
     service,
     fee,
+    productFee,
+    deliveryFee,
+    budget: productFee,
+    serviceFee: deliveryFee,
     distance,
     createTime: order.createTime || formatTime(order.createdAt),
     eta: order.eta || '约30分钟',

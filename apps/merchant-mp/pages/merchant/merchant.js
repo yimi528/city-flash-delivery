@@ -27,11 +27,17 @@ function nextMerchantStatus(status) {
 function normalizeOrder(order) {
   const merchantStatus = order.merchantStatus || (order.service === '帮买' ? '待接单' : '')
   const actionText = actionLabel(merchantStatus, order.status)
+  const productFee = Number(order.productFee || order.budget || 0)
+  const fee = Number(order.totalFee || order.fee || 0)
+  const deliveryFee = Number(order.deliveryFee || order.serviceFee || Math.max(fee - productFee, 0))
   return Object.assign({}, order, {
     merchantStatus,
     displayItems: order.buyItems || order.item || '待确认商品',
     sourceName: order.purchaseAddressName || order.pickupName || '门店',
     sourceDetail: order.purchaseAddressDetail || order.pickupDetail || '',
+    productFee,
+    deliveryFee,
+    fee,
     actionText,
     canAdvance: Boolean(actionText)
   })
@@ -44,7 +50,7 @@ function calcStats(orders) {
   const preparing = baseOrders.filter((item) => item.merchantStatus === '备货中').length
   const ready = baseOrders.filter((item) => item.merchantStatus === '待骑手取货').length
   const completed = baseOrders.filter((item) => item.merchantStatus === '已交付').length
-  const revenue = baseOrders.reduce((sum, item) => sum + Number(item.budget || item.fee || 0), 0)
+  const revenue = baseOrders.reduce((sum, item) => sum + Number(item.productFee || item.budget || 0), 0)
   return {
     pending,
     preparing,

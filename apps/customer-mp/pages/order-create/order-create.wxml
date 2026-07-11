@@ -7,7 +7,7 @@
   </view>
 
   <view class="route-card card">
-    <view class="service-badge" wx:if="{{draft.service === '帮买'}}">帮买 · 商品预算 ￥{{estimate.budget}}</view>
+    <view class="service-badge" wx:if="{{draft.service === '帮买'}}">帮买 · 商品价格 ￥{{estimate.productFee}}</view>
     <view class="service-badge" wx:else>{{draft.service}} · 预计 {{estimate.distance}}km</view>
     <view class="route-meter">{{isRouteLoading ? '正在获取腾讯地图距离...' : routeSource}} · {{routeDuration ? '约 ' + routeDuration + ' 分钟' : '预计 ' + estimate.distance + 'km'}}</view>
     <view class="route-line">
@@ -51,8 +51,8 @@
     <textarea value="{{draft.buyItems}}" placeholder="请填写品牌、口味、规格、可接受替代方案" auto-height maxlength="120" bindinput="inputBuyItems" />
     <view class="buy-budget-row">
       <view>
-        <view class="buy-budget-title">商品预算</view>
-        <view class="buy-budget-sub">正式版可接入多退少补和小票上传</view>
+        <view class="buy-budget-title">商品价格</view>
+        <view class="buy-budget-sub">按预计购买金额计入本次应付合计</view>
       </view>
       <view class="buy-budget-input"><text>￥</text><input type="digit" value="{{draft.budget}}" bindinput="inputBudget" /></view>
     </view>
@@ -127,15 +127,15 @@
       <view class="section-title">费用预估</view>
       <view class="arrival">{{estimate.pricingNote}}</view>
     </view>
-    <view class="price-row"><text>{{estimate.baseTitle}}</text><text>{{estimate.baseText}}</text></view>
-    <view class="price-row" wx:if="{{estimate.showDistanceFee}}"><text>{{estimate.distanceFeeTitle}}</text><text>￥{{estimate.distanceFee}}</text></view>
-    <view class="price-row" wx:if="{{estimate.showWeatherFee}}"><text>恶劣天气加价</text><text>￥{{estimate.weatherFee}}</text></view>
+    <view class="price-row" wx:if="{{draft.service !== '帮买'}}"><text>{{estimate.baseTitle}}</text><text>{{estimate.baseText}}</text></view>
+    <view class="price-row" wx:if="{{draft.service !== '帮买' && estimate.showDistanceFee}}"><text>{{estimate.distanceFeeTitle}}</text><text>￥{{estimate.distanceFee}}</text></view>
+    <view class="price-row" wx:if="{{draft.service !== '帮买' && estimate.showWeatherFee}}"><text>恶劣天气加价</text><text>￥{{estimate.weatherFee}}</text></view>
     <view class="price-row" wx:if="{{estimate.showWeightFee}}"><text>重量费</text><text>￥{{estimate.weightFee}}</text></view>
     <view class="price-row" wx:if="{{estimate.showVehicleFee}}"><text>车型费</text><text>￥{{estimate.vehicleFee}}</text></view>
     <view class="price-row" wx:if="{{estimate.showUrgentFee}}"><text>急送费</text><text>￥{{estimate.urgentFee}}</text></view>
     <view class="price-row discount" wx:if="{{estimate.showDiscount}}"><text>新人优惠</text><text>-￥{{estimate.discount}}</text></view>
-    <view class="price-row service-fee" wx:if="{{draft.service === '帮买'}}"><text>跑腿服务费</text><text>￥{{estimate.serviceFee}}</text></view>
-    <view class="price-row budget-fee" wx:if="{{draft.service === '帮买'}}"><text>商品预算</text><text>￥{{estimate.budget}}</text></view>
+    <view class="price-row budget-fee" wx:if="{{draft.service === '帮买'}}"><text>商品价格</text><text>￥{{estimate.productFee}}</text></view>
+    <view class="price-row service-fee" wx:if="{{draft.service === '帮买'}}"><text>配送费</text><text>￥{{estimate.deliveryFee}}</text></view>
     <view class="weather-row {{draft.badWeather ? 'active' : ''}}" wx:if="{{estimate.pricingMode === 'distance_weather'}}">
       <view>
         <view class="weather-title">天气预报自动判断</view>

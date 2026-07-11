@@ -130,7 +130,11 @@ function OrderCard({
       </div>
       <div className="goods-box">
         <div className="goods-title">{order.displayItems}</div>
-        <div className="goods-meta">{order.vehicleName} · {order.weightLabel} · 合计 {order.feeText}</div>
+        <div className="goods-meta">
+          {order.service === '帮买'
+            ? `商品 ￥${order.productFee || 0} · 配送 ￥${order.deliveryFee || 0} · 合计 ${order.feeText}`
+            : `${order.vehicleName} · ${order.weightLabel} · 合计 ${order.feeText}`}
+        </div>
         {order.remark ? <div className="goods-note">备注：{order.remark}</div> : null}
         {order.quoteStatus === 'QUOTED' && order.quoteNote ? <div className="goods-note">报价说明：{order.quoteNote}</div> : null}
       </div>

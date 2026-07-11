@@ -138,6 +138,12 @@ export class CreateOrderDto {
   @Type(() => Number)
   @IsNumber()
   @Min(0)
+  productFee?: number
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
   budget?: number
 
   @IsOptional()

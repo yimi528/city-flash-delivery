@@ -31,7 +31,7 @@
     </view>
     <view class="stat-item">
       <view class="stat-value">￥{{stats.revenue}}</view>
-      <view class="stat-label">预算流水</view>
+      <view class="stat-label">商品流水</view>
     </view>
   </view>
 
@@ -55,7 +55,7 @@
         </view>
         <view class="goods-box">
           <view class="goods-title">{{item.displayItems}}</view>
-          <view class="goods-meta">预算 ￥{{item.budget}} · 跑腿费 ￥{{item.serviceFee || 0}} · 合计 ￥{{item.fee}}</view>
+          <view class="goods-meta">商品 ￥{{item.productFee}} · 配送 ￥{{item.deliveryFee}} · 合计 ￥{{item.fee}}</view>
           <view class="goods-note" wx:if="{{item.remark}}">备注：{{item.remark}}</view>
         </view>
         <view class="merchant-primary-action" wx:if="{{item.canAdvance}}" data-id="{{item.id}}" catchtap="advanceOrder">

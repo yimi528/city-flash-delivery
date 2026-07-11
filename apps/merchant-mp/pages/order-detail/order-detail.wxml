@@ -60,9 +60,10 @@
     <view class="info-row"><text>订单编号</text><text>{{order.id}}</text></view>
     <view class="info-row"><text>服务类型</text><text>{{order.service}}</text></view>
     <view class="info-row" wx:if="{{order.service === '帮买'}}"><text>代买商品</text><text>{{order.buyItems}}</text></view>
-    <view class="info-row" wx:if="{{order.service === '帮买'}}"><text>商品预算</text><text>￥{{order.budget}}</text></view>
+    <view class="info-row" wx:if="{{order.service === '帮买'}}"><text>商品价格</text><text>￥{{order.productFee}}</text></view>
     <view class="info-row" wx:if="{{order.service === '帮买'}}"><text>购买地址</text><text>{{order.purchaseAddressName}}</text></view>
-    <view class="info-row" wx:if="{{order.service === '帮买' && order.serviceFee}}"><text>跑腿服务费</text><text>￥{{order.serviceFee}}</text></view>
+    <view class="info-row" wx:if="{{order.service === '帮买'}}"><text>配送费</text><text>￥{{order.deliveryFee}}</text></view>
+    <view class="info-row" wx:if="{{order.service === '帮买'}}"><text>应付合计</text><text>￥{{order.fee}}</text></view>
     <view class="info-row" wx:if="{{order.service !== '帮买'}}"><text>物品类型</text><text>{{order.item}}</text></view>
     <view class="info-row" wx:if="{{order.service !== '帮买' && order.vehicleName}}"><text>配送工具</text><text>{{order.vehicleName}}</text></view>
     <view class="info-row" wx:if="{{order.service !== '帮买' && order.weightLabel}}"><text>物品重量</text><text>{{order.weightLabel}}</text></view>

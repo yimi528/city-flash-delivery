@@ -65,6 +65,13 @@ Page({
   },
 
   applyOrder(order) {
+    if (order && order.service === '帮买') {
+      const productFee = Number(order.productFee || order.budget || 0)
+      const fee = Number(order.totalFee || order.fee || 0)
+      order.productFee = productFee
+      order.deliveryFee = Number(order.deliveryFee || order.serviceFee || Math.max(fee - productFee, 0))
+      order.fee = fee
+    }
     const merchantStatus = getMerchantStatus(order)
     this.setData({
       statusBarHeight: app.globalData.statusBarHeight,

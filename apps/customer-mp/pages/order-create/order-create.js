@@ -139,7 +139,7 @@ function getPricingRule(draft) {
 function estimateFee(draft) {
   const distance = getRouteDistance(draft)
   const isBuy = draft && draft.service === '帮买'
-  const budget = isBuy ? Number(draft.budget || 0) : 0
+  const productFee = isBuy ? Number(draft.budget || 0) : 0
   const pricingMode = inferPricingMode(draft)
   const rule = getPricingRule(draft)
   const selectedLine = (draft && draft.selectedLine) || {}
@@ -179,7 +179,8 @@ function estimateFee(draft) {
     }
   }
 
-  const total = isManualQuote ? 0 : serviceFee + budget
+  const deliveryFee = serviceFee
+  const total = isManualQuote ? 0 : deliveryFee + productFee
   const totalText = isManualQuote ? '待报价' : `￥${formatMoney(total)}`
   return {
     distance: distance.toFixed(1),
@@ -198,7 +199,9 @@ function estimateFee(draft) {
     urgentFee: '0.0',
     vehicleFee: '0.0',
     discount: '0.0',
-    budget: formatMoney(budget),
+    productFee: formatMoney(productFee),
+    deliveryFee: formatMoney(deliveryFee),
+    budget: formatMoney(productFee),
     serviceFee: formatMoney(serviceFee),
     total: formatMoney(total),
     totalText,
@@ -260,8 +263,10 @@ function buildLocalOrder(draft, estimate) {
     dropoffDetail: draft.dropoff.detail,
     item: draft.item,
     buyItems: draft.buyItems || '',
-    budget: Number(draft.budget || 0),
-    serviceFee: Number(estimate.serviceFee || estimate.total),
+    productFee: Number(estimate.productFee || 0),
+    deliveryFee: Number(estimate.deliveryFee || 0),
+    budget: Number(estimate.productFee || 0),
+    serviceFee: Number(estimate.deliveryFee || 0),
     purchaseAddressName: draft.purchaseAddress ? draft.purchaseAddress.name : draft.pickup.name,
     purchaseAddressDetail: draft.purchaseAddress ? draft.purchaseAddress.detail : draft.pickup.detail,
     vehicleName: draft.service === '帮买' ? '骑手代买' : (draft.cargoOptions ? draft.cargoOptions.vehicleName : '二轮电动'),
@@ -297,6 +302,7 @@ function buildBackendPayload(draft) {
     purchaseAddressId: purchaseAddress ? purchaseAddress.id : '',
     purchase: purchaseAddress,
     buyItems: draft.buyItems || '',
+    productFee: Number(draft.budget || 0),
     budget: Number(draft.budget || 0),
     distanceKm: getRouteDistance(draft),
     weightKg: Number(draft.weight || 1),

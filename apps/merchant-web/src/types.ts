@@ -29,6 +29,10 @@ export type ApiOrder = {
   distance?: number
   weightKg?: number
   weight?: number
+  productFee?: number
+  deliveryFee?: number
+  budget?: number
+  serviceFee?: number
   totalFee?: number
   fee?: number
   pricingMode?: string
