@@ -108,7 +108,7 @@
     <textarea placeholder="{{fieldConfig.remarkPlaceholder}}" auto-height maxlength="120" bindinput="inputRemark" />
   </view>
 
-  <view class="card cargo-card" wx:if="{{draft.service !== '帮买'}}">
+  <view class="card cargo-card">
     <view class="section-head">
       <view class="section-title">{{draft.pricingMode === 'manual_quote' ? '推荐运力' : '配送工具'}}</view>
       <view class="edit-link" bindtap="openCargoOptions">{{isVehicleSelectorOpen ? '收起' : '重新选择'}}</view>
@@ -158,7 +158,7 @@
     <view class="price-row" wx:if="{{estimate.showWeightFee}}"><text>重量费</text><text>￥{{estimate.weightFee}}</text></view>
     <view class="price-row" wx:if="{{estimate.showVehicleFee}}"><text>车型费</text><text>￥{{estimate.vehicleFee}}</text></view>
     <view class="price-row" wx:if="{{estimate.showUrgentFee}}"><text>急送费</text><text>￥{{estimate.urgentFee}}</text></view>
-    <view class="price-row discount" wx:if="{{estimate.showDiscount}}"><text>新人优惠</text><text>-￥{{estimate.discount}}</text></view>
+    <view class="price-row discount" wx:if="{{estimate.showDiscount}}"><text>{{estimate.discountTitle}}</text><text>-￥{{estimate.discount}}</text></view>
     <view class="price-row budget-fee" wx:if="{{draft.service === '帮买'}}"><text>商品价格</text><text>￥{{estimate.productFee}}</text></view>
     <view class="price-row service-fee" wx:if="{{draft.service === '帮买'}}"><text>配送费</text><text>￥{{estimate.deliveryFee}}</text></view>
     <view class="weather-row {{draft.badWeather ? 'active' : ''}}" wx:if="{{estimate.pricingMode === 'distance_weather'}}">

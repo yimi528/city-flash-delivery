@@ -92,12 +92,13 @@ Page({
       service: '帮买',
       item: category.name,
       pricingMode: 'distance_weather',
-      priceSummary: '4公里内10，超出1.8元/公里',
+      priceSummary: '商品价格另加配送费，二轮车12元起',
       servicePricing: {
         baseDistanceKm: 4,
         basePrice: 10,
-        extraPerKm: 1.8,
-        badWeatherMultiplier: 1.2
+        extraPerKm: 1.6,
+        badWeatherMultiplier: 1.15,
+        serviceSurcharge: 2
       },
       recommendedVehicleType: 'ebike',
       recommendedVehicleName: '二轮车',
@@ -187,7 +188,9 @@ Page({
         vehicleCapacity: '小件快速送达',
         vehicleFee: 0,
         baseFee: 10,
-        distanceRate: 1.8,
+        distanceRate: 1.6,
+        linePriceMultiplier: 0.55,
+        maxDeliveryFee: 68,
         weightRate: 0,
         maxWeight: 10,
         weight: 1,

@@ -7,12 +7,14 @@ const VEHICLES = [
     desc: '适合寄货、拼车、小件货物',
     capacity: '30kg内 · 小于1立方米',
     tag: '拼小车推荐',
-    baseFee: 58,
+    baseFee: 35,
     vehicleFee: 0,
-    distanceRate: 0,
+    distanceRate: 3.2,
+    linePriceMultiplier: 1,
+    maxDeliveryFee: 168,
     weightRate: 0,
     maxWeight: 30,
-    priceText: '固定价'
+    priceText: '35元起'
   },
   {
     id: 'cargo_tricycle',
@@ -22,12 +24,14 @@ const VEHICLES = [
     desc: '适合拉货、搬家、商家补货',
     capacity: '大件/多件货物',
     tag: '拉货推荐',
-    baseFee: 58,
+    baseFee: 28,
     vehicleFee: 0,
-    distanceRate: 5,
+    distanceRate: 2.8,
+    linePriceMultiplier: 0.85,
+    maxDeliveryFee: 138,
     weightRate: 0,
     maxWeight: 300,
-    priceText: '58元起'
+    priceText: '28元起'
   },
   {
     id: 'human_tricycle',
@@ -37,12 +41,14 @@ const VEHICLES = [
     desc: '适合短途送货、送客',
     capacity: '短途轻便',
     tag: '短途省钱',
-    baseFee: 12,
+    baseFee: 15,
     vehicleFee: 0,
-    distanceRate: 3,
+    distanceRate: 2,
+    linePriceMultiplier: 0.65,
+    maxDeliveryFee: 88,
     weightRate: 0,
     maxWeight: 80,
-    priceText: '12元起'
+    priceText: '15元起'
   },
   {
     id: 'ebike',
@@ -54,7 +60,9 @@ const VEHICLES = [
     tag: '最快',
     baseFee: 10,
     vehicleFee: 0,
-    distanceRate: 1.8,
+    distanceRate: 1.6,
+    linePriceMultiplier: 0.55,
+    maxDeliveryFee: 68,
     weightRate: 0,
     maxWeight: 10,
     priceText: '10元起'
@@ -67,12 +75,14 @@ const VEHICLES = [
     desc: '适合装货、卸货',
     capacity: '装卸、搬运现场服务',
     tag: '人工服务',
-    baseFee: 58,
+    baseFee: 38,
     vehicleFee: 0,
     distanceRate: 0,
+    linePriceMultiplier: 0.7,
+    maxDeliveryFee: 88,
     weightRate: 0,
     maxWeight: 0,
-    priceText: '58元起'
+    priceText: '38元起'
   }
 ]
 
@@ -98,6 +108,8 @@ function buildCargoOptions(draft, vehicleId) {
     vehicleFee: vehicle.vehicleFee,
     baseFee: vehicle.baseFee,
     distanceRate: vehicle.distanceRate,
+    linePriceMultiplier: vehicle.linePriceMultiplier,
+    maxDeliveryFee: vehicle.maxDeliveryFee,
     weightRate: vehicle.weightRate,
     maxWeight: vehicle.maxWeight,
     weight,
@@ -108,9 +120,31 @@ function buildCargoOptions(draft, vehicleId) {
 function applyVehicleToDraft(draft, vehicleId) {
   if (!draft) return findVehicle(vehicleId)
   const vehicle = findVehicle(vehicleId)
+  const currentPricing = draft.servicePricing || {}
+  const baseDistanceKm = Number(currentPricing.baseDistanceKm || 4)
+  const serviceSurcharge = Number(currentPricing.serviceSurcharge || 0)
   draft.recommendedVehicleType = vehicle.id
   draft.recommendedVehicleName = vehicle.name
   draft.cargoOptions = buildCargoOptions(draft, vehicle.id)
+  draft.servicePricing = {
+    baseDistanceKm,
+    basePrice: vehicle.baseFee,
+    extraPerKm: vehicle.distanceRate,
+    badWeatherMultiplier: Number(currentPricing.badWeatherMultiplier || 1),
+    serviceSurcharge,
+    linePriceMultiplier: vehicle.linePriceMultiplier,
+    maxDeliveryFee: vehicle.maxDeliveryFee
+  }
+  const startingFee = vehicle.baseFee + serviceSurcharge
+  if (draft.pricingMode === 'fixed_line_parcel' || draft.pricingMode === 'fixed_line_ride') {
+    const selectedLine = draft.selectedLine || {}
+    const lineFee = Math.min(Number(selectedLine.price || startingFee) * vehicle.linePriceMultiplier + serviceSurcharge, vehicle.maxDeliveryFee)
+    draft.priceSummary = `${vehicle.name} · ${selectedLine.name || '当前线路'}约${Number(lineFee.toFixed(1))}元`
+  } else if (vehicle.distanceRate > 0) {
+    draft.priceSummary = `${vehicle.name} · ${baseDistanceKm}公里内${startingFee}元，超出${vehicle.distanceRate}元/公里，配送费不超过${vehicle.maxDeliveryFee}元`
+  } else {
+    draft.priceSummary = `${vehicle.name} · 预估${startingFee}元起，配送费不超过${vehicle.maxDeliveryFee}元`
+  }
   return vehicle
 }
 

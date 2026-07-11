@@ -42,6 +42,12 @@ export class CreateOrderDto {
   @Type(() => Number)
   @IsNumber()
   @Min(0)
+  linePriceMultiplier?: number
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
   baseDistanceKm?: number
 
   @IsOptional()
@@ -55,6 +61,18 @@ export class CreateOrderDto {
   @IsNumber()
   @Min(0)
   extraPerKm?: number
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  serviceSurcharge?: number
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  maxDeliveryFee?: number
 
   @IsOptional()
   @Type(() => Number)

@@ -10,10 +10,13 @@ export class PricingService {
     const distanceKm = Number(dto.distanceKm || 2.6)
     const weightKg = Number(dto.weightKg || 1)
     const pricingMode = dto.pricingMode || this.inferPricingMode(dto.serviceType, dto.serviceName)
-    const baseDistanceKm = Number(dto.baseDistanceKm || 4)
-    const basePrice = Number(dto.basePrice || rule.baseFee)
-    const extraPerKm = Number(dto.extraPerKm || rule.distanceRate)
+    const baseDistanceKm = Number(dto.baseDistanceKm ?? 4)
+    const basePrice = Number(dto.basePrice ?? rule.baseFee)
+    const extraPerKm = Number(dto.extraPerKm ?? rule.distanceRate)
     const linePrice = Number(dto.linePrice || 0)
+    const linePriceMultiplier = Number(dto.linePriceMultiplier ?? rule.linePriceMultiplier)
+    const serviceSurcharge = Number(dto.serviceSurcharge || 0)
+    const maxDeliveryFee = Number(dto.maxDeliveryFee ?? rule.maxDeliveryFee)
     const isBuyForMe = dto.serviceType === 'BUY_FOR_ME' || dto.serviceName === '帮买'
     const productFee = isBuyForMe ? Number(dto.productFee ?? dto.budget ?? 0) : 0
     const isFixedLine = pricingMode === 'fixed_line_parcel' || pricingMode === 'fixed_line_ride'
@@ -22,24 +25,27 @@ export class PricingService {
     let distanceFee = 0
     let weatherFee = 0
     let serviceFee = 0
+    let discountFee = 0
 
     if (isFixedLine) {
-      baseFee = linePrice || basePrice
-      serviceFee = baseFee
+      baseFee = (linePrice || basePrice) * linePriceMultiplier + serviceSurcharge
+      serviceFee = Math.min(baseFee, maxDeliveryFee)
+      discountFee = Math.max(baseFee - serviceFee, 0)
     } else {
-      baseFee = basePrice
+      baseFee = basePrice + serviceSurcharge
       distanceFee = Math.max(distanceKm - baseDistanceKm, 0) * extraPerKm
       const subtotal = baseFee + distanceFee
       const multiplier = !isManualQuote && pricingMode === 'distance_weather' && dto.badWeather
-        ? Number(dto.badWeatherMultiplier || 1.2)
+        ? Number(dto.badWeatherMultiplier || 1.15)
         : 1
       weatherFee = subtotal * (multiplier - 1)
-      serviceFee = subtotal + weatherFee
+      const uncappedServiceFee = subtotal + weatherFee
+      serviceFee = Math.min(uncappedServiceFee, maxDeliveryFee)
+      discountFee = Math.max(uncappedServiceFee - serviceFee, 0)
     }
 
     const weightFee = 0
     const vehicleFee = 0
-    const discountFee = 0
     const deliveryFee = serviceFee
     const total = deliveryFee + productFee
 
@@ -53,12 +59,15 @@ export class PricingService {
       weightKg: Number(weightKg.toFixed(1)),
       baseDistanceKm,
       extraPerKm,
+      linePriceMultiplier,
+      serviceSurcharge: Number(serviceSurcharge.toFixed(1)),
+      maxDeliveryFee: Number(maxDeliveryFee.toFixed(1)),
       baseFee: Number(baseFee.toFixed(1)),
       distanceFee: Number(distanceFee.toFixed(1)),
       weightFee: Number(weightFee.toFixed(1)),
       vehicleFee,
       weatherFee: Number(weatherFee.toFixed(1)),
-      discountFee,
+      discountFee: Number(discountFee.toFixed(1)),
       productFee: Number(productFee.toFixed(1)),
       deliveryFee: Number(deliveryFee.toFixed(1)),
       serviceFee: Number(serviceFee.toFixed(1)),

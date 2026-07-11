@@ -129,8 +129,11 @@ function getPricingRule(draft) {
   return {
     baseDistanceKm: hasServiceRule ? Number(servicePricing.baseDistanceKm || 4) : 4,
     basePrice: hasVehicleRule ? Number(vehicle.baseFee || 0) : (hasServiceRule ? Number(servicePricing.basePrice) : 10),
-    extraPerKm: hasVehicleRule ? Number(vehicle.distanceRate || 0) : (hasServiceRule ? Number(servicePricing.extraPerKm || 0) : 1.8),
-    badWeatherMultiplier: Number(servicePricing.badWeatherMultiplier || 1.2)
+    extraPerKm: hasVehicleRule ? Number(vehicle.distanceRate || 0) : (hasServiceRule ? Number(servicePricing.extraPerKm || 0) : 1.6),
+    badWeatherMultiplier: Number(servicePricing.badWeatherMultiplier || 1.15),
+    serviceSurcharge: Number(servicePricing.serviceSurcharge || 0),
+    linePriceMultiplier: Number(vehicle.linePriceMultiplier || servicePricing.linePriceMultiplier || 1),
+    maxDeliveryFee: Number(vehicle.maxDeliveryFee || servicePricing.maxDeliveryFee || 168)
   }
 }
 
@@ -149,30 +152,34 @@ function estimateFee(draft) {
   let distanceFee = 0
   let weatherFee = 0
   let serviceFee = 0
+  let capDiscount = 0
   let baseTitle = '起步价'
   let distanceFeeTitle = `超出${rule.baseDistanceKm}公里费用`
   let pricingNote = (draft && draft.priceSummary) || '按甲方规则计价'
 
   if (isFixedLine) {
-    base = linePrice || rule.basePrice
-    serviceFee = base
+    base = (linePrice || rule.basePrice) * rule.linePriceMultiplier + rule.serviceSurcharge
+    serviceFee = Math.min(base, rule.maxDeliveryFee)
+    capDiscount = Math.max(base - serviceFee, 0)
     baseTitle = selectedLine.name ? `${selectedLine.name}线路价` : '线路价格'
     pricingNote = selectedLine.name ? `${draft.taskName || draft.service} · ${selectedLine.name}` : pricingNote
   } else {
-    base = rule.basePrice
+    base = rule.basePrice + rule.serviceSurcharge
     const extraKm = Math.max(distance - rule.baseDistanceKm, 0)
     distanceFee = extraKm * rule.extraPerKm
     const subtotal = base + distanceFee
     const multiplier = pricingMode === 'distance_weather' && badWeather ? rule.badWeatherMultiplier : 1
     weatherFee = subtotal * (multiplier - 1)
-    serviceFee = subtotal + weatherFee
-    baseTitle = `${rule.baseDistanceKm}公里内`
+    const uncappedServiceFee = subtotal + weatherFee
+    serviceFee = Math.min(uncappedServiceFee, rule.maxDeliveryFee)
+    capDiscount = Math.max(uncappedServiceFee - serviceFee, 0)
+    baseTitle = rule.serviceSurcharge > 0 ? `${rule.baseDistanceKm}公里内（含服务费）` : `${rule.baseDistanceKm}公里内`
     if (pricingMode === 'distance_weather') {
-      pricingNote = badWeather ? `天气预报触发恶劣天气 ×${rule.badWeatherMultiplier}` : `超出${rule.baseDistanceKm}公里按${rule.extraPerKm}元/公里`
+      pricingNote = badWeather ? `天气预报触发恶劣天气 ×${rule.badWeatherMultiplier}` : `超出${rule.baseDistanceKm}公里按${rule.extraPerKm}元/公里，配送费封顶${rule.maxDeliveryFee}元`
     } else if (isManualQuote) {
       pricingNote = '系统预估价，仅供下单参考；商家报价后需再次确认'
     } else {
-      pricingNote = `超出${rule.baseDistanceKm}公里按${rule.extraPerKm}元/公里`
+      pricingNote = `超出${rule.baseDistanceKm}公里按${rule.extraPerKm}元/公里，配送费封顶${rule.maxDeliveryFee}元`
     }
   }
 
@@ -195,7 +202,8 @@ function estimateFee(draft) {
     weightFee: '0.0',
     urgentFee: '0.0',
     vehicleFee: '0.0',
-    discount: '0.0',
+    discount: formatMoney(capDiscount),
+    discountTitle: '同城配送封顶优惠',
     productFee: formatMoney(productFee),
     deliveryFee: formatMoney(deliveryFee),
     budget: formatMoney(productFee),
@@ -207,7 +215,7 @@ function estimateFee(draft) {
     showWeightFee: false,
     showVehicleFee: false,
     showUrgentFee: false,
-    showDiscount: false
+    showDiscount: capDiscount > 0
   }
 }
 
@@ -279,7 +287,7 @@ function buildLocalOrder(draft, estimate) {
     serviceFee: Number(estimate.deliveryFee || 0),
     purchaseAddressName: draft.purchaseAddress ? draft.purchaseAddress.name : draft.pickup.name,
     purchaseAddressDetail: draft.purchaseAddress ? draft.purchaseAddress.detail : draft.pickup.detail,
-    vehicleName: draft.service === '帮买' ? '骑手代买' : (draft.cargoOptions ? draft.cargoOptions.vehicleName : '二轮电动'),
+    vehicleName: draft.cargoOptions ? draft.cargoOptions.vehicleName : '二轮车',
     weightLabel: draft.service === '帮买' ? '' : (draft.cargoOptions ? draft.cargoOptions.weightLabel : getWeightLabel(Number(draft.weight || 1))),
     fee,
     estimatedFee: fee,
@@ -510,7 +518,9 @@ Page({
     const lineId = event.currentTarget.dataset.id
     const line = this.data.taskLines.find((item) => item.id === lineId)
     if (!line) return
-    app.globalData.draftOrder.selectedLine = line
+    const draft = app.globalData.draftOrder
+    draft.selectedLine = line
+    vehicleConfig.applyVehicleToDraft(draft, draft.cargoOptions.vehicleId)
     this.refreshLocalEstimate()
   },
 
@@ -531,18 +541,7 @@ Page({
   selectVehicle(event) {
     const vehicleId = event.currentTarget.dataset.id
     const draft = app.globalData.draftOrder
-    const vehicle = vehicleConfig.applyVehicleToDraft(draft, vehicleId)
-    if (inferPricingMode(draft) !== 'fixed_line_parcel' && inferPricingMode(draft) !== 'fixed_line_ride') {
-      draft.servicePricing = {
-        baseDistanceKm: 4,
-        basePrice: vehicle.baseFee,
-        extraPerKm: vehicle.distanceRate,
-        badWeatherMultiplier: Number((draft.servicePricing && draft.servicePricing.badWeatherMultiplier) || 1)
-      }
-      draft.priceSummary = vehicle.distanceRate
-        ? `${vehicle.name} · 4公里内${vehicle.baseFee}元，超出${vehicle.distanceRate}元/公里`
-        : `${vehicle.name} · 预估${vehicle.baseFee}元起`
-    }
+    vehicleConfig.applyVehicleToDraft(draft, vehicleId)
     this.setData({
       draft,
       selectedVehicle: vehicleId,

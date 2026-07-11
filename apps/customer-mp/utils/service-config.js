@@ -9,6 +9,7 @@ const PRIMARY_TASKS = [
     vehicleName: '小车',
     priceSummary: '温州58 / 苍南20 / 秦屿30 / 龙安30',
     pricingMode: 'fixed_line_parcel',
+    serviceSurcharge: 0,
     lines: [
       { id: 'wenzhou_parcel', name: '温州', price: 58 },
       { id: 'cangnan_parcel', name: '苍南', price: 20 },
@@ -27,6 +28,7 @@ const PRIMARY_TASKS = [
     vehicleName: '小车',
     priceSummary: '苍南40 / 温州150',
     pricingMode: 'fixed_line_ride',
+    serviceSurcharge: 0,
     lines: [
       { id: 'cangnan_ride', name: '苍南', price: 40 },
       { id: 'wenzhou_ride', name: '温州', price: 150 }
@@ -40,11 +42,12 @@ const PRIMARY_TASKS = [
     desc: '市场拉货、商家补货',
     vehicleType: 'cargo_tricycle',
     vehicleName: '货三轮车',
-    priceSummary: '4公里内58，超出5元/公里',
+    priceSummary: '推荐货三轮，4公里内33元',
     pricingMode: 'distance',
     baseDistanceKm: 4,
-    basePrice: 58,
-    extraPerKm: 5
+    basePrice: 28,
+    extraPerKm: 2.8,
+    serviceSurcharge: 5
   },
   {
     id: 'urgent_delivery',
@@ -54,12 +57,13 @@ const PRIMARY_TASKS = [
     desc: '一对一快速送达',
     vehicleType: 'ebike',
     vehicleName: '二轮车',
-    priceSummary: '4公里内10，超出1.8元/公里',
+    priceSummary: '二轮车4公里内13元，超出1.6元/公里',
     pricingMode: 'distance_weather',
     baseDistanceKm: 4,
     basePrice: 10,
-    extraPerKm: 1.8,
-    badWeatherMultiplier: 1.2
+    extraPerKm: 1.6,
+    badWeatherMultiplier: 1.15,
+    serviceSurcharge: 3
   }
 ]
 
@@ -70,8 +74,8 @@ const HANDLING_TYPES = [
     desc: '住宅、宿舍或门店整体搬运',
     vehicleId: 'cargo_tricycle',
     vehicleName: '货三轮车',
-    extraPerKm: 5,
-    priceSummary: '预估58元起，超出4公里按5元/公里'
+    serviceSurcharge: 20,
+    priceSummary: '推荐货三轮，系统预估48元起'
   },
   {
     name: '装货',
@@ -79,8 +83,8 @@ const HANDLING_TYPES = [
     desc: '协助装车、码放和短时搬运',
     vehicleId: 'manual_labor',
     vehicleName: '人力服务',
-    extraPerKm: 0,
-    priceSummary: '人力服务预估58元起'
+    serviceSurcharge: 10,
+    priceSummary: '人力服务预估48元起'
   },
   {
     name: '卸货',
@@ -88,8 +92,8 @@ const HANDLING_TYPES = [
     desc: '协助卸车、入库和搬至指定位置',
     vehicleId: 'manual_labor',
     vehicleName: '人力服务',
-    extraPerKm: 0,
-    priceSummary: '人力服务预估58元起'
+    serviceSurcharge: 10,
+    priceSummary: '人力服务预估48元起'
   }
 ]
 
@@ -102,12 +106,13 @@ const COMMON_TASKS = [
     desc: '帮你取件再送达',
     vehicleType: 'ebike',
     vehicleName: '二轮车',
-    priceSummary: '4公里内10，超出1.8元/公里',
+    priceSummary: '二轮车4公里内10元，超出1.6元/公里',
     pricingMode: 'distance_weather',
     baseDistanceKm: 4,
     basePrice: 10,
-    extraPerKm: 1.8,
-    badWeatherMultiplier: 1.2
+    extraPerKm: 1.6,
+    badWeatherMultiplier: 1.15,
+    serviceSurcharge: 0
   },
   {
     id: 'buy_for_me',
@@ -117,12 +122,13 @@ const COMMON_TASKS = [
     desc: '帮买商品并送达',
     vehicleType: 'ebike',
     vehicleName: '二轮车',
-    priceSummary: '4公里内10，超出1.8元/公里',
+    priceSummary: '商品价格另加配送费，二轮车12元起',
     pricingMode: 'distance_weather',
     baseDistanceKm: 4,
     basePrice: 10,
-    extraPerKm: 1.8,
-    badWeatherMultiplier: 1.2
+    extraPerKm: 1.6,
+    badWeatherMultiplier: 1.15,
+    serviceSurcharge: 2
   },
   {
     id: 'moving_handling',
@@ -132,11 +138,12 @@ const COMMON_TASKS = [
     desc: '统一提交搬运需求',
     vehicleType: 'cargo_tricycle',
     vehicleName: '货三轮车',
-    priceSummary: '预估58元起，最终价格下单后确认',
+    priceSummary: '系统预估48元起，最终价格下单后确认',
     pricingMode: 'manual_quote',
     baseDistanceKm: 4,
-    basePrice: 58,
-    extraPerKm: 5
+    basePrice: 28,
+    extraPerKm: 2.8,
+    serviceSurcharge: 20
   },
   {
     id: 'pedicab_delivery',
@@ -146,11 +153,12 @@ const COMMON_TASKS = [
     desc: '短途送货或送客',
     vehicleType: 'human_tricycle',
     vehicleName: '人力三轮车',
-    priceSummary: '4公里内12，超出3元/公里',
+    priceSummary: '人力三轮4公里内15元，超出2元/公里',
     pricingMode: 'distance',
     baseDistanceKm: 4,
-    basePrice: 12,
-    extraPerKm: 3
+    basePrice: 15,
+    extraPerKm: 2,
+    serviceSurcharge: 0
   }
 ]
 
@@ -190,9 +198,10 @@ function applyHandlingType(draft, itemName) {
   draft.priceSummary = handlingType.priceSummary
   draft.servicePricing = {
     baseDistanceKm: 4,
-    basePrice: 58,
-    extraPerKm: handlingType.extraPerKm,
-    badWeatherMultiplier: 1
+    basePrice: 0,
+    extraPerKm: 0,
+    badWeatherMultiplier: 1,
+    serviceSurcharge: handlingType.serviceSurcharge
   }
   return handlingType
 }
@@ -220,7 +229,8 @@ function buildDraftService(taskId) {
       baseDistanceKm: task.baseDistanceKm || 0,
       basePrice: task.basePrice || 0,
       extraPerKm: task.extraPerKm || 0,
-      badWeatherMultiplier: task.badWeatherMultiplier || 1
+      badWeatherMultiplier: task.badWeatherMultiplier || 1,
+      serviceSurcharge: task.serviceSurcharge || 0
     }
   }
 }
