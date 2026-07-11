@@ -42,38 +42,78 @@
 
   <view class="card quote-confirm-card" wx:if="{{order.isManualQuote}}">
     <view class="quote-confirm-head">
-      <view>
-        <view class="section-title">价格确认</view>
-        <view class="section-sub">下单前预估仅供参考，最终价格由商家报价</view>
+      <view class="quote-title-group">
+        <view class="section-title">核对最终报价</view>
+        <view class="section-sub">确认价格后，平台将开始安排本次服务</view>
       </view>
-      <view class="quote-confirm-pill {{order.quoteStatus}}">{{order.quoteStatusText}}</view>
+      <view class="quote-confirm-pill {{order.quoteStatus}}">{{order.quoteStatus === 'PENDING' ? '核价中' : (order.quoteStatus === 'QUOTED' ? '待确认' : (order.quoteStatus === 'ACCEPTED' ? '已确认' : '已拒绝'))}}</view>
     </view>
 
     <view class="quote-waiting" wx:if="{{order.quoteStatus === 'PENDING'}}">
-      <view class="quote-waiting-label">规则预估价</view>
-      <view class="quote-waiting-price">￥{{order.estimatedFee}}</view>
-      <view class="quote-waiting-note">商家正在结合实际需求确定最终价格，报价后需要你再次确认。</view>
+      <view class="quote-waiting-label">当前参考价</view>
+      <view class="quote-waiting-price"><text>￥</text>{{order.estimatedFee}}</view>
+      <view class="quote-progress-line"><view class="quote-progress-dot"></view><text>商家正在核算现场服务价格</text></view>
+      <view class="quote-waiting-note">报价完成后会在此展示，你确认接受后订单才会继续。</view>
     </view>
 
     <view class="quote-final" wx:elif="{{order.quoteStatus === 'QUOTED'}}">
-      <view class="quote-compare"><text>下单前预估</text><text>￥{{order.estimatedFee}}</text></view>
-      <view class="quote-compare final"><text>商家最终报价</text><text>￥{{order.quotedFee || order.fee}}</text></view>
-      <view class="quote-note" wx:if="{{order.quoteNote}}">{{order.quoteNote}}</view>
-      <view class="quote-warning">接受后订单才会进入接单和履约流程</view>
+      <view class="quote-price-grid">
+        <view class="quote-price-block estimate">
+          <text class="quote-price-label">规则预估</text>
+          <view class="quote-price-amount"><text>￥</text>{{order.estimatedFee}}</view>
+          <text class="quote-price-caption">下单前参考价格</text>
+        </view>
+        <view class="quote-price-arrow">→</view>
+        <view class="quote-price-block final">
+          <text class="quote-price-label">商家报价</text>
+          <view class="quote-price-amount"><text>￥</text>{{order.quotedFee || order.fee}}</view>
+          <text class="quote-price-caption">本次最终服务价</text>
+        </view>
+      </view>
+      <view class="quote-note" wx:if="{{order.quoteNote}}">
+        <view class="quote-note-label">报价说明</view>
+        <view class="quote-note-content">{{order.quoteNote}}</view>
+      </view>
+      <view class="quote-warning">
+        <view class="quote-warning-icon">!</view>
+        <view>
+          <view class="quote-warning-title">请确认是否接受本次报价</view>
+          <view class="quote-warning-sub">确认接受后，订单将进入接单与履约流程</view>
+        </view>
+      </view>
       <view class="quote-actions">
-        <button class="quote-reject" disabled="{{isQuoteResponding}}" bindtap="rejectQuote">拒绝报价</button>
-        <button class="quote-accept" loading="{{isQuoteResponding}}" disabled="{{isQuoteResponding}}" bindtap="confirmQuote">接受并继续</button>
+        <button class="quote-button quote-reject" hover-class="quote-button-pressed" disabled="{{isQuoteResponding}}" bindtap="rejectQuote">
+          <view class="quote-button-icon reject-icon">×</view>
+          <view class="quote-button-copy">
+            <text class="quote-button-title">暂不接受</text>
+            <text class="quote-button-sub">请商家调整价格</text>
+          </view>
+        </button>
+        <button class="quote-button quote-accept" hover-class="quote-button-pressed" disabled="{{isQuoteResponding}}" bindtap="confirmQuote">
+          <view class="quote-button-icon accept-icon">{{isQuoteResponding ? '…' : '✓'}}</view>
+          <view class="quote-button-copy">
+            <text class="quote-button-title">{{isQuoteResponding ? '正在确认' : '确认接受'}}</text>
+            <text class="quote-button-sub">开始安排服务</text>
+          </view>
+        </button>
       </view>
     </view>
 
     <view class="quote-result rejected" wx:elif="{{order.quoteStatus === 'REJECTED'}}">
-      <view class="quote-result-title">你已拒绝本次报价</view>
-      <view class="quote-result-note">商家可以根据实际情况重新报价，新的价格仍需你确认。</view>
+      <view class="quote-result-icon rejected">×</view>
+      <view class="quote-result-copy">
+        <view class="quote-result-title">本次报价暂未接受</view>
+        <view class="quote-result-note">商家调整价格后会重新通知你确认。</view>
+      </view>
     </view>
 
     <view class="quote-result accepted" wx:elif="{{order.quoteStatus === 'ACCEPTED'}}">
-      <view class="quote-result-title">已接受商家报价 ￥{{order.quotedFee || order.fee}}</view>
-      <view class="quote-result-note">价格已确认，运营人员现在可以继续处理订单。</view>
+      <view class="quote-result-icon accepted">✓</view>
+      <view class="quote-result-copy">
+        <view class="quote-result-title">最终价格已确认</view>
+        <view class="quote-result-price">￥{{order.quotedFee || order.fee}}</view>
+        <view class="quote-result-note">订单已进入服务安排流程，请留意进度更新。</view>
+      </view>
     </view>
   </view>
 

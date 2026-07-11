@@ -161,17 +161,33 @@
 }
 
 .quote-confirm-card {
+  padding: 30rpx;
   border: 2rpx solid #ffd9bd;
   background: linear-gradient(180deg, #fffaf5, #ffffff);
 }
 
 .quote-confirm-head,
-.quote-compare,
 .quote-actions {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 20rpx;
+}
+
+.quote-title-group {
+  flex: 1;
+  min-width: 0;
+}
+
+.quote-title-group .section-title {
+  color: #111c34;
+  font-size: 34rpx;
+  letter-spacing: 0;
+}
+
+.quote-title-group .section-sub {
+  max-width: 430rpx;
+  line-height: 1.45;
 }
 
 .quote-confirm-pill {
@@ -206,8 +222,7 @@
 
 .quote-waiting-label,
 .quote-result-note,
-.quote-warning,
-.quote-note {
+.quote-note-content {
   color: #7a8498;
   font-size: 24rpx;
   line-height: 1.55;
@@ -220,6 +235,29 @@
   font-weight: 950;
 }
 
+.quote-waiting-price text {
+  margin-right: 4rpx;
+  font-size: 28rpx;
+}
+
+.quote-progress-line {
+  margin-top: 12rpx;
+  color: #344054;
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+  font-size: 24rpx;
+  font-weight: 850;
+}
+
+.quote-progress-dot {
+  width: 14rpx;
+  height: 14rpx;
+  border-radius: 50%;
+  background: #f97316;
+  box-shadow: 0 0 0 8rpx rgba(249, 115, 22, 0.12);
+}
+
 .quote-waiting-note {
   margin-top: 10rpx;
   color: #68738a;
@@ -227,21 +265,72 @@
   line-height: 1.55;
 }
 
-.quote-compare {
-  min-height: 60rpx;
+.quote-price-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 38rpx minmax(0, 1fr);
+  align-items: center;
+  gap: 10rpx;
+}
+
+.quote-price-block {
+  min-width: 0;
+  padding: 20rpx 16rpx;
+  border-radius: 16rpx;
+  background: #f5f7fa;
+  text-align: center;
+}
+
+.quote-price-block.final {
+  color: #fff;
+  background: linear-gradient(145deg, #ff7b00, #f23818);
+  box-shadow: 0 12rpx 24rpx rgba(242, 72, 24, 0.2);
+}
+
+.quote-price-label,
+.quote-price-caption {
+  display: block;
+}
+
+.quote-price-label {
   color: #667085;
-  font-size: 26rpx;
+  font-size: 22rpx;
+  font-weight: 850;
 }
 
-.quote-compare.final {
-  margin-top: 8rpx;
+.quote-price-amount {
+  margin-top: 6rpx;
   color: #111c34;
-  font-weight: 900;
+  font-size: 38rpx;
+  font-weight: 950;
+  white-space: nowrap;
 }
 
-.quote-compare.final text:last-child {
-  color: #f04400;
-  font-size: 38rpx;
+.quote-price-amount text {
+  margin-right: 2rpx;
+  font-size: 23rpx;
+}
+
+.quote-price-caption {
+  margin-top: 4rpx;
+  color: #98a2b3;
+  font-size: 18rpx;
+}
+
+.quote-price-block.final .quote-price-label,
+.quote-price-block.final .quote-price-amount,
+.quote-price-block.final .quote-price-caption {
+  color: #fff;
+}
+
+.quote-price-block.final .quote-price-caption {
+  color: rgba(255, 255, 255, 0.76);
+}
+
+.quote-price-arrow {
+  color: #f97316;
+  font-size: 34rpx;
+  font-weight: 950;
+  text-align: center;
 }
 
 .quote-note,
@@ -253,37 +342,188 @@
 }
 
 .quote-warning {
-  color: #a44b0b;
+  color: #8a3c08;
   background: #fff3e8;
+  display: flex;
+  align-items: center;
+  gap: 14rpx;
+}
+
+.quote-note-label {
+  color: #344054;
+  font-size: 22rpx;
+  font-weight: 950;
+}
+
+.quote-note-content {
+  margin-top: 6rpx;
+}
+
+.quote-warning-icon {
+  width: 38rpx;
+  height: 38rpx;
+  border-radius: 50%;
+  color: #fff;
+  background: #f97316;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 23rpx;
+  font-weight: 950;
+  flex-shrink: 0;
+}
+
+.quote-warning-title {
+  font-size: 23rpx;
+  font-weight: 950;
+}
+
+.quote-warning-sub {
+  margin-top: 4rpx;
+  color: #a85c25;
+  font-size: 20rpx;
 }
 
 .quote-actions {
-  margin-top: 22rpx;
+  display: grid;
+  grid-template-columns: 0.9fr 1.1fr;
+  gap: 14rpx;
+  margin-top: 24rpx;
 }
 
-.quote-reject,
-.quote-accept {
-  height: 82rpx;
-  border-radius: 18rpx;
-  font-size: 27rpx;
-  font-weight: 900;
+.quote-button {
+  width: 100%;
+  height: 98rpx;
+  margin: 0;
+  padding: 0 16rpx;
+  border: 2rpx solid transparent;
+  border-radius: 16rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12rpx;
+  line-height: 1.2;
+  overflow: hidden;
+  transition: transform 120ms ease, opacity 120ms ease;
 }
 
 .quote-reject {
-  width: 210rpx;
-  color: #596579;
-  background: #edf1f6;
+  color: #344054;
+  border-color: #d9e0ea;
+  background: linear-gradient(180deg, #ffffff, #f5f7fa);
+  box-shadow: 0 8rpx 20rpx rgba(32, 45, 70, 0.07);
 }
 
 .quote-accept {
-  flex: 1;
   color: #fff;
-  background: linear-gradient(90deg, #ff7b00, #ff2517);
+  background: linear-gradient(100deg, #ff7b00, #ff3d18 58%, #f31212);
+  box-shadow: 0 14rpx 28rpx rgba(245, 62, 24, 0.25);
+}
+
+.quote-button-icon {
+  width: 44rpx;
+  height: 44rpx;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 25rpx;
+  font-weight: 950;
+  flex-shrink: 0;
+}
+
+.reject-icon {
+  color: #667085;
+  background: #e9edf3;
+}
+
+.accept-icon {
+  color: #f33a19;
+  background: #fff;
+}
+
+.quote-button-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  text-align: left;
+}
+
+.quote-button-title,
+.quote-button-sub {
+  display: block;
+  white-space: nowrap;
+}
+
+.quote-button-title {
+  font-size: 26rpx;
+  font-weight: 950;
+}
+
+.quote-button-sub {
+  margin-top: 4rpx;
+  color: #8a94a8;
+  font-size: 19rpx;
+  font-weight: 700;
+}
+
+.quote-accept .quote-button-sub {
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.quote-button-pressed {
+  transform: scale(0.98);
+  opacity: 0.86;
+}
+
+.quote-button[disabled] {
+  opacity: 0.58;
 }
 
 .quote-result-title {
   color: #111c34;
   font-size: 29rpx;
+  font-weight: 950;
+}
+
+.quote-result {
+  display: flex;
+  align-items: center;
+  gap: 18rpx;
+}
+
+.quote-result-icon {
+  width: 62rpx;
+  height: 62rpx;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32rpx;
+  font-weight: 950;
+  flex-shrink: 0;
+}
+
+.quote-result-icon.rejected {
+  color: #b42318;
+  background: #fee4e2;
+}
+
+.quote-result-icon.accepted {
+  color: #087a53;
+  background: #d1fadf;
+}
+
+.quote-result-copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.quote-result-price {
+  margin-top: 5rpx;
+  color: #087a53;
+  font-size: 36rpx;
   font-weight: 950;
 }
 
