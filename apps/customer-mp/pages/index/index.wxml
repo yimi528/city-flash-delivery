@@ -84,7 +84,7 @@
     <view class="shortcut-head">
       <view>
         <view class="shortcut-title">常用服务</view>
-        <view class="shortcut-sub">帮取、帮买、搬家、装卸货</view>
+        <view class="shortcut-sub">取件、代买、搬运与短途送货</view>
       </view>
       <view class="shortcut-more">更省心</view>
     </view>
@@ -94,6 +94,7 @@
           <view class="common-icon">{{item.icon}}</view>
           <view class="common-text">
             <view class="common-name">{{item.name}}</view>
+            <view class="common-subtitle">{{item.subtitle}}</view>
           </view>
         </view>
       </block>

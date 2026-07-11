@@ -71,7 +71,7 @@ export class PricingService {
   private inferPricingMode(serviceType?: string, serviceName?: string) {
     if (serviceName === '寄货') return 'fixed_line_parcel'
     if (serviceName === '拼车') return 'fixed_line_ride'
-    if (['搬家/搬店', '装货', '卸货'].includes(serviceName || '')) return 'manual_quote'
+    if (['搬运装卸', '搬家/搬店', '装货', '卸货'].includes(serviceName || '')) return 'manual_quote'
     if (['DELIVERY', 'PICKUP', 'BUY_FOR_ME'].includes(serviceType || '')) return 'distance_weather'
     return 'distance'
   }

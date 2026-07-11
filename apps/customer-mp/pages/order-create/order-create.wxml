@@ -2,8 +2,36 @@
   <view style="height: {{statusBarHeight}}px"></view>
   <view class="page-nav">
     <view class="back" bindtap="goBack">‹</view>
-    <view class="nav-title">确认订单</view>
-    <view class="nav-action">明细</view>
+    <view class="nav-title">{{draft.pricingMode === 'manual_quote' ? '搬运装卸' : '确认订单'}}</view>
+    <view class="nav-action">{{draft.pricingMode === 'manual_quote' ? '预估价' : '明细'}}</view>
+  </view>
+
+  <view class="handling-intro" wx:if="{{draft.pricingMode === 'manual_quote'}}">
+    <view class="handling-kicker">一站式搬运</view>
+    <view class="handling-title">搬家、搬店和装卸统一下单</view>
+    <view class="handling-sub">规则预估后提交，商家最终报价仍由你确认</view>
+  </view>
+
+  <view class="card handling-card" wx:if="{{draft.pricingMode === 'manual_quote'}}">
+    <view class="section-head handling-head">
+      <view>
+        <view class="section-title">本次需要什么服务？</view>
+        <view class="handling-hint">选择主要需求，再补充现场情况</view>
+      </view>
+    </view>
+    <view class="handling-options">
+      <block wx:for="{{handlingTypes}}" wx:key="name">
+        <view class="handling-option {{draft.item === item.name ? 'active' : ''}}" data-item="{{item.name}}" bindtap="selectItem">
+          <view class="handling-icon">{{item.icon}}</view>
+          <view class="handling-copy">
+            <view class="handling-name">{{item.name}}</view>
+            <view class="handling-desc">{{item.desc}}</view>
+          </view>
+          <view class="handling-check">{{draft.item === item.name ? '✓' : ''}}</view>
+        </view>
+      </block>
+    </view>
+    <textarea class="handling-remark" value="{{draft.remark}}" placeholder="{{fieldConfig.remarkPlaceholder}}" auto-height maxlength="160" bindinput="inputRemark" />
   </view>
 
   <view class="route-card card">
@@ -58,7 +86,7 @@
     </view>
   </view>
 
-  <view class="card option-card" wx:else>
+  <view class="card option-card" wx:if="{{draft.service !== '帮买' && draft.pricingMode !== 'manual_quote'}}">
     <view class="section-head">
       <view class="section-title">{{fieldConfig.sectionTitle}}</view>
       <view class="muted">{{fieldConfig.sectionHint}}</view>
@@ -82,7 +110,7 @@
 
   <view class="card cargo-card" wx:if="{{draft.service !== '帮买'}}">
     <view class="section-head">
-      <view class="section-title">配送工具</view>
+      <view class="section-title">{{draft.pricingMode === 'manual_quote' ? '推荐运力' : '配送工具'}}</view>
       <view class="edit-link" bindtap="openCargoOptions">{{isVehicleSelectorOpen ? '收起' : '重新选择'}}</view>
     </view>
     <view class="cargo-summary" bindtap="openCargoOptions">
@@ -92,7 +120,7 @@
       </view>
       <view class="cargo-info">
         <view class="cargo-name">{{draft.cargoOptions.vehicleName}}</view>
-        <view class="cargo-desc">{{draft.cargoOptions.categoryName}} · {{draft.cargoOptions.weightLabel}} · {{draft.cargoOptions.vehicleCapacity}}</view>
+        <view class="cargo-desc">{{draft.cargoOptions.categoryName}} · {{draft.pricingMode === 'manual_quote' ? '按现场需求' : draft.cargoOptions.weightLabel}} · {{draft.cargoOptions.vehicleCapacity}}</view>
       </view>
       <view class="cargo-fee" wx:if="{{draft.cargoOptions.vehicleFee}}">+￥{{draft.cargoOptions.vehicleFee}}</view>
       <view class="cargo-fee" wx:else>基础</view>

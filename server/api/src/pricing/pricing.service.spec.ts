@@ -32,7 +32,7 @@ describe('PricingService', () => {
   it('returns a rule-based estimate before a manual quote order is created', () => {
     const estimate = service.estimate({
       serviceType: 'CARGO',
-      serviceName: '搬家/搬店',
+      serviceName: '搬运装卸',
       vehicleType: 'ETRIKE',
       pricingMode: 'manual_quote',
       distanceKm: 2.5,

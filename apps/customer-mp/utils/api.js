@@ -29,6 +29,7 @@ const SERVICE_VALUES = {
   帮取: 'PICKUP',
   送货: 'CARGO',
   '送货/送客': 'CARGO',
+  搬运装卸: 'CARGO',
   '搬家/搬店': 'CARGO',
   装货: 'CARGO',
   卸货: 'CARGO',

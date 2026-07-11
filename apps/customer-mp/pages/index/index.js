@@ -12,7 +12,10 @@ function ensureDraftTask(taskId) {
   if (isTaskChanged || !draft.item) {
     draft.item = serviceConfig.getDefaultItem(nextTaskId)
   }
-  vehicleConfig.applyVehicleToDraft(draft, patch.recommendedVehicleType)
+  const handlingType = patch.taskId === 'moving_handling'
+    ? serviceConfig.applyHandlingType(draft, draft.item)
+    : null
+  vehicleConfig.applyVehicleToDraft(draft, handlingType ? handlingType.vehicleId : patch.recommendedVehicleType)
   return draft
 }
 

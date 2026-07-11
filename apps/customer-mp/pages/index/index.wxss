@@ -788,8 +788,8 @@
 }
 
 .common-chip {
-  min-height: 76rpx;
-  padding: 14rpx 16rpx;
+  min-height: 104rpx;
+  padding: 16rpx 18rpx;
   border: 2rpx solid #edf1f7;
   border-radius: 22rpx;
   background: #fff;
@@ -804,8 +804,8 @@
 }
 
 .common-icon {
-  width: 50rpx;
-  height: 50rpx;
+  width: 58rpx;
+  height: 58rpx;
   border-radius: 18rpx;
   color: #fff;
   background: linear-gradient(180deg, #ff8a80, #ff1712);
@@ -832,7 +832,7 @@
 }
 
 .common-subtitle {
-  margin-top: 4rpx;
+  margin-top: 6rpx;
   color: #8b95aa;
   font-size: 21rpx;
   overflow: hidden;

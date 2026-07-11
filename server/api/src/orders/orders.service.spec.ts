@@ -10,7 +10,7 @@ function manualQuoteOrder(quoteStatus: QuoteStatus = QuoteStatus.QUOTED) {
     orderNo: 'N202607110001',
     userId: 'demo-user',
     serviceType: ServiceType.CARGO,
-    serviceName: '搬家/搬店',
+    serviceName: '搬运装卸',
     status: OrderStatus.PENDING,
     paymentStatus: 'UNPAID',
     pickupName: '取货地址',

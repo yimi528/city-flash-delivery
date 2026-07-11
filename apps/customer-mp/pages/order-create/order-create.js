@@ -4,11 +4,7 @@ const map = require('../../utils/map')
 const serviceConfig = require('../../utils/service-config')
 const vehicleConfig = require('../../utils/vehicle-config')
 
-const MANUAL_QUOTE_TASKS = {
-  '搬家/搬店': 'move_shop',
-  装货: 'load_goods',
-  卸货: 'unload_goods'
-}
+const HANDLING_TYPES = serviceConfig.HANDLING_TYPES
 
 const FIELD_PRESETS = {
   send_parcel: {
@@ -60,11 +56,11 @@ const FIELD_PRESETS = {
     remarkPlaceholder: '备注：人数/件数、是否需要等候'
   },
   manual_quote: {
-    sectionTitle: '需求描述',
-    sectionHint: '提交后运营报价',
+    sectionTitle: '搬运需求',
+    sectionHint: '选择本次主要服务',
     itemTypes: ['搬家/搬店', '装货', '卸货'],
     showWeight: false,
-    limitText: '此类服务先提交需求，运营确认后报价',
+    limitText: '',
     remarkPlaceholder: '请写清楼层、有无电梯、货物数量、是否需要多人'
   }
 }
@@ -120,7 +116,7 @@ function inferPricingMode(draft) {
   if (!draft) return 'distance_weather'
   if (draft.service === '寄货') return 'fixed_line_parcel'
   if (draft.service === '拼车') return 'fixed_line_ride'
-  if (draft.service === '搬家/搬店' || draft.service === '装货' || draft.service === '卸货') return 'manual_quote'
+  if (draft.service === '搬运装卸' || draft.service === '搬家/搬店' || draft.service === '装货' || draft.service === '卸货') return 'manual_quote'
   if (draft.service === '急送' || draft.service === '帮取' || draft.service === '帮买' || draft.service === '帮送' || draft.service === '1对1急送') return 'distance_weather'
   return 'distance'
 }
@@ -229,6 +225,18 @@ function ensureDraftVehicle(draft) {
   return draft.cargoOptions.vehicleId
 }
 
+function normalizeHandlingDraft(draft) {
+  if (!draft || inferPricingMode(draft) !== 'manual_quote') return
+  const selectedName = HANDLING_TYPES.some((item) => item.name === draft.item)
+    ? draft.item
+    : HANDLING_TYPES.some((item) => item.name === draft.service)
+      ? draft.service
+      : HANDLING_TYPES[0].name
+  Object.assign(draft, serviceConfig.buildDraftService('moving_handling'))
+  const handlingType = serviceConfig.applyHandlingType(draft, selectedName)
+  vehicleConfig.applyVehicleToDraft(draft, handlingType.vehicleId)
+}
+
 function prepareFormState(draft) {
   const task = serviceConfig.getTask((draft && draft.taskId) || 'send_parcel')
   const taskLines = task.lines || []
@@ -245,7 +253,8 @@ function prepareFormState(draft) {
     taskLines,
     selectedLineId: draft && draft.selectedLine ? draft.selectedLine.id : '',
     fieldConfig,
-    itemTypes: fieldConfig.itemTypes
+    itemTypes: fieldConfig.itemTypes,
+    handlingTypes: HANDLING_TYPES
   }
 }
 
@@ -343,6 +352,7 @@ Page({
     taskLines: [],
     selectedLineId: '',
     fieldConfig: FIELD_PRESETS.urgent_delivery,
+    handlingTypes: HANDLING_TYPES,
     vehicles: vehicleConfig.VEHICLES,
     selectedVehicle: 'ebike',
     isVehicleSelectorOpen: false,
@@ -356,6 +366,7 @@ Page({
 
   onShow() {
     const draft = app.globalData.draftOrder
+    normalizeHandlingDraft(draft)
     const selectedVehicle = ensureDraftVehicle(draft)
     const formState = prepareFormState(draft)
     this.setData({
@@ -367,6 +378,7 @@ Page({
       selectedLineId: formState.selectedLineId,
       fieldConfig: formState.fieldConfig,
       itemTypes: formState.itemTypes,
+      handlingTypes: formState.handlingTypes,
       routeSource: getRouteSource(draft),
       routeDuration: draft.routeDuration || '',
       weatherRisk: draft.weatherRisk || buildWeatherRisk()
@@ -386,6 +398,7 @@ Page({
       selectedLineId: formState.selectedLineId,
       fieldConfig: formState.fieldConfig,
       itemTypes: formState.itemTypes,
+      handlingTypes: formState.handlingTypes,
       routeSource: getRouteSource(draft),
       routeDuration: draft.routeDuration || '',
       weatherRisk: draft.weatherRisk || buildWeatherRisk()
@@ -478,12 +491,12 @@ Page({
   selectItem(event) {
     const item = event.currentTarget.dataset.item
     const draft = app.globalData.draftOrder
-    const manualTaskId = inferPricingMode(draft) === 'manual_quote' ? MANUAL_QUOTE_TASKS[item] : ''
-    if (manualTaskId) {
-      const patch = serviceConfig.buildDraftService(manualTaskId)
-      Object.assign(draft, patch)
-      draft.item = serviceConfig.getDefaultItem(manualTaskId)
-      vehicleConfig.applyVehicleToDraft(draft, patch.recommendedVehicleType)
+    const handlingType = inferPricingMode(draft) === 'manual_quote'
+      ? HANDLING_TYPES.find((option) => option.name === item)
+      : null
+    if (handlingType) {
+      serviceConfig.applyHandlingType(draft, handlingType.name)
+      vehicleConfig.applyVehicleToDraft(draft, handlingType.vehicleId)
       this.setData({ isVehicleSelectorOpen: false })
     } else {
       draft.item = item
