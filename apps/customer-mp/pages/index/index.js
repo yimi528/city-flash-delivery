@@ -24,8 +24,7 @@ Page({
     statusBarHeight: 24,
     city: '宁德市',
     draft: {},
-    primaryTasks: serviceConfig.PRIMARY_TASKS,
-    commonTasks: serviceConfig.COMMON_TASKS,
+    allTasks: serviceConfig.ALL_TASKS,
     activeTask: serviceConfig.PRIMARY_TASKS[0],
     locationText: '定位附近'
   },

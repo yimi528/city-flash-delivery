@@ -470,43 +470,6 @@
   margin-top: 22rpx;
 }
 
-.shortcut-card {
-  min-height: 230rpx;
-  padding: 28rpx 24rpx 24rpx;
-}
-
-.shortcut-head {
-  padding: 0 6rpx 22rpx;
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-}
-
-.shortcut-title {
-  color: #0c1b38;
-  font-size: 34rpx;
-  font-weight: 950;
-}
-
-.shortcut-sub {
-  margin-top: 8rpx;
-  color: #8a94a8;
-  font-size: 23rpx;
-}
-
-.shortcut-more {
-  min-width: 96rpx;
-  height: 48rpx;
-  border-radius: 24rpx;
-  color: #ff1712;
-  background: #fff0ed;
-  font-size: 23rpx;
-  font-weight: 900;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
 .quick-row {
   display: flex;
   justify-content: space-around;
@@ -574,8 +537,9 @@
   gap: 14rpx;
 }
 
-.primary-task-grid {
+.all-task-grid {
   grid-template-columns: repeat(4, 1fr);
+  grid-template-rows: repeat(2, 126rpx);
   margin-bottom: 22rpx;
 }
 
@@ -675,63 +639,4 @@
   color: #ff1712;
   font-size: 38rpx;
   font-weight: 950;
-}
-
-.common-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 14rpx;
-}
-
-.common-chip {
-  min-height: 104rpx;
-  padding: 16rpx 18rpx;
-  border: 2rpx solid #edf1f7;
-  border-radius: 22rpx;
-  background: #fff;
-  display: flex;
-  align-items: center;
-  gap: 14rpx;
-}
-
-.common-chip.active {
-  border-color: #ff1712;
-  background: #fff4f4;
-}
-
-.common-icon {
-  width: 58rpx;
-  height: 58rpx;
-  border-radius: 18rpx;
-  color: #fff;
-  background: linear-gradient(180deg, #ff8a80, #ff1712);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 26rpx;
-  font-weight: 950;
-  flex-shrink: 0;
-}
-
-.common-text {
-  flex: 1;
-  min-width: 0;
-}
-
-.common-name {
-  color: #101b36;
-  font-size: 26rpx;
-  font-weight: 950;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.common-subtitle {
-  margin-top: 6rpx;
-  color: #8b95aa;
-  font-size: 21rpx;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }

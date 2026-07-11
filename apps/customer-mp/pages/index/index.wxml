@@ -34,8 +34,8 @@
       <view class="vehicle-pill">{{draft.recommendedVehicleName || '推荐车型'}}</view>
     </view>
 
-    <view class="task-grid primary-task-grid">
-      <block wx:for="{{primaryTasks}}" wx:key="id">
+    <view class="task-grid all-task-grid">
+      <block wx:for="{{allTasks}}" wx:key="id">
         <view class="task-card {{draft.taskId === item.id ? 'active' : ''}}" data-task="{{item.id}}" bindtap="chooseTask">
           <view class="task-icon">{{item.icon}}</view>
           <view class="task-name">{{item.name}}</view>
@@ -71,26 +71,5 @@
     </view>
 
     <button class="primary-btn order-btn" bindtap="goOrder">去下单</button>
-  </view>
-
-  <view class="card shortcut-card">
-    <view class="shortcut-head">
-      <view>
-        <view class="shortcut-title">常用服务</view>
-        <view class="shortcut-sub">取件、代买、搬运与短途送货</view>
-      </view>
-      <view class="shortcut-more">更省心</view>
-    </view>
-    <view class="common-grid">
-      <block wx:for="{{commonTasks}}" wx:key="id">
-        <view class="common-chip {{draft.taskId === item.id ? 'active' : ''}}" data-task="{{item.id}}" bindtap="chooseTask">
-          <view class="common-icon">{{item.icon}}</view>
-          <view class="common-text">
-            <view class="common-name">{{item.name}}</view>
-            <view class="common-subtitle">{{item.subtitle}}</view>
-          </view>
-        </view>
-      </block>
-    </view>
   </view>
 </view>
