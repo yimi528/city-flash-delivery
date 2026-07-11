@@ -563,14 +563,18 @@
   width: 58rpx;
   height: 58rpx;
   margin: 0 auto 10rpx;
-  border-radius: 20rpx;
-  color: #fff;
-  background: linear-gradient(180deg, #ff8a80, #ff1712);
+  border: 2rpx solid #e7ebf2;
+  border-radius: 18rpx;
+  background: #f4f7fb;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 30rpx;
-  font-weight: 950;
+  font-size: 32rpx;
+}
+
+.task-card.active .task-icon {
+  border-color: #ffd5d0;
+  background: #fff0ed;
 }
 
 .task-name {
