@@ -8,7 +8,7 @@
 
   <view class="status-hero">
     <view>
-      <view class="status-name">{{order.status}}</view>
+      <view class="status-name">{{order.displayStatus}}</view>
       <view class="status-sub">{{order.rider}} · {{order.eta}}</view>
       <view class="status-sync {{isSyncing ? 'syncing' : ''}}">
         <view class="sync-dot"></view>
@@ -40,11 +40,11 @@
     <view class="cancel-tip" wx:if="{{order.status === '已取消'}}">该订单已取消，可返回首页重新下单。</view>
   </view>
 
-  <view class="card quote-confirm-card" wx:if="{{order.isManualQuote}}">
+  <view class="card quote-confirm-card" wx:if="{{order.isManualQuote && order.status !== '已取消'}}">
     <view class="quote-confirm-head">
       <view class="quote-title-group">
         <view class="section-title">核对最终报价</view>
-        <view class="section-sub">确认价格后，平台将开始安排本次服务</view>
+        <view class="section-sub">确认价格并完成支付后，平台将安排本次服务</view>
       </view>
       <view class="quote-confirm-pill {{order.quoteStatus}}">{{order.quoteStatus === 'PENDING' ? '核价中' : (order.quoteStatus === 'QUOTED' ? '待确认' : (order.quoteStatus === 'ACCEPTED' ? '已确认' : '已拒绝'))}}</view>
     </view>
@@ -78,7 +78,7 @@
         <view class="quote-warning-icon">!</view>
         <view>
           <view class="quote-warning-title">请确认是否接受本次报价</view>
-          <view class="quote-warning-sub">确认接受后，订单将进入接单与履约流程</view>
+          <view class="quote-warning-sub">确认接受后，订单将进入支付环节</view>
         </view>
       </view>
       <view class="quote-actions">
@@ -93,7 +93,7 @@
           <view class="quote-button-icon accept-icon">{{isQuoteResponding ? '…' : '✓'}}</view>
           <view class="quote-button-copy">
             <text class="quote-button-title">{{isQuoteResponding ? '正在确认' : '确认接受'}}</text>
-            <text class="quote-button-sub">开始安排服务</text>
+            <text class="quote-button-sub">进入支付环节</text>
           </view>
         </button>
       </view>
@@ -112,9 +112,20 @@
       <view class="quote-result-copy">
         <view class="quote-result-title">最终价格已确认</view>
         <view class="quote-result-price">￥{{order.quotedFee || order.fee}}</view>
-        <view class="quote-result-note">订单已进入服务安排流程，请留意进度更新。</view>
+        <view class="quote-result-note">{{order.isPaid ? '订单已进入服务安排流程，请留意进度更新。' : '最终价格已确认，请完成支付后开始安排服务。'}}</view>
       </view>
     </view>
+  </view>
+
+  <view class="card payment-card" wx:if="{{order.displayStatus === '待支付' && !isMerchantMode}}">
+    <view class="payment-copy">
+      <view class="payment-kicker">待支付金额</view>
+      <view class="payment-amount"><text>￥</text>{{order.fee}}</view>
+      <view class="payment-note">支付完成后，订单将进入商家接单流程</view>
+    </view>
+    <button class="payment-button" disabled="{{isPaying}}" bindtap="payOrder">
+      {{isPaying ? '正在支付...' : (isLoggedIn ? '立即支付' : '登录后支付')}}
+    </button>
   </view>
 
   <view class="card merchant-card" wx:if="{{isMerchantMode && order.service === '帮买'}}">
@@ -139,6 +150,7 @@
 
   <view class="card info-card">
     <view class="info-row"><text>订单编号</text><text>{{order.id}}</text></view>
+    <view class="info-row"><text>支付状态</text><text>{{paymentStatusText}}</text></view>
     <view class="info-row"><text>服务类型</text><text>{{order.service}}</text></view>
     <view class="info-row" wx:if="{{order.service === '帮买'}}"><text>代买商品</text><text>{{order.buyItems}}</text></view>
     <view class="info-row" wx:if="{{order.service === '帮买'}}"><text>商品价格</text><text>￥{{order.productFee}}</text></view>
@@ -156,8 +168,9 @@
   </view>
 
   <view class="action-bar">
-    <button class="outline" bindtap="cancelOrder" wx:if="{{order.status !== '已完成' && order.status !== '已取消'}}">取消订单</button>
-    <button class="outline" bindtap="callRider">联系配送员</button>
+    <button class="outline" disabled="{{isCancelling}}" bindtap="cancelOrder" wx:if="{{canCancel}}">{{isCancelling ? '取消中...' : (canAutoRefundCancellation ? '取消并退款' : (requiresRefundCancellation ? '申请取消' : '取消订单'))}}</button>
+    <button class="outline" bindtap="callRider" wx:if="{{order.displayStatus !== '待支付' || isMerchantMode}}">联系配送员</button>
+    <button class="solid pay-action" disabled="{{isPaying}}" bindtap="payOrder" wx:if="{{order.displayStatus === '待支付' && !isMerchantMode}}">{{isPaying ? '支付中...' : (isLoggedIn ? '立即支付 ￥' + order.fee : '登录后支付 ￥' + order.fee)}}</button>
     <button class="solid" bindtap="advanceMerchantOrder" wx:if="{{isMerchantMode && merchantActionText}}">{{merchantActionText}}</button>
   </view>
 </view>

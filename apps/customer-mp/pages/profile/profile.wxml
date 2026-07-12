@@ -8,11 +8,11 @@
 
   <view class="member-card" bindtap="openMember">
     <view class="member-main">
-      <view class="member-phone">{{displayPhone}}</view>
+      <view class="member-phone">{{displayName}}</view>
       <view class="member-level">{{memberLevel}}</view>
-      <view class="member-desc">账户信息与常用服务</view>
+      <view class="member-desc" wx:if="{{isLoggedIn}}">{{accountCaption}}</view>
     </view>
-    <view class="member-more">账户信息›</view>
+    <view class="member-more" wx:if="{{isLoggedIn}}">账户信息 ›</view>
     <view class="diamond">
       <view class="diamond-top"></view>
       <view class="diamond-core"></view>
@@ -39,6 +39,28 @@
           <view class="service-name">{{item.name}}</view>
         </view>
       </block>
+    </view>
+  </view>
+
+  <view class="account-actions" wx:if="{{!isLoggedIn}}">
+    <button class="account-row login-account-row" hover-class="account-row-pressed" loading="{{isLoggingIn}}" disabled="{{isLoggingIn}}" catchtap="login">
+      <view class="wechat-symbol">微</view>
+      <view class="account-action-copy">
+        <view class="account-action-title login-action-title">{{isLoggingIn ? '正在登录' : '微信一键登录'}}</view>
+        <view class="account-action-note">登录后管理订单、地址与支付</view>
+      </view>
+      <view class="account-chevron">›</view>
+    </button>
+  </view>
+
+  <view class="account-actions" wx:else>
+    <view class="account-row" hover-class="account-row-pressed" bindtap="logout">
+      <view class="logout-symbol"><view class="logout-arrow"></view></view>
+      <view class="account-action-copy">
+        <view class="account-action-title">退出登录</view>
+        <view class="account-action-note">退出后需要重新进行微信授权</view>
+      </view>
+      <view class="account-chevron">›</view>
     </view>
   </view>
 </view>

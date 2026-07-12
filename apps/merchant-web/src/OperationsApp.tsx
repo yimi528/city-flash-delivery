@@ -8,9 +8,9 @@ import {
   OperationsApi,
   statusClass
 } from './api'
-import type { Order, Stats, Store } from './types'
+import type { Order, RiderApplication, Stats, Store } from './types'
 
-const orderFilters = ['全部', '待接单', '已接单', '取货中', '配送中', '已完成', '已取消']
+const orderFilters = ['全部', '待商家报价', '待确认报价', '待支付', '待接单', '已接单', '进行中', '已完成', '已取消']
 
 function getInitialApiBase() {
   const saved = localStorage.getItem('merchantApiBase')
@@ -18,8 +18,61 @@ function getInitialApiBase() {
   return saved
 }
 
+function getInitialToken() {
+  const saved = localStorage.getItem('merchantToken') || ''
+  if (saved.startsWith('mock-token:')) {
+    localStorage.removeItem('merchantToken')
+    return ''
+  }
+  return saved
+}
+
 function Toast({ message }: { message: string }) {
   return <div className={`toast ${message ? 'show' : ''}`} role="status" aria-live="polite">{message}</div>
+}
+
+function LoginDialog({
+  open,
+  username,
+  password,
+  loading,
+  onUsername,
+  onPassword,
+  onSubmit,
+  onClose
+}: {
+  open: boolean
+  username: string
+  password: string
+  loading: boolean
+  onUsername: (value: string) => void
+  onPassword: (value: string) => void
+  onSubmit: () => void
+  onClose: () => void
+}) {
+  if (!open) return null
+  return (
+    <div className="login-overlay" role="presentation">
+      <form className="login-dialog" onSubmit={(event) => { event.preventDefault(); onSubmit() }}>
+        <div className="login-heading">
+          <div className="login-symbol">速</div>
+          <div><strong>运营账号登录</strong><span>登录后处理报价和配送订单</span></div>
+        </div>
+        <label className="login-field">
+          <span>账号</span>
+          <input autoComplete="username" value={username} onChange={(event) => onUsername(event.target.value)} placeholder="请输入运营账号" />
+        </label>
+        <label className="login-field">
+          <span>密码</span>
+          <input type="password" autoComplete="current-password" value={password} onChange={(event) => onPassword(event.target.value)} placeholder="请输入登录密码" />
+        </label>
+        <button className="login-submit" type="submit" disabled={loading || !username || password.length < 6}>
+          {loading ? '正在登录...' : '登录运营后台'}
+        </button>
+        <button className="login-cancel" type="button" onClick={onClose}>暂不登录</button>
+      </form>
+    </div>
+  )
 }
 
 function Sidebar({ onTodo }: { onTodo: (message: string) => void }) {
@@ -40,7 +93,7 @@ function Sidebar({ onTodo }: { onTodo: (message: string) => void }) {
       </nav>
       <div className="sidebar-note">
         <span>标准履约流程</span>
-        <strong>接单 → 取货 → 配送 → 完成</strong>
+        <strong>接单 → 上门/取货 → 服务/配送 → 完成</strong>
       </div>
     </aside>
   )
@@ -82,9 +135,27 @@ function StatsGrid({ stats }: { stats: Stats }) {
     <section className="stats-grid" aria-label="今日概览">
       <article className="stat-card hot"><span>待接单</span><strong>{stats.pending}</strong></article>
       <article className="stat-card"><span>已接单</span><strong>{stats.preparing}</strong></article>
-      <article className="stat-card"><span>取/送中</span><strong>{Number(stats.ready) + Number(stats.delivering)}</strong></article>
+      <article className="stat-card"><span>服务中</span><strong>{Number(stats.ready) + Number(stats.delivering)}</strong></article>
       <article className="stat-card"><span>今日订单</span><strong>{stats.todayOrders}</strong></article>
       <article className="stat-card"><span>金额合计</span><strong>￥{stats.revenue}</strong></article>
+    </section>
+  )
+}
+
+function RiderReviewPanel({ riders, onReview }: { riders: RiderApplication[]; onReview: (rider: RiderApplication, approved: boolean) => void }) {
+  if (!riders.length) return null
+  return (
+    <section className="rider-review-panel">
+      <div className="rider-review-head"><div><h2>骑手审核</h2><p className="muted">审核车型、搬运资格和服务范围后，骑手才能上线抢单。</p></div><span>{riders.length} 人待处理</span></div>
+      <div className="rider-review-grid">
+        {riders.map((rider) => (
+          <article className="rider-review-card" key={rider.id}>
+            <div><strong>{rider.name}</strong><p>{rider.phone || '未填写手机号'}</p></div>
+            <div className="rider-request">{rider.application?.requestedVehicleName || rider.application?.requestedVehicleType || '未选择车型'} · {rider.application?.requestsHandling ? '申请搬运资格' : '普通履约'}</div>
+            <div className="rider-actions"><button type="button" onClick={() => onReview(rider, false)}>拒绝</button><button className="approve" type="button" onClick={() => onReview(rider, true)}>审核通过</button></div>
+          </article>
+        ))}
+      </div>
     </section>
   )
 }
@@ -103,6 +174,7 @@ function OrderCard({
   const isCompleted = order.status === '已完成'
   const isCancelled = order.status === '已取消'
   const isTerminal = isCompleted || isCancelled
+  const isWaitingPayment = !isTerminal && !order.isPaid
   const [quoteValue, setQuoteValue] = useState(order.quotedFee ? String(order.quotedFee) : '')
   const [quoteNote, setQuoteNote] = useState(order.quoteNote || '')
   const [isQuoting, setIsQuoting] = useState(false)
@@ -129,12 +201,12 @@ function OrderCard({
         </div>
         <div className="status-stack">
           <span className="service-tag">{order.service}</span>
-          <span className={`order-status ${statusClass(order.status)}`}>{order.status}</span>
+          <span className={`order-status ${statusClass(order.displayStatus)}`}>{order.displayStatus}</span>
         </div>
       </div>
       <div className="status-row">
-        <span>用户端状态：<strong>{order.status}</strong></span>
-        <span>运营操作：<strong>{order.needsQuote ? (order.quoteStatus === 'REJECTED' ? '重新报价' : '填写报价') : order.awaitingQuoteConfirmation ? '等待用户确认' : (order.actionText || '无需操作')}</strong></span>
+        <span>用户端状态：<strong>{order.displayStatus}</strong></span>
+        <span>运营操作：<strong>{isWaitingPayment && !order.needsQuote && !order.awaitingQuoteConfirmation ? '等待用户支付' : order.needsQuote ? (order.quoteStatus === 'REJECTED' ? '重新报价' : '填写报价') : order.awaitingQuoteConfirmation ? '等待用户确认' : (order.actionText || '无需操作')}</strong></span>
       </div>
       <div className="order-content">
         <div className="order-info">
@@ -183,7 +255,7 @@ function OrderCard({
           ) : null}
           {order.quoteAccepted ? (
             <div className="quote-state accepted">
-              <div><strong>用户已接受报价</strong><span>最终价格 ￥{order.quotedFee || order.fee}，现在可以继续处理订单。</span></div>
+              <div><strong>用户已接受报价</strong><span>最终价格 ￥{order.quotedFee || order.fee}，{order.isPaid ? '可以继续处理订单。' : '等待用户完成支付。'}</span></div>
             </div>
           ) : null}
         </div>
@@ -201,7 +273,7 @@ function OrderCard({
       <div className="order-bottom">
         <button className="light-btn" type="button" onClick={onTicket}>打印小票</button>
         <button
-          className={`action-btn ${isTerminal ? 'terminal-action' : ''} ${isCancelled ? 'cancelled' : ''} ${!isTerminal && (order.needsQuote || order.awaitingQuoteConfirmation) ? 'pending-action' : ''}`}
+          className={`action-btn ${isTerminal ? 'terminal-action' : ''} ${isCancelled ? 'cancelled' : ''} ${!isTerminal && (order.needsQuote || order.awaitingQuoteConfirmation || isWaitingPayment) ? 'pending-action' : ''}`}
           type="button"
           disabled={isTerminal || !order.actionText}
           onClick={() => onAdvance(order.id)}
@@ -210,7 +282,7 @@ function OrderCard({
             ? '已完成'
             : isCancelled
               ? '已取消'
-              : order.actionText || (order.awaitingQuoteConfirmation ? '等待用户确认' : '报价尚未确认')}
+              : order.actionText || (isWaitingPayment && !order.needsQuote && !order.awaitingQuoteConfirmation ? '待支付' : order.awaitingQuoteConfirmation ? '待确认报价' : '待商家报价')}
         </button>
       </div>
     </article>
@@ -232,7 +304,11 @@ function OrdersWorkspace({
   onQuote: (id: string, quotedFee: number, quoteNote: string) => Promise<void>
   onTicket: () => void
 }) {
-  const filteredOrders = orders.filter((order) => filter === '全部' || order.status === filter)
+  const filteredOrders = orders.filter((order) => {
+    if (filter === '全部') return true
+    if (filter === '进行中') return order.status === '取货中' || order.status === '配送中'
+    return order.displayStatus === filter
+  })
   return (
     <section className="workspace">
       <div className="toolbar">
@@ -261,10 +337,16 @@ function OrdersWorkspace({
 
 export function OperationsApp() {
   const [apiBase, setApiBase] = useState(getInitialApiBase)
-  const [token, setToken] = useState(() => localStorage.getItem('merchantToken') || '')
+  const [token, setToken] = useState(getInitialToken)
   const [operatorId, setOperatorId] = useState(() => localStorage.getItem('merchantId') || DEFAULT_OPERATOR_ID)
+  const [operatorName, setOperatorName] = useState(() => localStorage.getItem('merchantName') || '')
+  const [username, setUsername] = useState(() => localStorage.getItem('merchantUsername') || 'operator-demo')
+  const [password, setPassword] = useState('')
+  const [showLogin, setShowLogin] = useState(() => !getInitialToken())
+  const [loggingIn, setLoggingIn] = useState(false)
   const [filter, setFilter] = useState('全部')
   const [orders, setOrders] = useState<Order[]>([])
+  const [riders, setRiders] = useState<RiderApplication[]>([])
   const [store, setStore] = useState<Store | null>(null)
   const [connected, setConnected] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
@@ -287,16 +369,18 @@ export function OperationsApp() {
     refreshingRef.current = true
     setRefreshing(true)
     try {
-      const payload = await api.listOrders()
+      const [payload, riderApplications] = await Promise.all([api.listOrders(), api.listRiderApplications()])
       const dashboard = normalizeDashboard(payload, operatorId)
       setStore(dashboard.store)
       setOrders(dashboard.orders)
+      setRiders(riderApplications)
       setConnected(true)
       setHealthText('已连接 NestJS 后端，订单状态会和用户端同步')
       if (!silent) showToast('订单已刷新')
     } catch (error) {
       setConnected(false)
       setHealthText(error instanceof Error ? error.message : '后端连接失败')
+      if (error instanceof Error && error.message.includes('登录')) setShowLogin(true)
       if (!silent) showToast(`刷新失败：${error instanceof Error ? error.message : '未知错误'}`)
     } finally {
       refreshingRef.current = false
@@ -308,23 +392,53 @@ export function OperationsApp() {
     const cleanBase = apiBase.replace(/\/$/, '') || DEFAULT_API_BASE
     setApiBase(cleanBase)
     localStorage.setItem('merchantApiBase', cleanBase)
+    setLoggingIn(true)
     try {
-      const session = await api.login(operatorId)
+      const session = await api.login(username.trim(), password)
       const nextToken = session.token
       const nextOperatorId = session.operator?.id || operatorId
+      const nextOperatorName = session.operator?.name || username
       setToken(nextToken)
       setOperatorId(nextOperatorId)
+      setOperatorName(nextOperatorName)
       localStorage.setItem('merchantToken', nextToken)
       localStorage.setItem('merchantId', nextOperatorId)
+      localStorage.setItem('merchantName', nextOperatorName)
+      localStorage.setItem('merchantUsername', username.trim())
+      setPassword('')
+      setShowLogin(false)
       showToast('运营登录成功')
-      await loadDashboard(false)
+      const sessionApi = new OperationsApi(cleanBase, nextToken)
+      const [payload, riderApplications] = await Promise.all([sessionApi.listOrders(), sessionApi.listRiderApplications()])
+      const dashboard = normalizeDashboard(payload, nextOperatorId)
+      setStore(dashboard.store)
+      setOrders(dashboard.orders)
+      setRiders(riderApplications)
+      setConnected(true)
+      setHealthText('已连接 NestJS 后端，订单状态会和用户端同步')
     } catch (error) {
       setConnected(false)
       const message = error instanceof Error ? error.message : '未知错误'
       setHealthText(message)
       showToast(`登录失败：${message}`)
+    } finally {
+      setLoggingIn(false)
     }
-  }, [api, apiBase, loadDashboard, operatorId, showToast])
+  }, [api, apiBase, operatorId, password, showToast, username])
+
+  const logout = useCallback(() => {
+    setToken('')
+    setOperatorName('')
+    setOrders([])
+    setRiders([])
+    setStore(null)
+    setConnected(false)
+    localStorage.removeItem('merchantToken')
+    localStorage.removeItem('merchantId')
+    localStorage.removeItem('merchantName')
+    setHealthText('请登录运营账号')
+    setShowLogin(true)
+  }, [])
 
   const advanceOrder = useCallback(async (orderId: string) => {
     const order = orders.find((item) => item.id === orderId)
@@ -350,6 +464,16 @@ export function OperationsApp() {
     }
   }, [api, loadDashboard, showToast])
 
+  const reviewRider = useCallback(async (rider: RiderApplication, approved: boolean) => {
+    try {
+      await api.reviewRider(rider, approved)
+      showToast(approved ? '骑手已审核通过' : '骑手申请已拒绝')
+      await loadDashboard(true)
+    } catch (error) {
+      showToast(`审核失败：${error instanceof Error ? error.message : '未知错误'}`)
+    }
+  }, [api, loadDashboard, showToast])
+
   useEffect(() => {
     if (!token) return undefined
     loadDashboard(true)
@@ -372,7 +496,7 @@ export function OperationsApp() {
               <span>服务地址</span>
               <input value={apiBase} aria-label="API 地址" onChange={(event) => setApiBase(event.target.value)} />
             </label>
-            <button className="ghost-btn" type="button" onClick={login}>登录</button>
+            <button className="ghost-btn" type="button" onClick={token ? logout : () => setShowLogin(true)}>{token ? `${operatorName || '运营员'} · 退出` : '登录'}</button>
             <button className="primary-btn" type="button" onClick={() => loadDashboard(false)} disabled={refreshing}>
               {refreshing ? '刷新中' : '刷新'}
             </button>
@@ -381,6 +505,7 @@ export function OperationsApp() {
 
         <StorePanel store={store} connected={connected} healthText={healthText} />
         <StatsGrid stats={stats} />
+        <RiderReviewPanel riders={riders} onReview={reviewRider} />
         <OrdersWorkspace
           filter={filter}
           orders={orders}
@@ -391,6 +516,16 @@ export function OperationsApp() {
         />
       </main>
       <Toast message={toast} />
+      <LoginDialog
+        open={showLogin}
+        username={username}
+        password={password}
+        loading={loggingIn}
+        onUsername={setUsername}
+        onPassword={setPassword}
+        onSubmit={login}
+        onClose={() => setShowLogin(false)}
+      />
     </div>
   )
 }

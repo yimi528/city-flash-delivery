@@ -913,3 +913,75 @@ textarea {
   align-items: center;
   justify-content: center;
 }
+
+.delivery-choice-row,
+.passenger-card,
+.destination-picker {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24rpx;
+}
+
+.destination-picker {
+  margin-top: 24rpx;
+  padding: 22rpx;
+  border-radius: 20rpx;
+  background: #f6f8fc;
+}
+
+.destination-label {
+  color: #7a8497;
+  font-size: 22rpx;
+}
+
+.destination-name {
+  margin-top: 6rpx;
+  color: #111c34;
+  font-size: 28rpx;
+  font-weight: 850;
+}
+
+.direction-switch {
+  margin: 20rpx 0;
+  padding: 6rpx;
+  border-radius: 22rpx;
+  background: #f1f3f8;
+  display: flex;
+}
+
+.direction-option {
+  flex: 1;
+  padding: 18rpx 10rpx;
+  border-radius: 18rpx;
+  color: #737d90;
+  text-align: center;
+  font-size: 24rpx;
+  font-weight: 750;
+}
+
+.direction-option.active {
+  color: #e42319;
+  background: #fff;
+  box-shadow: 0 5rpx 18rpx rgba(29, 40, 65, 0.09);
+}
+
+.passenger-stepper {
+  display: flex;
+  align-items: center;
+  gap: 18rpx;
+  color: #111c34;
+  font-weight: 900;
+}
+
+.passenger-stepper button {
+  width: 58rpx;
+  min-width: 58rpx;
+  height: 58rpx;
+  padding: 0;
+  border-radius: 18rpx;
+  color: #e42319;
+  background: #fff1ee;
+  line-height: 58rpx;
+  font-size: 34rpx;
+}

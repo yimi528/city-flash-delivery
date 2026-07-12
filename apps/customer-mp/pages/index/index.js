@@ -16,6 +16,17 @@ function ensureDraftTask(taskId) {
     ? serviceConfig.applyHandlingType(draft, draft.item)
     : null
   vehicleConfig.applyVehicleToDraft(draft, handlingType ? handlingType.vehicleId : patch.recommendedVehicleType)
+  if (patch.taskId === 'carpool_ride') {
+    draft.direction = draft.direction || 'OUTBOUND'
+    draft.passengerCount = Number(draft.passengerCount || 1)
+    const city = (draft.selectedLine && draft.selectedLine.name) || '苍南'
+    draft.pickup = Object.assign({}, draft.pickup || {}, { name: draft.direction === 'RETURN' ? city : '福鼎' })
+    draft.dropoff = Object.assign({}, draft.dropoff || {}, { name: draft.direction === 'RETURN' ? '福鼎' : city })
+  }
+  if (patch.taskId === 'moving_handling') {
+    draft.requiresDelivery = Boolean(draft.requiresDelivery)
+    if (!draft.requiresDelivery) draft.dropoff = null
+  }
   return draft
 }
 
@@ -82,7 +93,12 @@ Page({
   },
 
   goOrder() {
-    if (!app.globalData.draftOrder.dropoff) {
+    const draft = app.globalData.draftOrder
+    if (!draft.pickup) {
+      wx.showToast({ title: '请先选择服务地址', icon: 'none' })
+      return
+    }
+    if (draft.taskId !== 'moving_handling' && draft.taskId !== 'carpool_ride' && !draft.dropoff) {
       wx.showToast({ title: '请先选择目的地', icon: 'none' })
       return
     }

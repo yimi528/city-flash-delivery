@@ -9,12 +9,17 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post('wechat-login')
-  wechatLogin(@Body() dto: WechatLoginDto) {
+  async wechatLogin(@Body() dto: WechatLoginDto) {
     return this.authService.wechatLogin(dto)
   }
 
   @Post('operator-login')
-  operatorLogin(@Body() dto: OperatorLoginDto) {
+  async operatorLogin(@Body() dto: OperatorLoginDto) {
     return this.authService.operatorLogin(dto)
+  }
+
+  @Post('rider-wechat-login')
+  async riderWechatLogin(@Body() dto: WechatLoginDto) {
+    return this.authService.riderWechatLogin(dto)
   }
 }

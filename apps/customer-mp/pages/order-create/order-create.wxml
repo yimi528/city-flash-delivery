@@ -2,17 +2,17 @@
   <view style="height: {{statusBarHeight}}px"></view>
   <view class="page-nav">
     <view class="back" bindtap="goBack">‹</view>
-    <view class="nav-title">{{draft.pricingMode === 'manual_quote' ? '搬运装卸' : '确认订单'}}</view>
-    <view class="nav-action">{{draft.pricingMode === 'manual_quote' ? '预估价' : '明细'}}</view>
+    <view class="nav-title">{{draft.taskId === 'moving_handling' ? '搬运装卸' : '确认订单'}}</view>
+    <view class="nav-action">明细</view>
   </view>
 
-  <view class="handling-intro" wx:if="{{draft.pricingMode === 'manual_quote'}}">
+  <view class="handling-intro" wx:if="{{draft.taskId === 'moving_handling'}}">
     <view class="handling-kicker">一站式搬运</view>
     <view class="handling-title">搬家、搬店和装卸统一下单</view>
-    <view class="handling-sub">规则预估后提交，商家最终报价仍由你确认</view>
+    <view class="handling-sub">上门服务固定收费，需要配送时再按驾车距离计费</view>
   </view>
 
-  <view class="card handling-card" wx:if="{{draft.pricingMode === 'manual_quote'}}">
+  <view class="card handling-card" wx:if="{{draft.taskId === 'moving_handling'}}">
     <view class="section-head handling-head">
       <view>
         <view class="section-title">本次需要什么服务？</view>
@@ -34,10 +34,27 @@
     <textarea class="handling-remark" value="{{draft.remark}}" placeholder="{{fieldConfig.remarkPlaceholder}}" auto-height maxlength="160" bindinput="inputRemark" />
   </view>
 
+  <view class="card delivery-choice" wx:if="{{draft.taskId === 'moving_handling'}}">
+    <view class="delivery-choice-row" bindtap="toggleHandlingDelivery">
+      <view>
+        <view class="section-title">需要送到别的地方</view>
+        <view class="muted">开启后增加目的地，并按驾车距离计算配送费</view>
+      </view>
+      <switch checked="{{draft.requiresDelivery}}" color="#ff3b30" />
+    </view>
+    <view class="destination-picker" wx:if="{{draft.requiresDelivery}}" bindtap="chooseHandlingDestination">
+      <view>
+        <view class="destination-label">配送目的地</view>
+        <view class="destination-name">{{draft.dropoff ? draft.dropoff.name : '请选择目的地'}}</view>
+      </view>
+      <text>›</text>
+    </view>
+  </view>
+
   <view class="route-card card">
     <view class="service-badge" wx:if="{{draft.service === '帮买'}}">帮买 · 商品价格 ￥{{estimate.productFee}}</view>
     <view class="service-badge" wx:else>{{draft.service}} · 预计 {{estimate.distance}}km</view>
-    <view class="route-meter">{{isRouteLoading ? '正在获取腾讯地图距离...' : routeSource}} · {{routeDuration ? '约 ' + routeDuration + ' 分钟' : '预计 ' + estimate.distance + 'km'}}</view>
+    <view class="route-meter" wx:if="{{draft.taskId !== 'moving_handling' || draft.requiresDelivery}}">{{isRouteLoading ? '正在获取腾讯地图距离...' : routeSource}} · {{routeDuration ? '约 ' + routeDuration + ' 分钟' : '预计 ' + estimate.distance + 'km'}}</view>
     <view class="route-line">
       <view class="{{draft.service === '帮买' ? 'tag-buy' : 'tag-red'}}">{{draft.service === '帮买' ? '买' : '发'}}</view>
       <view class="route-info">
@@ -46,8 +63,8 @@
         <view class="sub" wx:else>{{draft.pickup.detail}} · {{draft.pickup.phone}}</view>
       </view>
     </view>
-    <view class="connector {{draft.service === '帮买' ? 'buy' : ''}}"></view>
-    <view class="route-line">
+    <view class="connector {{draft.service === '帮买' ? 'buy' : ''}}" wx:if="{{draft.taskId !== 'moving_handling' || draft.requiresDelivery}}"></view>
+    <view class="route-line" wx:if="{{draft.taskId !== 'moving_handling' || draft.requiresDelivery}}">
       <view class="tag-green">收</view>
       <view class="route-info">
         <view class="title">{{draft.dropoff.name}}</view>
@@ -59,15 +76,31 @@
   <view class="card line-card" wx:if="{{taskLines.length}}">
     <view class="section-head">
       <view class="section-title">选择线路</view>
-      <view class="muted">固定价格</view>
+      <view class="muted">{{draft.taskId === 'carpool_ride' ? '单人票价' : '固定价格'}}</view>
+    </view>
+    <view class="direction-switch" wx:if="{{draft.taskId === 'carpool_ride'}}">
+      <view class="direction-option {{draft.direction !== 'RETURN' ? 'active' : ''}}" data-direction="OUTBOUND" bindtap="selectDirection">去程 · 福鼎出发</view>
+      <view class="direction-option {{draft.direction === 'RETURN' ? 'active' : ''}}" data-direction="RETURN" bindtap="selectDirection">返程 · 回福鼎</view>
     </view>
     <view class="line-grid">
       <block wx:for="{{taskLines}}" wx:key="id">
         <view class="line-option {{selectedLineId === item.id ? 'active' : ''}}" data-id="{{item.id}}" bindtap="selectLine">
           <view class="line-name">{{item.name}}</view>
-          <view class="line-price">￥{{item.price}}</view>
+          <view class="line-price">￥{{item.price}}{{draft.taskId === 'carpool_ride' ? '/人' : ''}}</view>
         </view>
       </block>
+    </view>
+  </view>
+
+  <view class="card passenger-card" wx:if="{{draft.taskId === 'carpool_ride'}}">
+    <view>
+      <view class="section-title">乘车人数</view>
+      <view class="muted">7座商务车，最多6名乘客</view>
+    </view>
+    <view class="passenger-stepper">
+      <button data-step="-1" bindtap="changePassenger" disabled="{{passengerCount <= 1}}">−</button>
+      <text>{{passengerCount}} 人</text>
+      <button data-step="1" bindtap="changePassenger" disabled="{{passengerCount >= 6}}">＋</button>
     </view>
   </view>
 
@@ -86,7 +119,7 @@
     </view>
   </view>
 
-  <view class="card option-card" wx:if="{{draft.service !== '帮买' && draft.pricingMode !== 'manual_quote'}}">
+  <view class="card option-card" wx:if="{{draft.service !== '帮买' && draft.taskId !== 'moving_handling' && draft.taskId !== 'carpool_ride'}}">
     <view class="section-head">
       <view class="section-title">{{fieldConfig.sectionTitle}}</view>
       <view class="muted">{{fieldConfig.sectionHint}}</view>
@@ -110,40 +143,17 @@
 
   <view class="card cargo-card">
     <view class="section-head">
-      <view class="section-title">{{draft.pricingMode === 'manual_quote' ? '推荐运力' : '配送工具'}}</view>
-      <view class="edit-link" bindtap="openCargoOptions">{{isVehicleSelectorOpen ? '收起' : '重新选择'}}</view>
+      <view class="section-title">固定服务车型</view>
+      <view class="muted">下单后不可切换</view>
     </view>
-    <view class="cargo-summary" bindtap="openCargoOptions">
+    <view class="cargo-summary">
       <view class="cargo-emoji">{{draft.cargoOptions.icon}}</view>
       <view class="cargo-info">
         <view class="cargo-name">{{draft.cargoOptions.vehicleName}}</view>
-        <view class="cargo-desc">{{draft.cargoOptions.categoryName}} · {{draft.pricingMode === 'manual_quote' ? '按现场需求' : draft.cargoOptions.weightLabel}} · {{draft.cargoOptions.vehicleCapacity}}</view>
+        <view class="cargo-desc">{{draft.cargoOptions.categoryName}} · {{draft.taskId === 'moving_handling' ? '按服务类型固定' : draft.cargoOptions.weightLabel}} · {{draft.cargoOptions.vehicleCapacity}}</view>
       </view>
       <view class="cargo-fee" wx:if="{{draft.cargoOptions.vehicleFee}}">+￥{{draft.cargoOptions.vehicleFee}}</view>
       <view class="cargo-fee" wx:else>基础</view>
-    </view>
-    <view class="vehicle-inline" wx:if="{{isVehicleSelectorOpen}}">
-      <view class="vehicle-inline-head">
-        <view class="vehicle-inline-title">选择车型</view>
-        <view class="vehicle-inline-tip">按当前任务推荐，可直接切换</view>
-      </view>
-      <block wx:for="{{vehicles}}" wx:key="id">
-        <view class="vehicle-row {{selectedVehicle === item.id ? 'active' : ''}}" data-id="{{item.id}}" bindtap="selectVehicle">
-          <view class="vehicle-icon {{item.id}}">{{item.icon}}</view>
-          <view class="vehicle-main">
-            <view class="vehicle-line">
-              <text class="vehicle-name">{{item.name}}</text>
-              <text class="vehicle-tag">{{item.tag}}</text>
-            </view>
-            <view class="vehicle-desc">{{item.desc}}</view>
-            <view class="vehicle-capacity">{{item.capacity}}</view>
-          </view>
-          <view class="vehicle-price">
-            <text>{{item.priceText}}</text>
-            <view class="vehicle-check" wx:if="{{selectedVehicle === item.id}}">✓</view>
-          </view>
-        </view>
-      </block>
     </view>
   </view>
 
@@ -183,6 +193,6 @@
       <view class="muted">需支付</view>
       <view class="money">{{estimate.totalText}}</view>
     </view>
-    <button class="pay-btn" bindtap="submitOrder">{{estimate.isManualQuote ? '按预估价确认下单' : '微信支付并下单'}}</button>
+    <button class="pay-btn" disabled="{{isSubmitting}}" bindtap="submitOrder">{{isSubmitting ? '处理中...' : '微信支付并下单'}}</button>
   </view>
 </view>

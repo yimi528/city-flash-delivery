@@ -1,0 +1,39 @@
+<view class="page hall-page">
+  <view class="hero">
+    <view class="eyebrow">CITY FLASH · RIDER</view>
+    <view class="hero-row">
+      <view>
+        <view class="title">附近订单</view>
+        <view class="sub">{{online ? '持续刷新符合车型与资格的订单' : '上线后开始接收附近订单'}}</view>
+      </view>
+      <button wx:if="{{rider}}" class="online-btn {{online ? 'on' : ''}}" bindtap="toggleOnline">{{online ? '收工' : '上线'}}</button>
+    </view>
+  </view>
+
+  <view class="card login-card" wx:if="{{!rider}}">
+    <view class="login-title">骑手身份登录</view>
+    <view class="muted">审核通过并绑定车型后，才能进入抢单大厅。</view>
+    <button class="primary login-btn" bindtap="login">微信登录</button>
+  </view>
+
+  <view class="status-strip" wx:if="{{rider}}">
+    <text class="dot {{online ? 'on' : ''}}"></text>
+    <text>{{online ? '在线接单中' : '当前已下线'}}</text>
+    <text class="vehicle">{{rider.vehicleName || '待配置车型'}}</text>
+  </view>
+
+  <block wx:for="{{orders}}" wx:key="id">
+    <view class="card order-card">
+      <view class="order-head">
+        <view><text class="service">{{item.serviceName}}</text><text class="vehicle-tag">{{item.vehicleName}}</text></view>
+        <view class="income">¥{{item.expectedIncomeFen / 100}}</view>
+      </view>
+      <view class="route"><text class="pickup-dot"></text><text>{{item.pickupArea}}</text></view>
+      <view class="route-line"></view>
+      <view class="route"><text class="dropoff-dot"></text><text>{{item.dropoffArea || '仅上门服务'}}</text></view>
+      <view class="meta">距你 {{item.pickupDistanceKm === null ? '未知' : item.pickupDistanceKm + 'km'}} · 行程 {{item.routeDistanceKm}}km</view>
+      <button class="claim-btn" data-id="{{item.id}}" bindtap="claim" loading="{{claimingId === item.id}}">立即抢单</button>
+    </view>
+  </block>
+  <view class="empty" wx:if="{{rider && online && !orders.length}}">暂时没有符合条件的订单<br/>系统每 8 秒自动刷新</view>
+</view>

@@ -40,4 +40,14 @@ export const VEHICLE_PRICING: Record<VehicleType, {
     vehicleFee: 0,
     maxWeightKg: 30,
   },
+  MANUAL: {
+    label: '人力服务',
+    baseFee: 48,
+    distanceRate: 0,
+    linePriceMultiplier: 1,
+    maxDeliveryFee: 48,
+    weightRate: 0,
+    vehicleFee: 0,
+    maxWeightKg: 0,
+  },
 }

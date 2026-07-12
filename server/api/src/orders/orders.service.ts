@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common'
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common'
 import {
   OrderStatus as PrismaOrderStatus,
   Prisma,
@@ -14,10 +14,30 @@ import {
 import { VEHICLE_PRICING } from '../common/constants/pricing.constants'
 import { PrismaService } from '../common/prisma/prisma.service'
 import { PricingService } from '../pricing/pricing.service'
+import { EstimatePriceDto } from '../pricing/pricing.dto'
 import { CreateOrderDto, QuoteDecisionDto, QuoteOrderDto, UpdateOrderStatusDto } from './orders.dto'
 
 type PersistedOrder = Prisma.OrderGetPayload<{ include: { vehicle: true } }>
 type Decimalish = Prisma.Decimal | number | string | null | undefined
+
+const TASK_VEHICLES: Record<string, { type: PrismaVehicleType; name: string }> = {
+  carpool_ride: { type: PrismaVehicleType.VAN, name: '7座商务车' },
+  cargo_haul: { type: PrismaVehicleType.ETRIKE, name: '货三轮车' },
+  moving: { type: PrismaVehicleType.VAN, name: '厢式货车' },
+  moving_handling: { type: PrismaVehicleType.MANUAL, name: '人力服务' },
+  send_parcel: { type: PrismaVehicleType.VAN, name: '小车' },
+  urgent_delivery: { type: PrismaVehicleType.EBIKE, name: '二轮车' },
+  pickup: { type: PrismaVehicleType.EBIKE, name: '二轮车' },
+  buy_for_me: { type: PrismaVehicleType.EBIKE, name: '二轮车' },
+  pedicab_delivery: { type: PrismaVehicleType.ETRIKE, name: '人力三轮车' },
+}
+
+const PARCEL_LINE_PRICES: Record<string, number> = {
+  wenzhou_parcel: 58,
+  cangnan_parcel: 20,
+  qinyu_parcel: 30,
+  longan_parcel: 30,
+}
 
 @Injectable()
 export class OrdersService {
@@ -39,32 +59,80 @@ export class OrdersService {
     return this.toApiOrder(await this.findOrderEntity(id))
   }
 
+  async cancel(id: string, userId: string) {
+    const order = await this.findOrderEntity(id)
+    if (order.userId !== userId) throw new ForbiddenException('无权取消该订单')
+    if (order.status === PrismaOrderStatus.COMPLETED) throw new ConflictException('已完成订单不能取消')
+    if (order.status === PrismaOrderStatus.CANCELLED) return this.toApiOrder(order)
+    let paymentStatus: 'CLOSED' | 'REFUNDED' = 'CLOSED'
+    if (order.paymentStatus === 'PAID') {
+      if (order.status !== PrismaOrderStatus.PENDING) {
+        throw new ConflictException('商家已接单，请联系客服申请取消和退款')
+      }
+      const payment = await this.prisma.paymentRecord.findUnique({ where: { orderId: order.id } })
+      if (!payment?.transactionId?.startsWith('MOCK-')) {
+        throw new ConflictException('真实支付订单需要通过微信退款接口处理')
+      }
+      paymentStatus = 'REFUNDED'
+    }
+
+    const [updated] = await this.prisma.$transaction([
+      this.prisma.order.update({
+        where: { id: order.id },
+        data: {
+          status: PrismaOrderStatus.CANCELLED,
+          paymentStatus,
+          statusLogs: {
+            create: {
+              status: PrismaOrderStatus.CANCELLED,
+              note: paymentStatus === 'REFUNDED' ? '用户取消订单，模拟支付已退款' : '用户取消订单',
+              createdBy: userId,
+            },
+          },
+        },
+        include: { vehicle: true },
+      }),
+      this.prisma.paymentRecord.updateMany({
+        where: { orderId: order.id, status: { in: ['CREATED', 'PENDING'] } },
+        data: { status: 'CLOSED' },
+      }),
+    ])
+    return this.toApiOrder(updated)
+  }
+
   async create(dto: CreateOrderDto) {
+    if (dto.quoteId) return this.createFromQuote(dto)
+    const taskId = dto.taskId || this.taskIdForService(dto.serviceName || '')
+    if (taskId === 'carpool_ride' || taskId === 'moving_handling') {
+      throw new BadRequestException('该业务必须先获取后端报价')
+    }
+    const fixedVehicle = TASK_VEHICLES[taskId] || TASK_VEHICLES.urgent_delivery
+    const pricingInput = this.serverPricingInput(dto, taskId, fixedVehicle)
     const estimate = this.pricingService.estimate({
-      serviceType: dto.serviceType,
-      vehicleType: dto.vehicleType,
+      serviceType: pricingInput.serviceType,
+      vehicleType: fixedVehicle.type,
       distanceKm: dto.distanceKm,
       weightKg: dto.weightKg,
-      serviceName: dto.serviceName,
-      vehicleName: dto.vehicleName,
-      pricingMode: dto.pricingMode,
-      linePrice: dto.linePrice,
-      linePriceMultiplier: dto.linePriceMultiplier,
-      baseDistanceKm: dto.baseDistanceKm,
-      basePrice: dto.basePrice,
-      extraPerKm: dto.extraPerKm,
-      serviceSurcharge: dto.serviceSurcharge,
-      maxDeliveryFee: dto.maxDeliveryFee,
-      badWeatherMultiplier: dto.badWeatherMultiplier,
+      serviceName: pricingInput.serviceName,
+      vehicleName: fixedVehicle.name,
+      pricingMode: pricingInput.pricingMode,
+      linePrice: pricingInput.linePrice,
+      linePriceMultiplier: pricingInput.linePriceMultiplier,
+      baseDistanceKm: pricingInput.baseDistanceKm,
+      basePrice: pricingInput.basePrice,
+      extraPerKm: pricingInput.extraPerKm,
+      serviceSurcharge: pricingInput.serviceSurcharge,
+      maxDeliveryFee: pricingInput.maxDeliveryFee,
+      badWeatherMultiplier: 1.15,
       badWeather: dto.badWeather,
       productFee: dto.productFee,
       budget: dto.budget,
     })
     const userId = dto.userId || 'demo-user'
     const orderNo = this.generateOrderNo()
-    const serviceName = dto.serviceName || estimate.serviceName || dto.serviceType
-    const vehicleName = dto.vehicleName || estimate.vehicleName
-    const vehicle = await this.ensureVehicle(dto.vehicleType, vehicleName)
+    const serviceName = pricingInput.serviceName
+    const vehicleName = fixedVehicle.name
+    const vehicle = await this.ensureVehicle(fixedVehicle.type, vehicleName)
 
     await this.ensureUser(userId)
 
@@ -73,8 +141,9 @@ export class OrdersService {
         id: orderNo,
         orderNo,
         userId,
-        serviceType: dto.serviceType as PrismaServiceType,
+        serviceType: pricingInput.serviceType as PrismaServiceType,
         serviceName,
+        taskId,
         status: PrismaOrderStatus.PENDING,
         paymentStatus: 'UNPAID',
         pickupName: dto.pickupName,
@@ -93,7 +162,7 @@ export class OrdersService {
         buyItems: dto.buyItems || '',
         weightKg: estimate.weightKg,
         distanceKm: estimate.distanceKm,
-        vehicleType: dto.vehicleType as PrismaVehicleType,
+        vehicleType: fixedVehicle.type,
         vehicleName,
         vehicleId: vehicle.id,
         pricingMode: estimate.pricingMode,
@@ -112,6 +181,9 @@ export class OrdersService {
         deliveryFee: estimate.deliveryFee,
         estimatedFee: estimate.totalFee,
         totalFee: estimate.totalFee,
+        totalFeeFen: Math.round(estimate.totalFee * 100),
+        baseFeeFen: Math.round(estimate.baseFee * 100),
+        distanceFeeFen: Math.round(estimate.distanceFee * 100),
         remark: dto.remark || '',
         statusLogs: {
           create: {
@@ -124,7 +196,88 @@ export class OrdersService {
       include: { vehicle: true },
     })
 
-    return this.toApiOrder(order)
+    return this.findById(order.id)
+  }
+
+  private async createFromQuote(dto: CreateOrderDto) {
+    const userId = dto.userId || 'demo-user'
+    await this.ensureUser(userId)
+    const quote = await this.prisma.quote.findFirst({ where: { id: dto.quoteId, userId } })
+    if (!quote) throw new BadRequestException('报价不存在')
+    if (quote.usedAt) throw new BadRequestException('报价已使用')
+    if (quote.expiresAt <= new Date()) throw new BadRequestException('报价已过期，请重新报价')
+    const fixedVehicle = quote.vehicleType
+      ? { type: quote.vehicleType, name: quote.vehicleName }
+      : TASK_VEHICLES[quote.serviceId]
+    if (!fixedVehicle) throw new BadRequestException('报价缺少固定车型')
+    const vehicle = await this.ensureVehicle(fixedVehicle.type, fixedVehicle.name)
+    const pickup = this.quoteAddress(quote.pickup)
+    const dropoff = this.quoteAddress(quote.dropoff)
+    const orderNo = this.generateOrderNo()
+    const serviceType = quote.serviceId === 'carpool_ride' ? PrismaServiceType.CARPOOL : PrismaServiceType.HANDLING
+    const serviceName = quote.serviceId === 'carpool_ride' ? '拼车' : '搬运装卸'
+    const totalFee = quote.totalFen / 100
+    const order = await this.prisma.$transaction(async (tx) => {
+      const consumed = await tx.quote.updateMany({
+        where: { id: quote.id, userId, usedAt: null, expiresAt: { gt: new Date() } },
+        data: { usedAt: new Date() },
+      })
+      if (consumed.count !== 1) throw new ConflictException('报价已失效，请重新报价')
+      return tx.order.create({
+        data: {
+          id: orderNo,
+          orderNo,
+          userId,
+          serviceType,
+          serviceName,
+          taskId: quote.serviceId,
+          direction: quote.direction,
+          routeId: quote.routeId,
+          passengerCount: quote.passengerCount,
+          unitPriceFen: quote.unitPriceFen,
+          totalFeeFen: quote.totalFen,
+          baseFeeFen: quote.baseFeeFen,
+          distanceFeeFen: quote.distanceFeeFen,
+          pricingRuleVersion: quote.pricingRuleVersion,
+          requiresDelivery: quote.requiresDelivery,
+          status: PrismaOrderStatus.PENDING,
+          paymentStatus: 'UNPAID',
+          pickupName: pickup.name || dto.pickupName,
+          pickupDetail: dto.pickupDetail || pickup.detail,
+          pickupContact: dto.pickupContact || '联系人',
+          pickupPhone: dto.pickupPhone || '',
+          pickupLat: this.optionalNumber(pickup.latitude || dto.pickupLat),
+          pickupLng: this.optionalNumber(pickup.longitude || dto.pickupLng),
+          dropoffName: dropoff.name || dto.dropoffName || '',
+          dropoffDetail: dto.dropoffDetail || dropoff.detail,
+          dropoffContact: dto.dropoffContact || '',
+          dropoffPhone: dto.dropoffPhone || '',
+          dropoffLat: this.optionalNumber(dropoff.latitude || dto.dropoffLat),
+          dropoffLng: this.optionalNumber(dropoff.longitude || dto.dropoffLng),
+          itemName: dto.item || serviceName,
+          weightKg: Number(dto.weightKg || 1),
+          distanceKm: quote.distanceMeters / 1000,
+          vehicleType: fixedVehicle.type,
+          vehicleName: fixedVehicle.name,
+          vehicleId: vehicle.id,
+          pricingMode: quote.serviceId === 'carpool_ride' ? 'fixed_line_ride' : 'handling_fixed',
+          isManualQuote: false,
+          quoteStatus: PrismaQuoteStatus.NONE,
+          baseFee: quote.baseFeeFen / 100,
+          distanceFee: quote.distanceFeeFen / 100,
+          weightFee: 0,
+          vehicleFee: 0,
+          discountFee: 0,
+          deliveryFee: totalFee,
+          estimatedFee: totalFee,
+          totalFee,
+          remark: dto.remark || '',
+          statusLogs: { create: { status: PrismaOrderStatus.PENDING, note: '用户按后端报价下单', createdBy: userId } },
+        },
+        include: { vehicle: true },
+      })
+    })
+    return this.findById(order.id)
   }
 
   async updateStatus(id: string, dto: UpdateOrderStatusDto) {
@@ -140,6 +293,9 @@ export class OrdersService {
     const isProgressing = status !== PrismaOrderStatus.PENDING && status !== PrismaOrderStatus.CANCELLED
     if (order.isManualQuote && order.quoteStatus !== PrismaQuoteStatus.ACCEPTED && isProgressing) {
       throw new ConflictException('用户尚未确认商家报价，订单不能进入履约流程')
+    }
+    if (order.paymentStatus !== 'PAID' && isProgressing) {
+      throw new ConflictException('订单尚未支付，不能进入履约流程')
     }
     const updated = await this.prisma.order.update({
       where: { id: order.id },
@@ -266,6 +422,7 @@ export class OrdersService {
     const totalFee = this.toNumber(order.totalFee) || 0
     const quotedFee = this.toNumber(order.quotedFee)
     const statusIndex = ORDER_STATUS_FLOW.indexOf(order.status as OrderStatus)
+    const businessStatus = this.getBusinessStatus(order)
     const vehicleType = order.vehicleType || order.vehicle?.type || PrismaVehicleType.EBIKE
     const vehicleName =
       order.vehicleName || order.vehicle?.name || VEHICLE_PRICING[vehicleType].label
@@ -278,8 +435,23 @@ export class OrdersService {
       serviceType: order.serviceType,
       serviceName,
       service: serviceName,
+      taskId: order.taskId,
+      direction: order.direction,
+      routeId: order.routeId,
+      passengerCount: order.passengerCount,
+      unitPriceFen: order.unitPriceFen,
+      totalFeeFen: order.totalFeeFen,
+      baseFeeFen: order.baseFeeFen,
+      distanceFeeFen: order.distanceFeeFen,
+      pricingRuleVersion: order.pricingRuleVersion,
+      requiresDelivery: order.requiresDelivery,
+      riderId: order.riderId,
+      acceptedAt: order.acceptedAt?.toISOString() || null,
+      arrivedAt: order.arrivedAt?.toISOString() || null,
       status: order.status,
       statusIndex: statusIndex > -1 ? statusIndex : 0,
+      businessStatus: businessStatus.code,
+      businessStatusText: businessStatus.text,
       paymentStatus: order.paymentStatus,
       vehicleType,
       vehicleName,
@@ -325,6 +497,53 @@ export class OrdersService {
     }
   }
 
+  private getBusinessStatus(order: PersistedOrder) {
+    if (order.status === PrismaOrderStatus.COMPLETED) {
+      return { code: 'COMPLETED', text: '已完成' }
+    }
+    if (order.status === PrismaOrderStatus.CANCELLED) {
+      return { code: 'CANCELLED', text: '已取消' }
+    }
+    if (
+      order.isManualQuote &&
+      (order.quoteStatus === PrismaQuoteStatus.PENDING ||
+        order.quoteStatus === PrismaQuoteStatus.REJECTED)
+    ) {
+      return { code: 'AWAITING_QUOTE', text: '待商家报价' }
+    }
+    if (order.isManualQuote && order.quoteStatus === PrismaQuoteStatus.QUOTED) {
+      return { code: 'AWAITING_QUOTE_CONFIRMATION', text: '待确认报价' }
+    }
+    if (order.paymentStatus !== 'PAID') {
+      return { code: 'AWAITING_PAYMENT', text: '待支付' }
+    }
+
+    const fulfillmentStatuses: Record<PrismaOrderStatus, { code: string; text: string }> = {
+      [PrismaOrderStatus.PENDING]: { code: 'PENDING', text: '待接单' },
+      [PrismaOrderStatus.ACCEPTED]: { code: 'ACCEPTED', text: '已接单' },
+      [PrismaOrderStatus.PICKING_UP]: {
+        code: 'PICKING_UP',
+        text: this.serviceProgressText(order.serviceName, 'pickup'),
+      },
+      [PrismaOrderStatus.DELIVERING]: {
+        code: 'DELIVERING',
+        text: this.serviceProgressText(order.serviceName, 'delivery'),
+      },
+      [PrismaOrderStatus.COMPLETED]: { code: 'COMPLETED', text: '已完成' },
+      [PrismaOrderStatus.CANCELLED]: { code: 'CANCELLED', text: '已取消' },
+    }
+    return fulfillmentStatuses[order.status]
+  }
+
+  private serviceProgressText(serviceName: string, stage: 'pickup' | 'delivery') {
+    const name = serviceName || ''
+    const isMoving = ['搬运', '装卸', '搬家', '搬店'].some((keyword) => name.includes(keyword))
+    const isPassenger = ['拼车', '送客'].some((keyword) => name.includes(keyword))
+    if (isMoving) return stage === 'pickup' ? '上门途中' : '搬运中'
+    if (isPassenger) return stage === 'pickup' ? '前往上车点' : '行程中'
+    return stage === 'pickup' ? '前往取货' : '配送中'
+  }
+
   private toNumber(value: Decimalish) {
     if (value === null || value === undefined) return null
     const numberValue = Number(value)
@@ -334,6 +553,67 @@ export class OrdersService {
   private optionalNumber(value?: number) {
     const numberValue = Number(value)
     return Number.isFinite(numberValue) ? numberValue : undefined
+  }
+
+  private quoteAddress(value: Prisma.JsonValue | null): { name: string; detail: string; latitude?: number; longitude?: number } {
+    if (!value || Array.isArray(value) || typeof value !== 'object') return { name: '', detail: '' }
+    const source = value as Record<string, Prisma.JsonValue>
+    return {
+      name: typeof source.name === 'string' ? source.name : '',
+      detail: typeof source.detail === 'string' ? source.detail : '',
+      latitude: typeof source.latitude === 'number' ? source.latitude : undefined,
+      longitude: typeof source.longitude === 'number' ? source.longitude : undefined,
+    }
+  }
+
+  private taskIdForService(serviceName: string) {
+    const mapping: Record<string, string> = {
+      拼车: 'carpool_ride',
+      拉货: 'cargo_haul',
+      运货: 'cargo_haul',
+      搬家: 'moving',
+      '搬家/搬店': 'moving',
+      搬运装卸: 'moving_handling',
+      装货: 'moving_handling',
+      卸货: 'moving_handling',
+      寄货: 'send_parcel',
+      急送: 'urgent_delivery',
+      帮取: 'pickup',
+      帮买: 'buy_for_me',
+      '送货/送客': 'pedicab_delivery',
+    }
+    return mapping[serviceName] || 'urgent_delivery'
+  }
+
+  private serverPricingInput(
+    dto: CreateOrderDto,
+    taskId: string,
+    vehicle: { type: PrismaVehicleType; name: string },
+  ): EstimatePriceDto {
+    const common = {
+      serviceType: dto.serviceType,
+      serviceName: dto.serviceName || '同城配送',
+      pricingMode: 'distance',
+      linePrice: 0,
+      linePriceMultiplier: 1,
+      baseDistanceKm: 4,
+      basePrice: VEHICLE_PRICING[vehicle.type].baseFee,
+      extraPerKm: VEHICLE_PRICING[vehicle.type].distanceRate,
+      serviceSurcharge: 0,
+      maxDeliveryFee: VEHICLE_PRICING[vehicle.type].maxDeliveryFee,
+    }
+    if (taskId === 'send_parcel') {
+      return { ...common, serviceType: 'CARGO', serviceName: '寄货', pricingMode: 'fixed_line_parcel', linePrice: PARCEL_LINE_PRICES[dto.routeId || ''] || 58 }
+    }
+    if (taskId === 'cargo_haul') return { ...common, serviceType: 'CARGO', serviceName: '运货', serviceSurcharge: 5 }
+    if (taskId === 'moving') return { ...common, serviceType: 'MOVING', serviceName: '搬家', serviceSurcharge: 20 }
+    if (taskId === 'urgent_delivery') return { ...common, serviceType: 'DELIVERY', serviceName: '急送', pricingMode: 'distance_weather', serviceSurcharge: 3 }
+    if (taskId === 'pickup') return { ...common, serviceType: 'PICKUP', serviceName: '帮取', pricingMode: 'distance_weather' }
+    if (taskId === 'buy_for_me') return { ...common, serviceType: 'BUY_FOR_ME', serviceName: '帮买', pricingMode: 'distance_weather', serviceSurcharge: 2 }
+    if (taskId === 'pedicab_delivery') {
+      return { ...common, serviceType: 'CARGO', serviceName: '送货/送客', basePrice: 15, extraPerKm: 2, maxDeliveryFee: 88 }
+    }
+    return common
   }
 
   private generateOrderNo() {
@@ -360,6 +640,9 @@ export class OrdersService {
     if (serviceType === PrismaServiceType.PICKUP) return '帮取'
     if (serviceType === PrismaServiceType.CARGO) return '送货'
     if (serviceType === PrismaServiceType.BUY_FOR_ME) return '帮买'
+    if (serviceType === PrismaServiceType.CARPOOL) return '拼车'
+    if (serviceType === PrismaServiceType.MOVING) return '搬家'
+    if (serviceType === PrismaServiceType.HANDLING) return '搬运装卸'
     return '帮送'
   }
 }

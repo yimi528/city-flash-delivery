@@ -1,16 +1,21 @@
-import { Controller, Get, Param } from '@nestjs/common'
+import { Controller, Get, UseGuards } from '@nestjs/common'
 import { ApiTags } from '@nestjs/swagger'
+import { CurrentAuth } from '../auth/current-auth.decorator'
+import { CustomerAuthGuard } from '../auth/auth.guard'
+import { AuthPrincipal } from '../auth/auth-token.service'
+import { PrismaService } from '../common/prisma/prisma.service'
 
 @ApiTags('users')
 @Controller('users')
+@UseGuards(CustomerAuthGuard)
 export class UsersController {
-  @Get(':id')
-  findById(@Param('id') id: string) {
-    return {
-      id,
-      phone: id === 'demo-user' ? '138****4581' : '',
-      nickname: id === 'demo-user' ? '微信用户' : '新用户',
-      memberLevel: '青铜会员',
-    }
+  constructor(private readonly prisma: PrismaService) {}
+
+  @Get('me')
+  findMe(@CurrentAuth() auth: AuthPrincipal) {
+    return this.prisma.user.findUnique({
+      where: { id: auth.subjectId },
+      select: { id: true, phone: true, nickname: true, avatarUrl: true, memberLevel: true },
+    })
   }
 }

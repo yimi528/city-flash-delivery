@@ -1,0 +1,7 @@
+{
+  "description": "同城速送独立骑手端",
+  "miniprogramRoot": "./",
+  "projectname": "city-flash-rider",
+  "appid": "touristappid",
+  "setting": { "es6": true, "postcss": true, "minified": true }
+}

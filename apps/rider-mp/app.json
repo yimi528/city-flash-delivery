@@ -1,0 +1,31 @@
+{
+  "pages": [
+    "pages/order-hall/order-hall",
+    "pages/tasks/tasks",
+    "pages/profile/profile"
+  ],
+  "window": {
+    "navigationBarTitleText": "同城速送骑手",
+    "navigationBarBackgroundColor": "#111820",
+    "navigationBarTextStyle": "white",
+    "backgroundColor": "#f4f1e9"
+  },
+  "permission": {
+    "scope.userLocation": {
+      "desc": "用于骑手上线后匹配附近订单"
+    }
+  },
+  "requiredPrivateInfos": ["getLocation"],
+  "tabBar": {
+    "color": "#7d817f",
+    "selectedColor": "#d14f22",
+    "backgroundColor": "#fffdf8",
+    "list": [
+      { "pagePath": "pages/order-hall/order-hall", "text": "抢单" },
+      { "pagePath": "pages/tasks/tasks", "text": "任务" },
+      { "pagePath": "pages/profile/profile", "text": "我的" }
+    ]
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json"
+}

@@ -1,5 +1,5 @@
 import { ConflictException } from '@nestjs/common'
-import { OrderStatus, QuoteStatus, ServiceType, VehicleType } from '@prisma/client'
+import { OrderStatus, PaymentStatus, QuoteStatus, ServiceType, VehicleType } from '@prisma/client'
 import { PricingService } from '../pricing/pricing.service'
 import { OrdersService } from './orders.service'
 
@@ -12,7 +12,7 @@ function manualQuoteOrder(quoteStatus: QuoteStatus = QuoteStatus.QUOTED) {
     serviceType: ServiceType.CARGO,
     serviceName: '搬运装卸',
     status: OrderStatus.PENDING,
-    paymentStatus: 'UNPAID',
+    paymentStatus: PaymentStatus.PAID,
     pickupName: '取货地址',
     pickupDetail: '取货详情',
     pickupContact: '联系人',
@@ -60,7 +60,12 @@ describe('OrdersService quote confirmation', () => {
     findFirst: jest.fn(),
     update: jest.fn(),
   }
-  const prisma = { order: orderApi }
+  const paymentRecordApi = { findUnique: jest.fn(), updateMany: jest.fn() }
+  const prisma = {
+    order: orderApi,
+    paymentRecord: paymentRecordApi,
+    $transaction: jest.fn(async (operations: Array<Promise<unknown>>) => Promise.all(operations)),
+  }
   const service = new OrdersService(new PricingService(), prisma as never)
 
   beforeEach(() => {
@@ -92,6 +97,122 @@ describe('OrdersService quote confirmation', () => {
 
     const progressed = await service.updateStatus(quoted.id, { status: OrderStatus.ACCEPTED })
     expect(progressed.status).toBe(OrderStatus.ACCEPTED)
+  })
+
+  it('blocks fulfillment until the accepted order is paid', async () => {
+    const unpaid = {
+      ...manualQuoteOrder(QuoteStatus.ACCEPTED),
+      paymentStatus: PaymentStatus.UNPAID,
+    }
+    orderApi.findFirst.mockResolvedValue(unpaid)
+
+    await expect(service.updateStatus(unpaid.id, { status: OrderStatus.ACCEPTED }))
+      .rejects.toThrow('订单尚未支付')
+    expect(orderApi.update).not.toHaveBeenCalled()
+  })
+
+  it('persists customer cancellation and closes unpaid payment attempts', async () => {
+    const pending = {
+      ...manualQuoteOrder(QuoteStatus.PENDING),
+      paymentStatus: PaymentStatus.UNPAID,
+    }
+    const cancelled = {
+      ...pending,
+      status: OrderStatus.CANCELLED,
+      paymentStatus: PaymentStatus.CLOSED,
+    }
+    orderApi.findFirst.mockResolvedValue(pending)
+    orderApi.update.mockResolvedValue(cancelled)
+    paymentRecordApi.updateMany.mockResolvedValue({ count: 0 })
+
+    const result = await service.cancel(pending.id, pending.userId)
+
+    expect(result).toEqual(expect.objectContaining({
+      status: OrderStatus.CANCELLED,
+      paymentStatus: PaymentStatus.CLOSED,
+      businessStatusText: '已取消',
+    }))
+    expect(orderApi.update).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ status: OrderStatus.CANCELLED, paymentStatus: PaymentStatus.CLOSED }),
+    }))
+  })
+
+  it('requires paid cancellations to enter the refund process', async () => {
+    orderApi.findFirst.mockResolvedValue(manualQuoteOrder(QuoteStatus.ACCEPTED))
+    paymentRecordApi.findUnique.mockResolvedValue(null)
+
+    await expect(service.cancel('N202607110001', 'demo-user'))
+      .rejects.toThrow('微信退款接口')
+    expect(orderApi.update).not.toHaveBeenCalled()
+  })
+
+  it('automatically refunds a mock payment before merchant acceptance', async () => {
+    const paid = manualQuoteOrder(QuoteStatus.ACCEPTED)
+    const cancelled = {
+      ...paid,
+      status: OrderStatus.CANCELLED,
+      paymentStatus: PaymentStatus.REFUNDED,
+    }
+    orderApi.findFirst.mockResolvedValue(paid)
+    paymentRecordApi.findUnique.mockResolvedValue({ transactionId: 'MOCK-123' })
+    orderApi.update.mockResolvedValue(cancelled)
+    paymentRecordApi.updateMany.mockResolvedValue({ count: 0 })
+
+    const result = await service.cancel(paid.id, paid.userId)
+
+    expect(result).toEqual(expect.objectContaining({
+      status: OrderStatus.CANCELLED,
+      paymentStatus: PaymentStatus.REFUNDED,
+      businessStatusText: '已取消',
+    }))
+  })
+
+  it('returns the same business status used by customer and merchant clients', async () => {
+    const unpaid = {
+      ...manualQuoteOrder(QuoteStatus.ACCEPTED),
+      paymentStatus: PaymentStatus.UNPAID,
+    }
+    orderApi.findFirst.mockResolvedValueOnce(unpaid).mockResolvedValueOnce({
+      ...unpaid,
+      paymentStatus: PaymentStatus.PAID,
+    })
+
+    const awaitingPayment = await service.findById(unpaid.id)
+    const awaitingAcceptance = await service.findById(unpaid.id)
+
+    expect(awaitingPayment).toEqual(expect.objectContaining({
+      businessStatus: 'AWAITING_PAYMENT',
+      businessStatusText: '待支付',
+    }))
+    expect(awaitingAcceptance).toEqual(expect.objectContaining({
+      businessStatus: 'PENDING',
+      businessStatusText: '待接单',
+    }))
+  })
+
+  it('uses service-specific progress labels without changing persisted statuses', async () => {
+    orderApi.findFirst
+      .mockResolvedValueOnce({
+        ...manualQuoteOrder(QuoteStatus.ACCEPTED),
+        status: OrderStatus.PICKING_UP,
+      })
+      .mockResolvedValueOnce({
+        ...manualQuoteOrder(QuoteStatus.ACCEPTED),
+        serviceName: '拼车',
+        status: OrderStatus.DELIVERING,
+      })
+
+    const moving = await service.findById('moving-order')
+    const passenger = await service.findById('passenger-order')
+
+    expect(moving).toEqual(expect.objectContaining({
+      status: OrderStatus.PICKING_UP,
+      businessStatusText: '上门途中',
+    }))
+    expect(passenger).toEqual(expect.objectContaining({
+      status: OrderStatus.DELIVERING,
+      businessStatusText: '行程中',
+    }))
   })
 
   it('returns a rejected quote to the merchant for repricing', async () => {

@@ -26,6 +26,10 @@ function createHarness() {
   const wx = {
     getSystemInfoSync: () => ({ statusBarHeight: 26, windowWidth: 390 }),
     showToast: (options) => calls.push({ type: 'showToast', options }),
+    showModal: (options) => {
+      calls.push({ type: 'showModal', options })
+      if (options.success) options.success({ confirm: true, cancel: false })
+    },
     navigateTo: (options) => calls.push({ type: 'navigateTo', options }),
     navigateBack: (options = {}) => calls.push({ type: 'navigateBack', options }),
     redirectTo: (options) => calls.push({ type: 'redirectTo', options }),
@@ -74,21 +78,22 @@ function createHarness() {
   }
 }
 
-test('all eight services create an order and react to vehicle changes', () => {
+test('all services create an order with their fixed vehicle', () => {
   const harness = createHarness()
   const { app, event, loadPage } = harness
   const index = loadPage('pages/index/index.js')
   index.onShow()
 
   const cases = [
-    { id: 'send_parcel', service: '寄货', alternate: 'ebike' },
-    { id: 'carpool_ride', service: '拼车', alternate: 'ebike' },
-    { id: 'cargo_haul', service: '拉货', alternate: 'small_car' },
-    { id: 'urgent_delivery', service: '急送', alternate: 'small_car' },
-    { id: 'pickup', service: '帮取', alternate: 'small_car' },
-    { id: 'buy_for_me', service: '帮买', alternate: 'small_car' },
-    { id: 'moving_handling', service: '搬运装卸', alternate: 'small_car', manualQuote: true },
-    { id: 'pedicab_delivery', service: '送货/送客', alternate: 'small_car' }
+    { id: 'carpool_ride', service: '拼车', vehicle: 'business_van', alternate: 'ebike' },
+    { id: 'cargo_haul', service: '运货', vehicle: 'cargo_tricycle', alternate: 'small_car' },
+    { id: 'moving', service: '搬家', vehicle: 'moving_van', alternate: 'ebike' },
+    { id: 'moving_handling', service: '搬运装卸', vehicle: 'manual_labor', alternate: 'small_car' },
+    { id: 'send_parcel', service: '寄货', vehicle: 'small_car', alternate: 'ebike' },
+    { id: 'urgent_delivery', service: '急送', vehicle: 'ebike', alternate: 'small_car' },
+    { id: 'pickup', service: '帮取', vehicle: 'ebike', alternate: 'small_car' },
+    { id: 'buy_for_me', service: '帮买', vehicle: 'ebike', alternate: 'small_car' },
+    { id: 'pedicab_delivery', service: '送货/送客', vehicle: 'human_tricycle', alternate: 'small_car' }
   ]
 
   assert.deepEqual(index.data.allTasks.map((item) => item.id), cases.map((item) => item.id))
@@ -106,10 +111,10 @@ test('all eight services create an order and react to vehicle changes', () => {
 
     const page = loadPage('pages/order-create/order-create.js')
     page.onShow()
-    const recommendedFee = Number(page.data.estimate.deliveryFee)
+    const recommendedVehicle = page.data.selectedVehicle
     page.selectVehicle(event({ id: flow.alternate }))
-    const alternateFee = Number(page.data.estimate.deliveryFee)
-    assert.notEqual(alternateFee, recommendedFee, `${flow.service} should change price with vehicle`)
+    assert.equal(page.data.selectedVehicle, recommendedVehicle, `${flow.service} should keep its fixed vehicle`)
+    assert.equal(recommendedVehicle, flow.vehicle)
 
     const beforeCount = app.globalData.orders.length
     page.submitOrder()
@@ -118,8 +123,8 @@ test('all eight services create an order and react to vehicle changes', () => {
     assert.equal(order.service, flow.service)
     assert.equal(order.status, '待接单')
     assert.ok(order.fee > 0)
-    assert.equal(order.isManualQuote, Boolean(flow.manualQuote))
-    assert.equal(order.quoteStatus, flow.manualQuote ? 'PENDING' : 'NONE')
+    assert.equal(order.isManualQuote, false)
+    assert.equal(order.quoteStatus, 'NONE')
     if (flow.id === 'buy_for_me') {
       assert.equal(order.productFee, 50)
       assert.equal(order.fee, order.productFee + order.deliveryFee)
@@ -127,51 +132,43 @@ test('all eight services create an order and react to vehicle changes', () => {
   })
 })
 
-test('all eight services have distinct and capped prices across every vehicle option', () => {
-  const taskIds = [
-    'send_parcel',
-    'carpool_ride',
-    'cargo_haul',
-    'urgent_delivery',
-    'pickup',
-    'buy_for_me',
-    'moving_handling',
-    'pedicab_delivery'
-  ]
-  const vehicleIds = ['small_car', 'cargo_tricycle', 'human_tricycle', 'ebike', 'manual_labor']
-
-  taskIds.forEach((taskId) => {
-    const { app, event, loadPage } = createHarness()
-    const index = loadPage('pages/index/index.js')
-    index.onShow()
-    index.chooseTask(event({ task: taskId }))
-    const draft = app.globalData.draftOrder
-    draft.pickup = app.globalData.addresses[0]
-    draft.dropoff = app.globalData.addresses[1]
-    draft.routeDistanceKm = 2.5
-    if (taskId === 'buy_for_me') {
-      draft.buyItems = '测试商品'
-      draft.budget = 50
-    }
-
-    const page = loadPage('pages/order-create/order-create.js')
-    page.onShow()
-    const deliveryFees = vehicleIds.map((vehicleId) => {
-      page.selectVehicle(event({ id: vehicleId }))
-      const deliveryFee = Number(page.data.estimate.deliveryFee)
-      const total = Number(page.data.estimate.total)
-      assert.ok(deliveryFee > 0 && deliveryFee <= 168, `${taskId}/${vehicleId} delivery fee should be reasonable`)
-      assert.equal(total, deliveryFee + (taskId === 'buy_for_me' ? 50 : 0))
-      return deliveryFee
-    })
-
-    assert.equal(new Set(deliveryFees).size, vehicleIds.length, `${taskId} should price every vehicle differently`)
-  })
+test('carpool fare follows passenger count and return always ends in Fuding', () => {
+  const { app, event, loadPage } = createHarness()
+  const index = loadPage('pages/index/index.js')
+  index.onShow()
+  index.chooseTask(event({ task: 'carpool_ride' }))
+  const page = loadPage('pages/order-create/order-create.js')
+  page.onShow()
+  page.selectLine(event({ id: 'wenzhou' }))
+  page.changePassenger(event({ step: 1 }))
+  page.changePassenger(event({ step: 1 }))
+  assert.equal(page.data.passengerCount, 3)
+  assert.equal(Number(page.data.estimate.total), 450)
+  page.selectDirection(event({ direction: 'RETURN' }))
+  assert.equal(app.globalData.draftOrder.pickup.name, '温州')
+  assert.equal(app.globalData.draftOrder.dropoff.name, '福鼎')
+  assert.equal(Number(page.data.estimate.total), 450)
 })
 
-test('manual quote requires customer confirmation before fulfillment', () => {
+test('handling-only order charges a fixed fee without a destination', () => {
   const harness = createHarness()
   const { app, event, loadPage } = harness
+  const index = loadPage('pages/index/index.js')
+  index.onShow()
+  index.chooseTask(event({ task: 'moving_handling' }))
+  const createPage = loadPage('pages/order-create/order-create.js')
+  createPage.onShow()
+  assert.equal(app.globalData.draftOrder.requiresDelivery, false)
+  assert.equal(Number(createPage.data.estimate.total), 48)
+  createPage.submitOrder()
+  const order = app.globalData.orders[0]
+  assert.equal(order.dropoffName, '')
+  assert.equal(order.fee, 48)
+  assert.equal(order.isManualQuote, false)
+})
+
+test('cancelling a manual quote order keeps it cancelled and stops quoting', () => {
+  const { app, event, loadPage, calls } = createHarness()
   const index = loadPage('pages/index/index.js')
   index.onShow()
   index.chooseTask(event({ task: 'moving_handling' }))
@@ -181,19 +178,80 @@ test('manual quote requires customer confirmation before fulfillment', () => {
   createPage.onShow()
   createPage.submitOrder()
   const order = app.globalData.orders[0]
-  Object.assign(order, {
-    quoteStatus: 'QUOTED',
-    quotedFee: 66,
-    fee: 66,
-    deliveryFee: 66,
-    feeText: '待确认￥66'
+  const detail = loadPage('pages/order-detail/order-detail.js')
+  detail.onLoad({ id: order.id })
+  detail.onShow()
+  detail.cancelOrder()
+
+  assert.equal(detail.data.order.status, '已取消')
+  assert.equal(detail.data.order.displayStatus, '已取消')
+  assert.equal(detail.data.order.paymentStatus, 'CLOSED')
+  assert.equal(detail.data.order.needsQuote, false)
+  assert.equal(calls.some((call) => call.type === 'showModal'), true)
+})
+
+test('all services expose cancellation before payment', () => {
+  const taskIds = [
+    'carpool_ride',
+    'cargo_haul',
+    'moving',
+    'moving_handling',
+    'send_parcel',
+    'urgent_delivery',
+    'pickup',
+    'buy_for_me',
+    'pedicab_delivery'
+  ]
+
+  taskIds.forEach((taskId) => {
+    const { app, event, loadPage } = createHarness()
+    const index = loadPage('pages/index/index.js')
+    index.onShow()
+    index.chooseTask(event({ task: taskId }))
+    app.globalData.draftOrder.pickup = app.globalData.addresses[0]
+    app.globalData.draftOrder.dropoff = app.globalData.addresses[1]
+    if (taskId === 'buy_for_me') {
+      app.globalData.draftOrder.buyItems = '取消测试商品'
+      app.globalData.draftOrder.budget = 20
+    }
+
+    const createPage = loadPage('pages/order-create/order-create.js')
+    createPage.onShow()
+    createPage.submitOrder()
+    const order = app.globalData.orders[0]
+    const detail = loadPage('pages/order-detail/order-detail.js')
+    detail.onLoad({ id: order.id })
+    detail.onShow()
+
+    assert.equal(detail.data.canCancel, true, `${taskId} should expose cancellation`)
+    detail.cancelOrder()
+    assert.equal(detail.data.order.status, '已取消', `${taskId} should cancel locally`)
+    assert.equal(detail.data.order.needsQuote, false, `${taskId} should stop quote actions`)
   })
+})
+
+test('a paid order awaiting merchant acceptance can cancel with an automatic mock refund', () => {
+  const { app, event, loadPage } = createHarness()
+  const index = loadPage('pages/index/index.js')
+  index.onShow()
+  index.chooseTask(event({ task: 'send_parcel' }))
+  app.globalData.draftOrder.pickup = app.globalData.addresses[0]
+  app.globalData.draftOrder.dropoff = app.globalData.addresses[1]
+
+  const createPage = loadPage('pages/order-create/order-create.js')
+  createPage.onShow()
+  createPage.submitOrder()
+  const order = app.globalData.orders[0]
+  order.paymentStatus = 'PAID'
 
   const detail = loadPage('pages/order-detail/order-detail.js')
   detail.onLoad({ id: order.id })
   detail.onShow()
-  assert.equal(detail.data.order.needsQuoteConfirmation, true)
-  detail.confirmQuote()
-  assert.equal(detail.data.order.quoteStatus, 'ACCEPTED')
-  assert.equal(detail.data.order.fee, 66)
+  assert.equal(detail.data.canAutoRefundCancellation, true)
+  assert.equal(detail.data.requiresRefundCancellation, false)
+  detail.cancelOrder()
+
+  assert.equal(detail.data.order.status, '已取消')
+  assert.equal(detail.data.order.paymentStatus, 'REFUNDED')
+  assert.equal(detail.data.paymentStatusText, '已退款')
 })

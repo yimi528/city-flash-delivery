@@ -1,4 +1,4 @@
-import { IsOptional, IsString } from 'class-validator'
+import { IsNotEmpty, IsOptional, IsString, MinLength } from 'class-validator'
 
 export class WechatLoginDto {
   @IsOptional()
@@ -12,10 +12,18 @@ export class WechatLoginDto {
   @IsOptional()
   @IsString()
   nickname?: string
+
+  @IsOptional()
+  @IsString()
+  avatarUrl?: string
 }
 
 export class OperatorLoginDto {
-  @IsOptional()
   @IsString()
-  operatorId?: string
+  @IsNotEmpty()
+  username!: string
+
+  @IsString()
+  @MinLength(6)
+  password!: string
 }

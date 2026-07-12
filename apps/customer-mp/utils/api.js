@@ -18,19 +18,20 @@ const STATUS_VALUES = {
   已取消: 'CANCELLED'
 }
 
-const STATUS_FLOW = ['待接单', '已接单', '取货中', '配送中', '已完成']
+const STATUS_FLOW = ['待支付', '待接单', '已接单', '前往取货', '配送中', '已完成']
 
 const SERVICE_VALUES = {
   寄货: 'CARGO',
-  拼车: 'CARGO',
+  拼车: 'CARPOOL',
   拉货: 'CARGO',
   急送: 'DELIVERY',
   帮送: 'DELIVERY',
   帮取: 'PICKUP',
   送货: 'CARGO',
   '送货/送客': 'CARGO',
-  搬运装卸: 'CARGO',
-  '搬家/搬店': 'CARGO',
+  搬家: 'MOVING',
+  '搬家/搬店': 'MOVING',
+  搬运装卸: 'HANDLING',
   装货: 'CARGO',
   卸货: 'CARGO',
   帮买: 'BUY_FOR_ME',
@@ -41,7 +42,10 @@ const SERVICE_LABELS = {
   DELIVERY: '帮送',
   PICKUP: '帮取',
   CARGO: '送货',
-  BUY_FOR_ME: '帮买'
+  BUY_FOR_ME: '帮买',
+  CARPOOL: '拼车',
+  MOVING: '搬家',
+  HANDLING: '搬运装卸'
 }
 
 const VEHICLE_VALUES = {
@@ -49,12 +53,15 @@ const VEHICLE_VALUES = {
   small_car: 'VAN',
   cargo_tricycle: 'ETRIKE',
   human_tricycle: 'ETRIKE',
-  manual_labor: 'VAN',
+  business_van: 'VAN',
+  moving_van: 'VAN',
+  manual_labor: 'MANUAL',
   etrike: 'ETRIKE',
   van: 'VAN',
   EBIKE: 'EBIKE',
   ETRIKE: 'ETRIKE',
   VAN: 'VAN',
+  MANUAL: 'MANUAL',
   小车: 'VAN',
   二轮车: 'EBIKE',
   二轮电动: 'EBIKE',
@@ -67,7 +74,8 @@ const VEHICLE_VALUES = {
 const VEHICLE_LABELS = {
   EBIKE: '二轮车',
   ETRIKE: '货三轮车',
-  VAN: '小车'
+  VAN: '小车',
+  MANUAL: '人力服务'
 }
 
 function getAppRole() {
@@ -171,7 +179,26 @@ function formatTime(value) {
 
 function getStatusIndex(status) {
   const index = STATUS_FLOW.indexOf(status)
+  if (['取货中', '前往取货', '上门途中', '前往上车点'].includes(status)) return 3
+  if (['配送中', '搬运中', '行程中'].includes(status)) return 4
   return index > -1 ? index : 0
+}
+
+function getBusinessStatusText(order, status, quoteStatus, isManualQuote, paymentStatus) {
+  if (status === '已完成' || status === '已取消') return status
+  if (order.businessStatusText) return order.businessStatusText
+  if (isManualQuote && (quoteStatus === 'PENDING' || quoteStatus === 'REJECTED')) return '待商家报价'
+  if (isManualQuote && quoteStatus === 'QUOTED') return '待确认报价'
+  if (paymentStatus !== 'PAID') return '待支付'
+  return status
+}
+
+function getBusinessStatusActor(displayStatus, status, rider) {
+  if (displayStatus === '已取消') return '订单已取消'
+  if (displayStatus === '待商家报价') return '等待商家报价'
+  if (displayStatus === '待确认报价') return '等待你确认价格'
+  if (displayStatus === '待支付') return '等待用户支付'
+  return rider || (status === '待接单' ? '等待运营接单' : '同城速送配送员')
 }
 
 function getWeightLabel(weight) {
@@ -185,10 +212,31 @@ function getEta(status) {
   if (status === '待接单') return '等待运营接单'
   if (status === '已接单') return '运营已接单'
   if (status === '取货中') return '正在前往取货'
+  if (status === '前往取货') return '正在前往取货'
+  if (status === '上门途中') return '服务人员正在上门'
+  if (status === '搬运中') return '正在进行搬运服务'
+  if (status === '前往上车点') return '正在前往上车点'
+  if (status === '行程中') return '本次行程进行中'
   if (status === '配送中') return '正在配送中'
   if (status === '已完成') return '已送达'
   if (status === '已取消') return '已取消'
   return '约 20 分钟'
+}
+
+function getServiceProgressText(service, status) {
+  const name = String(service || '')
+  const isMoving = ['搬运', '装卸', '搬家', '搬店'].some((keyword) => name.indexOf(keyword) !== -1)
+  const isPassenger = ['拼车', '送客'].some((keyword) => name.indexOf(keyword) !== -1)
+  if (status === '取货中') {
+    if (isMoving) return '上门途中'
+    if (isPassenger) return '前往上车点'
+    return '前往取货'
+  }
+  if (status === '配送中') {
+    if (isMoving) return '搬运中'
+    if (isPassenger) return '行程中'
+  }
+  return status
 }
 
 function normalizeOrder(order) {
@@ -198,8 +246,12 @@ function normalizeOrder(order) {
   const vehicleType = order.vehicleType || (order.cargoOptions && order.cargoOptions.vehicleId)
   const quoteStatus = order.quoteStatus || (order.isManualQuote || order.pricingMode === 'manual_quote' ? 'PENDING' : 'NONE')
   const isManualQuote = Boolean(order.isManualQuote || order.pricingMode === 'manual_quote')
-  const needsQuote = isManualQuote && (quoteStatus === 'PENDING' || quoteStatus === 'REJECTED')
-  const needsQuoteConfirmation = isManualQuote && quoteStatus === 'QUOTED'
+  const paymentStatus = order.paymentStatus || 'UNPAID'
+  const isTerminal = status === '已完成' || status === '已取消'
+  const fallbackStatus = getServiceProgressText(service, status)
+  const displayStatus = getBusinessStatusText(order, fallbackStatus, quoteStatus, isManualQuote, paymentStatus)
+  const needsQuote = !isTerminal && isManualQuote && (quoteStatus === 'PENDING' || quoteStatus === 'REJECTED')
+  const needsQuoteConfirmation = !isTerminal && isManualQuote && quoteStatus === 'QUOTED'
   const quoteAccepted = isManualQuote && quoteStatus === 'ACCEPTED'
   const productFee = Number(order.productFee || order.budget || 0)
   const storedDeliveryFee = Number(order.deliveryFee || order.serviceFee || 0)
@@ -224,7 +276,10 @@ function normalizeOrder(order) {
           : ''
   return Object.assign({}, order, {
     status,
-    statusIndex: Number.isInteger(order.statusIndex) ? order.statusIndex : getStatusIndex(status),
+    displayStatus,
+    businessStatus: order.businessStatus || '',
+    businessStatusText: displayStatus,
+    statusIndex: getStatusIndex(displayStatus),
     service,
     pickupName: order.pickupName || (order.pickup && order.pickup.name) || '取货地址',
     pickupDetail: order.pickupDetail || (order.pickup && order.pickup.detail) || '',
@@ -247,15 +302,21 @@ function normalizeOrder(order) {
     quoteStatusText,
     quotedFee: order.quotedFee || (['QUOTED', 'ACCEPTED', 'REJECTED'].includes(quoteStatus) ? fee : null),
     quoteNote: order.quoteNote || '',
+    paymentStatus,
+    isPaid: paymentStatus === 'PAID',
     distance: Number(order.distanceKm || order.distance || 0),
-    eta: quoteStatus === 'PENDING'
+    eta: status === '已取消'
+      ? '已取消'
+      : quoteStatus === 'PENDING'
       ? '等待商家报价'
       : quoteStatus === 'QUOTED'
         ? '等待你确认价格'
         : quoteStatus === 'REJECTED'
           ? '等待商家重新报价'
-          : (order.eta || getEta(status)),
-    rider: order.rider || (status === '待接单' ? '等待运营接单' : '同城速送配送员'),
+          : displayStatus === '待支付'
+            ? '请完成支付后安排服务'
+            : (order.eta || getEta(displayStatus)),
+    rider: getBusinessStatusActor(displayStatus, status, order.rider),
     createTime: order.createTime || formatTime(order.createdAt),
     remark: order.remark || ''
   })
@@ -272,7 +333,8 @@ function buildNestLoginPayload(payload) {
   return {
     code: source.code || '',
     phone: source.phone || '',
-    nickname: source.nickname || userInfo.nickName || userInfo.nickname || '微信用户'
+    nickname: source.nickname || userInfo.nickName || userInfo.nickname || '微信用户',
+    avatarUrl: source.avatarUrl || userInfo.avatarUrl || ''
   }
 }
 
@@ -326,6 +388,12 @@ function buildNestOrderPayload(payload) {
     userId: source.userId || 'demo-user',
     serviceType: toServiceValue(source.serviceType || source.service),
     serviceName: source.service || source.serviceName || '',
+    taskId: source.taskId || '',
+    quoteId: source.quoteId || '',
+    routeId: source.routeId || selectedLine.id || '',
+    direction: source.direction || 'OUTBOUND',
+    passengerCount: Number(source.passengerCount || 1),
+    requiresDelivery: Boolean(source.requiresDelivery),
     vehicleType: toVehicleValue(source.vehicleType || source.vehicleId || cargoOptions.vehicleId),
     vehicleName: source.vehicleName || cargoOptions.vehicleName || '',
     pricingMode: source.pricingMode || '',
@@ -372,6 +440,10 @@ function getAddresses(userId) {
   return request(`/addresses?userId=${encodeURIComponent(userId || 'demo-user')}`)
 }
 
+function getCurrentUser() {
+  return request('/users/me')
+}
+
 function wechatLogin(payload) {
   return request('/auth/wechat-login', {
     method: 'POST',
@@ -383,7 +455,10 @@ function merchantLogin(payload) {
   if (isNestApi()) {
     return request('/auth/operator-login', {
       method: 'POST',
-      data: { operatorId: (payload && (payload.operatorId || payload.merchantId)) || 'operator-demo' }
+      data: {
+        username: (payload && payload.username) || 'operator-demo',
+        password: (payload && payload.password) || ''
+      }
     })
   }
   return request('/auth/merchant-login', {
@@ -460,6 +535,22 @@ function createOrder(payload) {
   }).then(normalizeOrder)
 }
 
+function getServiceCatalog() {
+  return request('/v1/services')
+}
+
+function getCarpoolRoutes() {
+  return request('/v1/carpool/routes')
+}
+
+function quoteCarpool(payload) {
+  return request('/v1/quotes/carpool', { method: 'POST', data: payload })
+}
+
+function quoteHandling(payload) {
+  return request('/v1/quotes/handling', { method: 'POST', data: payload })
+}
+
 function getOrders(userId) {
   return request(`/orders?userId=${encodeURIComponent(userId || 'demo-user')}`).then(normalizeOrders)
 }
@@ -475,6 +566,13 @@ function updateOrderStatus(id, payload) {
   }).then(normalizeOrder)
 }
 
+function cancelOrder(id) {
+  return request(`/orders/${encodeURIComponent(id)}/cancel`, {
+    method: 'PATCH',
+    data: {}
+  }).then(normalizeOrder)
+}
+
 function confirmOrderQuote(id) {
   return request(`/orders/${encodeURIComponent(id)}/quote/confirm`, {
     method: 'PATCH',
@@ -487,6 +585,33 @@ function rejectOrderQuote(id) {
     method: 'PATCH',
     data: {}
   }).then(normalizeOrder)
+}
+
+function createWechatPayment(orderId) {
+  return request(`/payments/orders/${encodeURIComponent(orderId)}/prepay`, { method: 'POST' })
+}
+
+function getPaymentStatus(orderId) {
+  return request(`/payments/orders/${encodeURIComponent(orderId)}`)
+}
+
+function confirmMockPayment(orderId) {
+  return request(`/payments/orders/${encodeURIComponent(orderId)}/mock-confirm`, { method: 'POST' })
+}
+
+function requestWechatPayment(payment) {
+  if (payment.mode === 'paid') return Promise.resolve(payment)
+  if (payment.mode === 'mock') return confirmMockPayment(payment.orderId)
+  return new Promise((resolve, reject) => {
+    if (!wx.requestPayment || !payment.params) {
+      reject(new Error('当前环境不支持微信支付'))
+      return
+    }
+    wx.requestPayment(Object.assign({}, payment.params, {
+      success: resolve,
+      fail: reject
+    }))
+  })
 }
 
 function getMerchantDashboard(merchantId) {
@@ -523,18 +648,28 @@ module.exports = {
   wechatLogin,
   merchantLogin,
   getAddresses,
+  getCurrentUser,
   createAddress,
   updateAddress,
   deleteAddress,
   getVehicleTypes,
   getWeatherRisk,
   estimatePrice,
+  getServiceCatalog,
+  getCarpoolRoutes,
+  quoteCarpool,
+  quoteHandling,
   createOrder,
   getOrders,
   getOrder,
   updateOrderStatus,
+  cancelOrder,
   confirmOrderQuote,
   rejectOrderQuote,
+  createWechatPayment,
+  getPaymentStatus,
+  confirmMockPayment,
+  requestWechatPayment,
   getMerchantDashboard,
   getMerchantOrders,
   updateMerchantOrderStatus,

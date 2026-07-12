@@ -16,7 +16,7 @@ const services = [
 
 function maskPhone(phone) {
   const value = String(phone || '')
-  if (!value) return '点击登录'
+  if (!value) return ''
   if (value.indexOf('****') !== -1) return value
   if (/^\d{11}$/.test(value)) return `${value.slice(0, 3)}****${value.slice(7)}`
   return value
@@ -26,8 +26,10 @@ Page({
   data: {
     statusBarHeight: 24,
     isLoggedIn: false,
+    isLoggingIn: false,
     currentUser: {},
-    displayPhone: '点击登录',
+    displayName: '微信授权登录',
+    accountCaption: '登录后管理订单与支付',
     memberLevel: '登录领取权益',
     stats: [
       { label: '账户余额', value: '0', badge: '' },
@@ -38,17 +40,39 @@ Page({
 
   onShow() {
     this.syncUserState()
+    this.validateSession()
   },
 
   syncUserState() {
     const currentUser = app.globalData.currentUser || {}
     const isLoggedIn = app.globalData.isLoggedIn
+    const displayPhone = maskPhone(currentUser.phone)
     this.setData({
       statusBarHeight: app.globalData.statusBarHeight,
       isLoggedIn,
       currentUser,
-      displayPhone: isLoggedIn ? maskPhone(currentUser.phone) : '点击登录',
-      memberLevel: isLoggedIn ? (currentUser.memberLevel || '青铜会员') : '登录后享受多项权益'
+      displayName: isLoggedIn ? (displayPhone || currentUser.nickname || '微信用户') : '微信授权登录',
+      accountCaption: isLoggedIn
+        ? (displayPhone ? (currentUser.nickname || '微信账号已登录') : '微信账号已登录')
+        : '登录后管理订单、地址与支付',
+      memberLevel: isLoggedIn ? (currentUser.memberLevel || '普通会员') : '安全、快捷地使用同城服务',
+      stats: [
+        { label: '账户余额', value: '0', badge: '' },
+        { label: '优惠券', value: isLoggedIn ? '6' : '0', badge: '' }
+      ]
+    })
+  },
+
+  validateSession() {
+    if (!app.globalData.useBackend || !app.globalData.authToken) return
+    api.getCurrentUser().then((user) => {
+      if (!user || !user.id) throw new Error('用户不存在')
+      app.setCurrentUser(user, app.globalData.authToken)
+      this.syncUserState()
+    }).catch(() => {
+      app.clearCurrentUser()
+      this.syncUserState()
+      wx.showToast({ title: '登录已过期，请重新登录', icon: 'none' })
     })
   },
 
@@ -61,7 +85,7 @@ Page({
         avatarUrl: '',
         memberLevel: '青铜会员'
       }
-      app.setCurrentUser(user, 'mock-token:customer:demo-user')
+      app.setCurrentUser(user, '')
       this.syncUserState()
       wx.showToast({ title: '已使用本地登录', icon: 'success' })
     }
@@ -71,11 +95,16 @@ Page({
         fallbackLogin()
         return
       }
+      this.setData({ isLoggingIn: true })
       api.wechatLogin({ code, userInfo: { nickName: '微信用户' } }).then((result) => {
         app.setCurrentUser(result.user, result.token)
         this.syncUserState()
         wx.showToast({ title: '登录成功', icon: 'success' })
-      }).catch(() => fallbackLogin())
+      }).catch((error) => {
+        wx.showToast({ title: error.message || '微信登录失败', icon: 'none' })
+      }).finally(() => {
+        this.setData({ isLoggingIn: false })
+      })
     }
 
     if (wx.login) {
@@ -86,6 +115,22 @@ Page({
       return
     }
     doLogin('')
+  },
+
+  logout() {
+    wx.showModal({
+      title: '退出登录',
+      content: '退出后需要重新进行微信授权，历史订单不会被删除。',
+      confirmText: '确认退出',
+      confirmColor: '#d93025',
+      cancelText: '取消',
+      success: (result) => {
+        if (!result.confirm) return
+        app.clearCurrentUser()
+        this.syncUserState()
+        wx.showToast({ title: '已安全退出', icon: 'none' })
+      }
+    })
   },
 
   openMember() {

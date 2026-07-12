@@ -12,6 +12,32 @@ import {
 export class CreateOrderDto {
   @IsOptional()
   @IsString()
+  quoteId?: string
+
+  @IsOptional()
+  @IsString()
+  taskId?: string
+
+  @IsOptional()
+  @IsString()
+  routeId?: string
+
+  @IsOptional()
+  @IsIn(['OUTBOUND', 'RETURN'])
+  direction?: 'OUTBOUND' | 'RETURN'
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
+  passengerCount?: number
+
+  @IsOptional()
+  @IsBoolean()
+  requiresDelivery?: boolean
+
+  @IsOptional()
+  @IsString()
   userId?: string
 
   @IsIn(SERVICE_TYPES)

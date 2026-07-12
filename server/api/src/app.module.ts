@@ -7,8 +7,11 @@ import { MapsModule } from './maps/maps.module'
 import { OperationsModule } from './operations/operations.module'
 import { OrdersModule } from './orders/orders.module'
 import { PricingModule } from './pricing/pricing.module'
+import { PaymentsModule } from './payments/payments.module'
 import { PrismaModule } from './common/prisma/prisma.module'
 import { UsersModule } from './users/users.module'
+import { CatalogModule } from './catalog/catalog.module'
+import { RidersModule } from './riders/riders.module'
 
 @Module({
   imports: [
@@ -21,7 +24,10 @@ import { UsersModule } from './users/users.module'
     OrdersModule,
     OperationsModule,
     PricingModule,
+    PaymentsModule,
     MapsModule,
+    CatalogModule,
+    RidersModule,
   ],
 })
 export class AppModule {}

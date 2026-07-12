@@ -16,7 +16,8 @@
     "prisma:deploy": "prisma migrate deploy",
     "prisma:studio": "prisma studio",
     "test": "jest",
-    "test:live": "node --env-file=.env scripts/live-order-flow.mjs"
+    "test:live": "node --env-file=.env scripts/live-order-flow.mjs",
+    "operator:create": "node --env-file=.env scripts/create-operator.mjs"
   },
   "dependencies": {
     "@nestjs/common": "^10.4.15",

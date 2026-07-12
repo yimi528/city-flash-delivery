@@ -25,7 +25,7 @@
       <view class="order-card" data-id="{{item.id}}" bindtap="openOrder">
         <view class="order-head">
           <view class="service">{{item.service}}</view>
-          <view class="status {{item.status === '已完成' ? 'done' : ''}}">{{item.status}}</view>
+          <view class="status {{item.displayStatus === '已完成' ? 'done' : ''}}">{{item.displayStatus}}</view>
         </view>
         <view class="route">
           <view class="dot red"></view>

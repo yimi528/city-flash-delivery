@@ -1,11 +1,16 @@
-import { Controller, Get, Query } from '@nestjs/common'
+import { Controller, Get, UseGuards } from '@nestjs/common'
 import { ApiTags } from '@nestjs/swagger'
+import { CurrentAuth } from '../auth/current-auth.decorator'
+import { CustomerAuthGuard } from '../auth/auth.guard'
+import { AuthPrincipal } from '../auth/auth-token.service'
 
 @ApiTags('addresses')
 @Controller('addresses')
+@UseGuards(CustomerAuthGuard)
 export class AddressesController {
   @Get()
-  list(@Query('userId') userId = 'demo-user') {
+  list(@CurrentAuth() auth: AuthPrincipal) {
+    const userId = auth.subjectId
     return [
       {
         id: 'a1',

@@ -1,0 +1,33 @@
+<view class="page">
+  <view class="profile-hero card" wx:if="{{rider}}">
+    <view class="avatar">骑</view>
+    <view><view class="name">{{rider.name}}</view><view class="muted">{{rider.status}} · {{rider.vehicleName || '待配置车型'}}</view></view>
+  </view>
+  <view class="income-grid" wx:if="{{rider}}">
+    <view class="card metric"><view class="value">{{income.completedOrders}}</view><view class="muted">已完成订单</view></view>
+    <view class="card metric"><view class="value money">¥{{income.grossAmountFen / 100}}</view><view class="muted">累计订单金额</view></view>
+  </view>
+  <view class="card application" wx:if="{{rider && rider.status !== 'APPROVED'}}">
+    <view class="application-title">提交骑手审核资料</view>
+    <input placeholder="真实姓名" value="{{form.name}}" bindinput="inputName" />
+    <input type="number" placeholder="手机号" value="{{form.phone}}" bindinput="inputPhone" />
+    <picker range="{{vehicleOptions}}" range-key="label" value="{{vehicleIndex}}" bindchange="chooseVehicle">
+      <view class="picker-row">申请车型 <text>{{vehicleOptions[vehicleIndex].label}} ›</text></view>
+    </picker>
+    <view class="picker-row">申请搬运资格 <switch checked="{{form.requestsHandling}}" bindchange="toggleHandling" color="#d14f22" /></view>
+    <button class="primary apply-btn" bindtap="submitApplication">提交审核</button>
+  </view>
+  <view class="card" wx:if="{{rider}}">
+    <view class="row"><text>服务城市</text><text>{{rider.serviceCity}}</text></view>
+    <view class="row"><text>搬运资格</text><text>{{rider.handlingQualified ? '已具备' : '未开通'}}</text></view>
+    <button class="logout" bindtap="logout">退出登录</button>
+  </view>
+  <view class="card" wx:if="{{rider}}">
+    <view class="application-title">历史订单</view>
+    <block wx:for="{{history}}" wx:key="id">
+      <view class="history-row"><text>{{item.serviceName}}</text><text>{{item.status}}</text></view>
+    </block>
+    <view class="muted" wx:if="{{!history.length}}">暂无历史订单</view>
+  </view>
+  <view class="empty" wx:else>请前往抢单大厅登录</view>
+</view>

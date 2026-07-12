@@ -5,11 +5,13 @@ App({
     this.globalData.windowWidth = systemInfo.windowWidth || 375
     try {
       const savedUser = wx.getStorageSync ? wx.getStorageSync('currentUser') : null
-      if (savedUser && savedUser.id) {
-        this.setCurrentUser(savedUser)
-      }
       const savedToken = wx.getStorageSync ? wx.getStorageSync('customerAuthToken') : ''
-      if (savedToken) this.globalData.authToken = savedToken
+      if (savedToken && !String(savedToken).startsWith('mock-token:')) {
+        if (savedUser && savedUser.id) this.setCurrentUser(savedUser, savedToken)
+      } else if (wx.removeStorageSync) {
+        wx.removeStorageSync('customerAuthToken')
+        wx.removeStorageSync('currentUser')
+      }
     } catch (error) {}
   },
 
@@ -24,12 +26,31 @@ App({
     } catch (error) {}
   },
 
+  clearCurrentUser() {
+    this.globalData.userId = 'demo-user'
+    this.globalData.authToken = ''
+    this.globalData.isLoggedIn = false
+    this.globalData.currentUser = {
+      id: '',
+      phone: '',
+      nickname: '',
+      avatarUrl: '',
+      memberLevel: ''
+    }
+    try {
+      if (wx.removeStorageSync) {
+        wx.removeStorageSync('currentUser')
+        wx.removeStorageSync('customerAuthToken')
+      }
+    } catch (error) {}
+  },
+
   globalData: {
     appRole: 'customer',
     statusBarHeight: 24,
     windowWidth: 375,
     userId: 'demo-user',
-    authToken: 'mock-token:customer:demo-user',
+    authToken: '',
     isLoggedIn: false,
     currentUser: {
       id: 'demo-user',
@@ -39,7 +60,7 @@ App({
       memberLevel: '青铜会员'
     },
     useBackend: true,
-    apiBaseUrl: 'http://127.0.0.1:3000/api',
+    apiBaseUrl: 'https://api.example.com/api',
     city: '宁德市',
     currentLocation: null,
     mapConfig: {

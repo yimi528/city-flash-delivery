@@ -61,7 +61,7 @@
       <view class="address-book-btn">地址簿</view>
     </view>
 
-    <view class="route-row dropoff" data-type="dropoff" bindtap="chooseAddress">
+    <view class="route-row dropoff" wx:if="{{draft.taskId !== 'moving_handling' || draft.requiresDelivery}}" data-type="dropoff" bindtap="chooseAddress">
       <view class="tag-green">到</view>
       <view class="route-main address-field big-input">
         <view class="route-title {{draft.dropoff ? '' : 'placeholder'}}">{{draft.dropoff ? draft.dropoff.name : '目的地/收货地？'}}</view>
@@ -70,6 +70,7 @@
       <view class="address-book-btn">地址簿</view>
     </view>
 
+    <view class="handling-home-tip" wx:if="{{draft.taskId === 'moving_handling' && !draft.requiresDelivery}}">先填写上门服务地址，是否配送可在下一步选择</view>
     <button class="primary-btn order-btn" bindtap="goOrder">去下单</button>
   </view>
 </view>

@@ -2,7 +2,7 @@ const app = getApp()
 const api = require('../../utils/api')
 
 const SYNC_INTERVAL_MS = 2000
-const statusFlow = ['待接单', '已接单', '取货中', '配送中', '已完成']
+const fulfillmentStatusFlow = ['待接单', '已接单', '取货中', '配送中', '已完成']
 const merchantStatusFlow = [
   { status: '待接单', label: '接单' },
   { status: '备货中', label: '备货' },
@@ -36,6 +36,33 @@ function merchantIndex(status) {
   return merchantStatusFlow.findIndex((item) => item.status === status)
 }
 
+function shouldPayOrder(order) {
+  if (!order || order.paymentStatus === 'PAID' || order.status === '已取消') return false
+  return !order.isManualQuote || order.quoteStatus === 'ACCEPTED'
+}
+
+function paymentStatusText(order) {
+  if (!order) return '待支付'
+  if (order.paymentStatus === 'PAID') return '已支付'
+  if (order.paymentStatus === 'REFUNDED') return '已退款'
+  if (order.paymentStatus === 'CLOSED') return '已关闭'
+  return '待支付'
+}
+
+function getBusinessStatusIndex(order) {
+  if (!order || order.status === '已取消') return -1
+  return getStatusFlow(order).indexOf(order.displayStatus)
+}
+
+function getStatusFlow(order) {
+  const service = String((order && order.service) || '')
+  const isMoving = ['搬运', '装卸', '搬家', '搬店'].some((keyword) => service.indexOf(keyword) !== -1)
+  const isPassenger = ['拼车', '送客'].some((keyword) => service.indexOf(keyword) !== -1)
+  const pickupStatus = isMoving ? '上门途中' : (isPassenger ? '前往上车点' : '前往取货')
+  const deliveryStatus = isMoving ? '搬运中' : (isPassenger ? '行程中' : '配送中')
+  return ['待支付', '待接单', '已接单', pickupStatus, deliveryStatus, '已完成']
+}
+
 function pad(value) {
   return String(value).padStart(2, '0')
 }
@@ -49,7 +76,7 @@ Page({
   data: {
     statusBarHeight: 24,
     order: null,
-    statusFlow,
+    statusFlow: ['待支付', '待接单', '已接单', '前往取货', '配送中', '已完成'],
     activeIndex: 0,
     merchantStatusFlow,
     merchantStatus: '',
@@ -58,6 +85,14 @@ Page({
     isMerchantMode: false,
     isSyncing: false,
     isQuoteResponding: false,
+    isPaying: false,
+    isCancelling: false,
+    canCancel: false,
+    canAutoRefundCancellation: false,
+    requiresRefundCancellation: false,
+    shouldPay: false,
+    isLoggedIn: false,
+    paymentStatusText: '待支付',
     syncText: '等待同步'
   },
 
@@ -104,15 +139,15 @@ Page({
     if (app.globalData.useBackend && this.orderId) {
       if (this.orderSyncing) return Promise.resolve()
       const silent = Boolean(options.silent)
-      const oldStatus = this.data.order ? this.data.order.status : ''
+      const oldStatus = this.data.order ? this.data.order.displayStatus : ''
       this.orderSyncing = true
       if (!silent) this.setData({ isSyncing: true, syncText: '正在同步订单状态...' })
       return api.getOrder(this.orderId).then((remoteOrder) => {
         this.cacheOrder(remoteOrder)
         this.applyOrder(remoteOrder)
         this.setData({ isSyncing: false, syncText: syncTimeText() })
-        if (silent && oldStatus && remoteOrder.status !== oldStatus) {
-          wx.showToast({ title: `订单更新为${remoteOrder.status}`, icon: 'none' })
+        if (silent && oldStatus && remoteOrder.displayStatus !== oldStatus) {
+          wx.showToast({ title: `订单更新为${remoteOrder.displayStatus}`, icon: 'none' })
         }
         if (options.toast) wx.showToast({ title: '订单状态已同步', icon: 'success' })
         this.orderSyncing = false
@@ -126,12 +161,14 @@ Page({
   },
 
   applyOrder(order) {
+    order = order ? api.normalizeOrder(order) : order
     if (order && order.isManualQuote) {
       const quoteStatus = order.quoteStatus || 'PENDING'
+      const isTerminal = order.status === '已完成' || order.status === '已取消'
       order.estimatedFee = Number(order.estimatedFee || order.fee || 0)
-      order.needsQuote = quoteStatus === 'PENDING' || quoteStatus === 'REJECTED'
-      order.needsQuoteConfirmation = quoteStatus === 'QUOTED'
-      order.quoteAccepted = quoteStatus === 'ACCEPTED'
+      order.needsQuote = !isTerminal && (quoteStatus === 'PENDING' || quoteStatus === 'REJECTED')
+      order.needsQuoteConfirmation = !isTerminal && quoteStatus === 'QUOTED'
+      order.quoteAccepted = !isTerminal && quoteStatus === 'ACCEPTED'
       order.quoteStatusText = quoteStatus === 'PENDING'
         ? '等待商家报价'
         : quoteStatus === 'QUOTED'
@@ -147,11 +184,18 @@ Page({
     this.setData({
       statusBarHeight: app.globalData.statusBarHeight,
       order,
-      activeIndex: order ? order.statusIndex : 0,
+      statusFlow: getStatusFlow(order),
+      activeIndex: getBusinessStatusIndex(order),
       merchantStatus,
       merchantActiveIndex: Math.max(merchantIndex(merchantStatus), 0),
       merchantActionText: getMerchantActionText(order),
-      isMerchantMode: Boolean(this.isMerchantMode)
+      isMerchantMode: Boolean(this.isMerchantMode),
+      shouldPay: shouldPayOrder(order),
+      canCancel: Boolean(order && order.status !== '已完成' && order.status !== '已取消'),
+      canAutoRefundCancellation: Boolean(order && order.paymentStatus === 'PAID' && order.status === '待接单'),
+      requiresRefundCancellation: Boolean(order && order.paymentStatus === 'PAID' && order.status !== '待接单'),
+      isLoggedIn: Boolean(app.globalData.isLoggedIn && app.globalData.authToken),
+      paymentStatusText: paymentStatusText(order)
     })
   },
 
@@ -200,6 +244,32 @@ Page({
     wx.showToast({ title: accepted ? '已接受商家报价' : '已拒绝，等待重新报价', icon: 'none' })
   },
 
+  payOrder() {
+    const order = this.data.order
+    if (!shouldPayOrder(order) || this.data.isPaying) return
+    if (!app.globalData.isLoggedIn || !app.globalData.authToken) {
+      wx.showModal({
+        title: '登录后支付',
+        content: '请先完成微信登录，再返回订单支付商家报价。',
+        confirmText: '去登录',
+        cancelText: '稍后再说',
+        success: (result) => {
+          if (result.confirm) wx.switchTab({ url: '/pages/profile/profile' })
+        }
+      })
+      return
+    }
+    this.setData({ isPaying: true })
+    api.createWechatPayment(order.id).then(api.requestWechatPayment).then(() => {
+      wx.showToast({ title: '支付成功', icon: 'success' })
+      return this.syncOrder({ silent: false })
+    }).catch((error) => {
+      wx.showToast({ title: error.errMsg || error.message || '支付未完成', icon: 'none' })
+    }).finally(() => {
+      this.setData({ isPaying: false })
+    })
+  },
+
   cacheOrder(order) {
     const index = app.globalData.orders.findIndex((item) => item.id === order.id)
     if (index > -1) {
@@ -214,9 +284,10 @@ Page({
   },
 
   nextStatusLocal(order) {
-    const nextIndex = Math.min(order.statusIndex + 1, statusFlow.length - 1)
+    const currentIndex = Math.max(fulfillmentStatusFlow.indexOf(order.status), 0)
+    const nextIndex = Math.min(currentIndex + 1, fulfillmentStatusFlow.length - 1)
     order.statusIndex = nextIndex
-    order.status = statusFlow[nextIndex]
+    order.status = fulfillmentStatusFlow[nextIndex]
     if (order.status === '已接单') {
       order.rider = '王师傅'
       order.eta = '约 16 分钟'
@@ -313,13 +384,60 @@ Page({
 
   cancelOrder() {
     const order = this.data.order
-    if (!order || order.status === '已完成') return
-    order.status = '已取消'
-    order.statusIndex = 0
-    order.eta = '已取消'
-    this.cacheOrder(order)
-    this.applyOrder(order)
-    wx.showToast({ title: '订单已取消', icon: 'none' })
+    if (!order || !this.data.canCancel || this.data.isCancelling) return
+    if (this.data.requiresRefundCancellation) {
+      wx.showModal({
+        title: '申请取消订单',
+        content: '商家已经接单或开始服务，取消可能产生服务费用，请联系平台客服处理。',
+        confirmText: '去联系客服',
+        cancelText: '暂不取消',
+        success: (result) => {
+          if (!result.confirm) return
+          wx.switchTab({ url: '/pages/profile/profile' })
+          wx.showToast({ title: '请点击“联系客服”', icon: 'none' })
+        }
+      })
+      return
+    }
+    const isRefund = this.data.canAutoRefundCancellation
+    wx.showModal({
+      title: isRefund ? '取消并退款' : '取消订单',
+      content: isRefund
+        ? '商家尚未接单，确认取消后本次模拟支付将自动退款。'
+        : '确认取消这笔订单吗？取消后商家将停止报价和服务安排。',
+      confirmText: isRefund ? '确认退款' : '确认取消',
+      confirmColor: '#d93025',
+      cancelText: '暂不取消',
+      success: (result) => {
+        if (!result.confirm) return
+        if (!app.globalData.useBackend || order.id.indexOf('M-DEMO') === 0) {
+          this.cancelOrderLocal(order)
+          return
+        }
+        this.setData({ isCancelling: true })
+        api.cancelOrder(order.id).then((remoteOrder) => {
+          this.cacheOrder(remoteOrder)
+          this.applyOrder(remoteOrder)
+          wx.showToast({ title: remoteOrder.paymentStatus === 'REFUNDED' ? '订单已取消并退款' : '订单已取消', icon: 'success' })
+        }).catch((error) => {
+          wx.showToast({ title: error.message || '取消失败，请稍后重试', icon: 'none' })
+        }).finally(() => {
+          this.setData({ isCancelling: false })
+        })
+      }
+    })
+  },
+
+  cancelOrderLocal(order) {
+    const updated = Object.assign({}, order, {
+      status: '已取消',
+      paymentStatus: order.paymentStatus === 'PAID' ? 'REFUNDED' : 'CLOSED',
+      statusIndex: 0,
+      eta: '已取消'
+    })
+    this.cacheOrder(updated)
+    this.applyOrder(updated)
+    wx.showToast({ title: updated.paymentStatus === 'REFUNDED' ? '订单已取消并退款' : '订单已取消', icon: 'success' })
   },
 
   callRider() {

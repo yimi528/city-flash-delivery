@@ -8,8 +8,8 @@ export const ORDER_STATUS_FLOW = [
 
 export const ORDER_UPDATE_STATUSES = [...ORDER_STATUS_FLOW, 'CANCELLED'] as const
 
-export const SERVICE_TYPES = ['DELIVERY', 'PICKUP', 'CARGO', 'BUY_FOR_ME'] as const
-export const VEHICLE_TYPES = ['EBIKE', 'ETRIKE', 'VAN'] as const
+export const SERVICE_TYPES = ['DELIVERY', 'PICKUP', 'CARGO', 'BUY_FOR_ME', 'CARPOOL', 'MOVING', 'HANDLING'] as const
+export const VEHICLE_TYPES = ['EBIKE', 'ETRIKE', 'VAN', 'MANUAL'] as const
 
 export type OrderStatus = (typeof ORDER_STATUS_FLOW)[number]
 export type OrderUpdateStatus = (typeof ORDER_UPDATE_STATUSES)[number]

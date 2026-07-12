@@ -645,3 +645,12 @@
   font-size: 38rpx;
   font-weight: 950;
 }
+
+.handling-home-tip {
+  margin: -4rpx 0 20rpx;
+  padding: 16rpx 20rpx;
+  border-radius: 18rpx;
+  color: #9a5a13;
+  background: #fff7e8;
+  font-size: 23rpx;
+}

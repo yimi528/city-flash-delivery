@@ -1,7 +1,8 @@
 .profile-page {
   min-height: 100vh;
   padding-bottom: 150rpx;
-  background: linear-gradient(180deg, #fff0f0 0%, #f5f5f5 370rpx, #f5f5f5 100%);
+  background:
+    linear-gradient(180deg, #edf5f7 0%, #f4f6f8 390rpx, #f4f6f8 100%);
 }
 
 .nav-shell {
@@ -48,7 +49,9 @@
   margin: 28rpx 30rpx 0;
   padding: 46rpx 44rpx;
   border-radius: 28rpx;
-  background: linear-gradient(100deg, #d8ffff 0%, #a8edea 50%, #7edbd8 100%);
+  border: 2rpx solid rgba(255, 255, 255, 0.14);
+  background: linear-gradient(115deg, #13213d 0%, #194c63 64%, #0f8a82 100%);
+  box-shadow: 0 20rpx 46rpx rgba(19, 33, 61, 0.2);
   overflow: hidden;
 }
 
@@ -58,22 +61,22 @@
 }
 
 .member-phone {
-  color: #0c1b38;
+  color: #fff;
   font-size: 39rpx;
   font-weight: 850;
-  letter-spacing: 1rpx;
+  letter-spacing: 0;
 }
 
 .member-level {
   margin-top: 28rpx;
-  color: #10a69f;
+  color: #77f0c8;
   font-size: 35rpx;
   font-weight: 950;
 }
 
 .member-desc {
   margin-top: 30rpx;
-  color: #2b8f8e;
+  color: rgba(255, 255, 255, 0.72);
   font-size: 30rpx;
   font-weight: 600;
 }
@@ -83,7 +86,7 @@
   right: 42rpx;
   bottom: 44rpx;
   z-index: 3;
-  color: #2e8d8a;
+  color: rgba(255, 255, 255, 0.8);
   font-size: 29rpx;
   font-weight: 700;
 }
@@ -104,8 +107,8 @@
   width: 120rpx;
   height: 44rpx;
   transform: skew(18deg);
-  background: #80ebe5;
-  box-shadow: 14rpx 12rpx 0 #20bcb8;
+  background: #ff8c74;
+  box-shadow: 14rpx 12rpx 0 #e5482e;
 }
 
 .diamond-core {
@@ -114,7 +117,7 @@
   top: 64rpx;
   width: 108rpx;
   height: 108rpx;
-  background: linear-gradient(145deg, #e9fffb 0%, #6ee6df 48%, #20bbb7 100%);
+  background: linear-gradient(145deg, #fff4e9 0%, #ff9c80 48%, #e5482e 100%);
   transform: rotate(45deg) skew(-8deg, -8deg);
   border-radius: 8rpx 20rpx 8rpx 20rpx;
 }
@@ -125,7 +128,7 @@
   top: 54rpx;
   width: 74rpx;
   height: 112rpx;
-  background: linear-gradient(150deg, #2cc8c0, #c9fff9);
+  background: linear-gradient(150deg, #4dd8be, #d7fff4);
   transform: skewY(12deg);
   border-radius: 0 12rpx 18rpx 0;
 }
@@ -139,6 +142,16 @@
   background: #fff;
   display: flex;
   box-shadow: 0 14rpx 34rpx rgba(20, 28, 50, 0.04);
+}
+
+.balance-item + .balance-item::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 38rpx;
+  bottom: 38rpx;
+  width: 2rpx;
+  background: #edf0f3;
 }
 
 .balance-item {
@@ -183,6 +196,7 @@
   padding: 34rpx 36rpx;
   border-radius: 28rpx;
   background: #fff;
+  border: 2rpx solid #edf0f3;
   box-shadow: 0 14rpx 34rpx rgba(20, 28, 50, 0.04);
 }
 
@@ -290,6 +304,120 @@
 
 .service-panel {
   padding-bottom: 18rpx;
+}
+
+.account-actions {
+  margin: 24rpx 30rpx 0;
+  border: 2rpx solid #edf0f3;
+  border-radius: 24rpx;
+  background: #fff;
+  box-shadow: 0 12rpx 30rpx rgba(20, 28, 50, 0.04);
+  overflow: hidden;
+}
+
+.account-row {
+  width: 100%;
+  min-height: 112rpx;
+  margin: 0;
+  padding: 20rpx 26rpx;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  gap: 22rpx;
+  text-align: left;
+  line-height: 1.2;
+}
+
+.account-row::after {
+  border: 0;
+}
+
+.account-row-pressed {
+  background: #f8f9fa;
+}
+
+.logout-symbol {
+  position: relative;
+  width: 54rpx;
+  height: 54rpx;
+  flex-shrink: 0;
+  border: 4rpx solid #d93025;
+  border-right-color: transparent;
+  border-radius: 12rpx;
+}
+
+.wechat-symbol {
+  width: 54rpx;
+  height: 54rpx;
+  flex-shrink: 0;
+  border-radius: 16rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  background: #07a85a;
+  font-size: 25rpx;
+  font-weight: 900;
+  box-shadow: 0 8rpx 18rpx rgba(7, 168, 90, 0.18);
+}
+
+.logout-arrow {
+  position: absolute;
+  right: -8rpx;
+  top: 21rpx;
+  width: 28rpx;
+  height: 4rpx;
+  background: #d93025;
+}
+
+.logout-arrow::before,
+.logout-arrow::after {
+  content: '';
+  position: absolute;
+  right: -1rpx;
+  width: 13rpx;
+  height: 4rpx;
+  background: #d93025;
+  transform-origin: right center;
+}
+
+.logout-arrow::before {
+  top: -1rpx;
+  transform: rotate(40deg);
+}
+
+.logout-arrow::after {
+  bottom: -1rpx;
+  transform: rotate(-40deg);
+}
+
+.account-action-copy {
+  min-width: 0;
+  flex: 1;
+}
+
+.account-action-title {
+  color: #263446;
+  font-size: 29rpx;
+  font-weight: 850;
+}
+
+.login-action-title {
+  color: #087a45;
+}
+
+.account-action-note {
+  margin-top: 7rpx;
+  color: #8a94a3;
+  font-size: 23rpx;
+}
+
+.account-chevron {
+  color: #a8b0bb;
+  font-size: 40rpx;
+  line-height: 1;
 }
 
 .service-grid {

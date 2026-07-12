@@ -6,5 +6,6 @@ import { WeatherRiskService } from './weather-risk.service'
 @Module({
   controllers: [MapsController],
   providers: [TencentMapService, WeatherRiskService],
+  exports: [TencentMapService],
 })
 export class MapsModule {}

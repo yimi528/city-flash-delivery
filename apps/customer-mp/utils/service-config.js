@@ -24,19 +24,19 @@ const PRIMARY_TASKS = [
     icon: '🚘',
     subtitle: '拼小车拼车',
     desc: '固定线路拼车',
-    vehicleType: 'small_car',
-    vehicleName: '小车',
-    priceSummary: '苍南40 / 温州150',
+    vehicleType: 'business_van',
+    vehicleName: '7座商务车',
+    priceSummary: '苍南40元/人 · 温州150元/人',
     pricingMode: 'fixed_line_ride',
     serviceSurcharge: 0,
     lines: [
-      { id: 'cangnan_ride', name: '苍南', price: 40 },
-      { id: 'wenzhou_ride', name: '温州', price: 150 }
+      { id: 'cangnan', name: '苍南', price: 40 },
+      { id: 'wenzhou', name: '温州', price: 150 }
     ]
   },
   {
     id: 'cargo_haul',
-    name: '拉货',
+    name: '运货',
     icon: '🚚',
     subtitle: '货三轮车',
     desc: '市场拉货、商家补货',
@@ -72,10 +72,10 @@ const HANDLING_TYPES = [
     name: '搬家/搬店',
     icon: '搬',
     desc: '住宅、宿舍或门店整体搬运',
-    vehicleId: 'cargo_tricycle',
-    vehicleName: '货三轮车',
-    serviceSurcharge: 20,
-    priceSummary: '推荐货三轮，系统预估48元起'
+    vehicleId: 'manual_labor',
+    vehicleName: '人力服务',
+    serviceSurcharge: 10,
+    priceSummary: '上门搬运固定48元'
   },
   {
     name: '装货',
@@ -84,7 +84,7 @@ const HANDLING_TYPES = [
     vehicleId: 'manual_labor',
     vehicleName: '人力服务',
     serviceSurcharge: 10,
-    priceSummary: '人力服务预估48元起'
+    priceSummary: '上门装货固定48元'
   },
   {
     name: '卸货',
@@ -93,11 +93,26 @@ const HANDLING_TYPES = [
     vehicleId: 'manual_labor',
     vehicleName: '人力服务',
     serviceSurcharge: 10,
-    priceSummary: '人力服务预估48元起'
+    priceSummary: '上门卸货固定48元'
   }
 ]
 
 const COMMON_TASKS = [
+  {
+    id: 'moving',
+    icon: '🏠',
+    name: '搬家',
+    subtitle: '厢式货车',
+    desc: '住宅、宿舍或门店整体搬运',
+    vehicleType: 'moving_van',
+    vehicleName: '厢式货车',
+    priceSummary: '厢式货车固定车型，55元起',
+    pricingMode: 'distance',
+    baseDistanceKm: 4,
+    basePrice: 35,
+    extraPerKm: 3.2,
+    serviceSurcharge: 20
+  },
   {
     id: 'pickup',
     icon: '📥',
@@ -136,10 +151,10 @@ const COMMON_TASKS = [
     name: '搬运装卸',
     subtitle: '搬家 · 搬店 · 装卸',
     desc: '统一提交搬运需求',
-    vehicleType: 'cargo_tricycle',
-    vehicleName: '货三轮车',
-    priceSummary: '系统预估48元起，最终价格下单后确认',
-    pricingMode: 'manual_quote',
+    vehicleType: 'manual_labor',
+    vehicleName: '人力服务',
+    priceSummary: '上门搬运固定48元，需要配送时另计里程费',
+    pricingMode: 'handling_fixed',
     baseDistanceKm: 4,
     basePrice: 28,
     extraPerKm: 2.8,
@@ -162,12 +177,28 @@ const COMMON_TASKS = [
   }
 ]
 
-const ALL_TASKS = PRIMARY_TASKS.concat(COMMON_TASKS)
+const TASKS_BY_ID = PRIMARY_TASKS.concat(COMMON_TASKS).reduce((result, task) => {
+  result[task.id] = task
+  return result
+}, {})
+
+const ALL_TASKS = [
+  'carpool_ride',
+  'cargo_haul',
+  'moving',
+  'moving_handling',
+  'send_parcel',
+  'urgent_delivery',
+  'pickup',
+  'buy_for_me',
+  'pedicab_delivery'
+].map((id) => TASKS_BY_ID[id])
 
 const DEFAULT_ITEMS = {
   send_parcel: '文件/小件',
   carpool_ride: '1人',
   cargo_haul: '门店补货',
+  moving: '搬家',
   urgent_delivery: '文件/小件',
   pickup: '快递包裹',
   buy_for_me: '万能帮买',

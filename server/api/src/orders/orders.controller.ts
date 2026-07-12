@@ -1,40 +1,53 @@
-import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common'
+import { Body, Controller, ForbiddenException, Get, Param, Patch, Post, UseGuards } from '@nestjs/common'
 import { ApiTags } from '@nestjs/swagger'
-import { CreateOrderDto, QuoteDecisionDto, UpdateOrderStatusDto } from './orders.dto'
+import { CurrentAuth } from '../auth/current-auth.decorator'
+import { CustomerAuthGuard } from '../auth/auth.guard'
+import { AuthPrincipal } from '../auth/auth-token.service'
+import { CreateOrderDto, QuoteDecisionDto } from './orders.dto'
 import { OrdersService } from './orders.service'
 
 @ApiTags('orders')
 @Controller('orders')
+@UseGuards(CustomerAuthGuard)
 export class OrdersController {
   constructor(private readonly ordersService: OrdersService) {}
 
   @Get()
-  list(@Query('userId') userId?: string) {
-    return this.ordersService.list(userId)
+  list(@CurrentAuth() auth: AuthPrincipal) {
+    return this.ordersService.list(auth.subjectId)
   }
 
   @Post()
-  create(@Body() dto: CreateOrderDto) {
+  create(@Body() dto: CreateOrderDto, @CurrentAuth() auth: AuthPrincipal) {
+    dto.userId = auth.subjectId
     return this.ordersService.create(dto)
   }
 
   @Get(':id')
-  findById(@Param('id') id: string) {
-    return this.ordersService.findById(id)
+  async findById(@Param('id') id: string, @CurrentAuth() auth: AuthPrincipal) {
+    return this.findOwnedOrder(id, auth.subjectId)
   }
 
-  @Patch(':id/status')
-  updateStatus(@Param('id') id: string, @Body() dto: UpdateOrderStatusDto) {
-    return this.ordersService.updateStatus(id, dto)
+  @Patch(':id/cancel')
+  cancel(@Param('id') id: string, @CurrentAuth() auth: AuthPrincipal) {
+    return this.ordersService.cancel(id, auth.subjectId)
   }
 
   @Patch(':id/quote/confirm')
-  confirmQuote(@Param('id') id: string, @Body() dto: QuoteDecisionDto) {
+  async confirmQuote(@Param('id') id: string, @Body() dto: QuoteDecisionDto, @CurrentAuth() auth: AuthPrincipal) {
+    await this.findOwnedOrder(id, auth.subjectId)
     return this.ordersService.confirmQuote(id, dto)
   }
 
   @Patch(':id/quote/reject')
-  rejectQuote(@Param('id') id: string, @Body() dto: QuoteDecisionDto) {
+  async rejectQuote(@Param('id') id: string, @Body() dto: QuoteDecisionDto, @CurrentAuth() auth: AuthPrincipal) {
+    await this.findOwnedOrder(id, auth.subjectId)
     return this.ordersService.rejectQuote(id, dto)
+  }
+
+  private async findOwnedOrder(id: string, userId: string) {
+    const order = await this.ordersService.findById(id)
+    if (order.userId !== userId) throw new ForbiddenException('无权访问该订单')
+    return order
   }
 }
