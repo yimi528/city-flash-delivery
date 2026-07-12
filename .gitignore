@@ -15,6 +15,17 @@ apps/merchant-web/vite.config.d.ts
 .env
 .env.*
 !.env.example
+!.env.*.example
+
+# Cloud deployment secrets and certificates
+deploy/env.production
+deploy/certs/*
+!deploy/certs/.gitkeep
+deploy/secrets/*
+!deploy/secrets/.gitkeep
+
+# Local-only Demo maintenance utility
+server/api/scripts/clear-demo-orders.mjs
 
 # Logs
 *.log
