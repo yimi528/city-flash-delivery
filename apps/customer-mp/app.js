@@ -6,13 +6,46 @@ App({
     try {
       const savedUser = wx.getStorageSync ? wx.getStorageSync('currentUser') : null
       const savedToken = wx.getStorageSync ? wx.getStorageSync('customerAuthToken') : ''
+      const savedRiderToken = wx.getStorageSync ? wx.getStorageSync('riderAuthToken') : ''
+      const savedRider = wx.getStorageSync ? wx.getStorageSync('currentRider') : null
       if (savedToken && !String(savedToken).startsWith('mock-token:')) {
         if (savedUser && savedUser.id) this.setCurrentUser(savedUser, savedToken)
       } else if (wx.removeStorageSync) {
         wx.removeStorageSync('customerAuthToken')
         wx.removeStorageSync('currentUser')
       }
+      if (savedRiderToken) {
+        this.globalData.riderAuthToken = savedRiderToken
+        this.globalData.rider = savedRider || null
+      }
     } catch (error) {}
+    if (this.globalData.useBackend) this.refreshAppConfig()
+  },
+
+  onHide() {
+    this.stopRiderPresence()
+  },
+
+  refreshAppConfig() {
+    return new Promise((resolve) => {
+      if (!wx.request) { resolve(null); return }
+      wx.request({
+        url: `${this.globalData.apiBaseUrl}/v1/app-config`,
+        method: 'GET',
+        header: this.globalData.authToken ? { Authorization: `Bearer ${this.globalData.authToken}` } : {},
+        success: (response) => {
+          if (response.statusCode < 200 || response.statusCode >= 300 || !response.data) { resolve(null); return }
+          const config = response.data
+          this.globalData.appConfig = config
+          this.globalData.pricingVersion = Number(config.pricingVersion || (config.pricing && config.pricing.version) || 1)
+          this.globalData.businessOpen = Boolean(config.operating && config.operating.openNow)
+          this.globalData.announcement = config.announcement || null
+          this.globalData.remoteServices = config.services || []
+          resolve(config)
+        },
+        fail: () => resolve(null)
+      })
+    })
   },
 
   setCurrentUser(user, token) {
@@ -20,6 +53,8 @@ App({
     this.globalData.userId = user.id || 'demo-user'
     this.globalData.isLoggedIn = true
     if (token) this.globalData.authToken = token
+    this.globalData.accountRoles = user.roles || this.globalData.accountRoles || [{ role: 'customer', status: 'active' }]
+    this.globalData.currentRole = user.currentRole || this.globalData.currentRole || 'customer'
     try {
       if (wx.setStorageSync) wx.setStorageSync('currentUser', user)
       if (token && wx.setStorageSync) wx.setStorageSync('customerAuthToken', token)
@@ -27,8 +62,11 @@ App({
   },
 
   clearCurrentUser() {
+    this.clearRiderSession()
     this.globalData.userId = 'demo-user'
     this.globalData.authToken = ''
+    this.globalData.accountRoles = [{ role: 'customer', status: 'active' }]
+    this.globalData.currentRole = 'customer'
     this.globalData.isLoggedIn = false
     this.globalData.currentUser = {
       id: '',
@@ -45,12 +83,82 @@ App({
     } catch (error) {}
   },
 
+  setRiderSession(payload) {
+    const session = payload || {}
+    this.globalData.riderAuthToken = session.token || ''
+    this.globalData.rider = session.rider || null
+    this.globalData.currentRole = 'rider'
+    try {
+      if (session.token && wx.setStorageSync) wx.setStorageSync('riderAuthToken', session.token)
+      if (session.rider && wx.setStorageSync) wx.setStorageSync('currentRider', session.rider)
+    } catch (error) {}
+  },
+
+  updateRider(rider) {
+    this.globalData.rider = rider || null
+    try {
+      if (rider && wx.setStorageSync) wx.setStorageSync('currentRider', rider)
+    } catch (error) {}
+  },
+
+  clearRiderSession() {
+    this.stopRiderPresence()
+    this.globalData.riderAuthToken = ''
+    this.globalData.rider = null
+    this.globalData.currentRole = 'customer'
+    try {
+      if (wx.removeStorageSync) {
+        wx.removeStorageSync('riderAuthToken')
+        wx.removeStorageSync('currentRider')
+      }
+    } catch (error) {}
+  },
+
+  setCustomerRoleSession(payload) {
+    const session = payload || {}
+    if (session.token) {
+      this.globalData.authToken = session.token
+      try { if (wx.setStorageSync) wx.setStorageSync('customerAuthToken', session.token) } catch (error) {}
+    }
+    this.clearRiderSession()
+  },
+
+  startRiderPresence() {
+    if (this.riderPresenceTimer || !this.globalData.riderAuthToken) return
+    this.sendRiderPresence()
+    this.riderPresenceTimer = setInterval(() => this.sendRiderPresence(), 30000)
+  },
+
+  stopRiderPresence() {
+    if (!this.riderPresenceTimer) return
+    clearInterval(this.riderPresenceTimer)
+    this.riderPresenceTimer = null
+  },
+
+  sendRiderPresence() {
+    const rider = this.globalData.rider
+    if (!this.globalData.riderAuthToken || !rider || !rider.online) return
+    const riderApi = require('./utils/rider-api')
+    const heartbeat = (latitude, longitude) => riderApi.heartbeat(latitude, longitude)
+      .then((nextRider) => this.updateRider(nextRider))
+      .catch(() => {})
+    wx.getLocation({
+      type: 'gcj02',
+      success: (location) => heartbeat(location.latitude, location.longitude),
+      fail: () => heartbeat()
+    })
+  },
+
   globalData: {
     appRole: 'customer',
     statusBarHeight: 24,
     windowWidth: 375,
     userId: 'demo-user',
     authToken: '',
+    riderAuthToken: '',
+    rider: null,
+    accountRoles: [{ role: 'customer', status: 'active' }],
+    currentRole: 'customer',
     isLoggedIn: false,
     currentUser: {
       id: 'demo-user',
@@ -60,7 +168,12 @@ App({
       memberLevel: '青铜会员'
     },
     useBackend: true,
-    apiBaseUrl: 'https://api.example.com/api',
+    appConfig: null,
+    remoteServices: [],
+    businessOpen: true,
+    announcement: null,
+    pricingVersion: 0,
+    apiBaseUrl: 'http://127.0.0.1:3000/api',
     city: '宁德市',
     currentLocation: null,
     mapConfig: {

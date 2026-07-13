@@ -99,7 +99,7 @@ Configure `https://api.example.com` as the WeChat Mini Program request domain an
 https://api.example.com/api/payments/wechat/notify
 ```
 
-Before uploading the trial or release Mini Programs, replace `api.example.com` in both `apps/customer-mp/app.js` and `apps/rider-mp/app.js` with the备案后的正式域名. Configure separate user and rider AppIDs and secrets.
+Before uploading the trial or release Mini Program, replace `api.example.com` in `apps/customer-mp/app.js` with the备案后的正式域名. The user and rider modes share this one Mini Program AppID and customer login credentials.
 
 Before a production release, test real-device login, a small real payment, callback verification, cancellation, refund, and reconciliation. The current project does not yet implement the real WeChat refund API, so paid-order cancellation must remain disabled in production until that integration is complete.
 

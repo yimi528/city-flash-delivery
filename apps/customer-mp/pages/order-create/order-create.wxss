@@ -817,7 +817,7 @@ textarea {
   align-items: center;
   justify-content: flex-start;
   flex-shrink: 0;
-  transition: all 0.2s ease;
+  transition: background-color 160ms ease, justify-content 160ms var(--ease-out);
 }
 
 .switch.on {
@@ -984,4 +984,160 @@ textarea {
   background: #fff1ee;
   line-height: 58rpx;
   font-size: 34rpx;
+}
+
+/* Brand polish: the confirmation flow stays quieter than the home screen. */
+.confirm-page {
+  color: var(--ink);
+  background:
+    radial-gradient(circle at 92% 2%, rgba(212, 71, 45, 0.12), transparent 250rpx),
+    linear-gradient(180deg, #faf3e9 0%, var(--canvas) 360rpx, var(--canvas) 100%);
+}
+
+.page-nav {
+  padding: 0 28rpx;
+}
+
+.back {
+  border: 2rpx solid rgba(24, 32, 29, 0.08);
+  border-radius: 22rpx;
+  color: var(--ink);
+  background: rgba(255, 253, 248, 0.82);
+  transition: transform 140ms var(--ease-out), background-color 140ms ease;
+}
+
+.back:active {
+  transform: scale(0.94);
+  background: #fff;
+}
+
+.nav-title,
+.handling-title {
+  font-family: "Songti SC", "STSong", serif;
+  color: var(--ink);
+  letter-spacing: -1rpx;
+}
+
+.nav-action {
+  color: var(--cinnabar);
+}
+
+.handling-intro {
+  border-radius: 30rpx;
+  color: #fffaf0;
+  background:
+    radial-gradient(circle at 88% 10%, rgba(224, 159, 87, 0.42), transparent 170rpx),
+    linear-gradient(128deg, #1b2721, #2e4639 68%, #5a412a);
+  box-shadow: 0 20rpx 44rpx rgba(33, 42, 35, 0.16);
+  animation: confirm-reveal 360ms var(--ease-out) both;
+}
+
+.handling-kicker {
+  color: #e9b66f;
+  letter-spacing: 3rpx;
+}
+
+.handling-title {
+  color: #fffaf0;
+}
+
+.service-badge {
+  color: var(--cinnabar-strong);
+  background: #fff0e6;
+}
+
+.handling-card {
+  border-top: 0;
+  box-shadow: inset 0 5rpx 0 var(--cinnabar), 0 18rpx 48rpx rgba(48, 39, 27, 0.06);
+}
+
+.handling-option {
+  border-color: rgba(24, 32, 29, 0.09);
+  border-radius: 22rpx;
+  background: #faf7f0;
+  transition: transform 140ms var(--ease-out), border-color 160ms ease, background-color 160ms ease;
+}
+
+.handling-option:active,
+.direction-option:active,
+.destination-picker:active {
+  transform: scale(0.98);
+}
+
+.handling-option.active {
+  border-color: rgba(212, 71, 45, 0.46);
+  background: #fff3e9;
+  box-shadow: inset 5rpx 0 0 var(--cinnabar);
+}
+
+.handling-icon,
+.handling-option.active .handling-icon {
+  border-radius: 18rpx;
+  background: var(--cinnabar);
+}
+
+.direction-switch {
+  background: #eee9df;
+}
+
+.direction-option {
+  color: #787b73;
+  transition: transform 140ms var(--ease-out), color 140ms ease, background-color 140ms ease;
+}
+
+.direction-option.active {
+  color: var(--cinnabar-strong);
+  background: var(--paper);
+  box-shadow: 0 6rpx 18rpx rgba(48, 39, 27, 0.08);
+}
+
+.destination-picker {
+  background: #f3efe7;
+  transition: transform 140ms var(--ease-out), background-color 140ms ease;
+}
+
+.passenger-stepper button {
+  color: var(--cinnabar-strong);
+  background: #fff0e6;
+  transition: transform 120ms var(--ease-out), opacity 120ms ease;
+}
+
+.passenger-stepper button:active {
+  transform: scale(0.92);
+}
+
+.submit-bar {
+  border-top: 2rpx solid rgba(24, 32, 29, 0.08);
+  background: rgba(255, 253, 248, 0.96);
+  box-shadow: 0 -14rpx 36rpx rgba(48, 39, 27, 0.07);
+}
+
+.money {
+  color: var(--cinnabar);
+  font-family: "DIN Alternate", "Avenir Next", sans-serif;
+}
+
+.pay-btn {
+  background: linear-gradient(110deg, var(--cinnabar), var(--cinnabar-strong));
+  box-shadow: 0 14rpx 28rpx rgba(185, 47, 32, 0.18);
+  transition: transform 140ms var(--ease-out), opacity 140ms ease;
+}
+
+.pay-btn:active {
+  transform: scale(0.97);
+}
+
+@keyframes confirm-reveal {
+  from { opacity: 0; transform: translateY(12rpx); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .handling-intro { animation: none; }
+  .back,
+  .handling-option,
+  .direction-option,
+  .destination-picker,
+  .passenger-stepper button,
+  .pay-btn { transition: opacity 120ms ease; }
 }

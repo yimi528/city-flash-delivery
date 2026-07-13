@@ -1,4 +1,6 @@
-# 后端 MVP
+# 旧版 Python 后端（仅兼容演示）
+
+> 当前正式 MVP 使用 `server/api` 的 NestJS + Prisma + PostgreSQL 后端。本目录保留旧版 Python/SQLite 服务，仅用于历史演示和兼容排查，不参与当前用户端、骑手模式或运营后台入口。
 
 这是“同城速送”小程序的本地后端 MVP，使用 Python 标准库 + SQLite，不需要安装第三方依赖。
 
@@ -116,7 +118,7 @@ curl -X PATCH http://127.0.0.1:8000/api/orders/S订单号/status \
 
 ### 骑手预留接口
 
-骑手端前端已暂时删除，后端骑手相关函数可作为后续恢复骑手端时的预留能力；当前已纳入 mock token 角色校验。
+当前正式骑手模式位于 `apps/customer-mp/pages/rider/`，不连接本旧版 Python 服务。
 
 ## 数据库
 

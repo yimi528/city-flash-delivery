@@ -1,4 +1,4 @@
-import type { ApiOrder, BackendStatus, DashboardPayload, Order, RiderApplication, Stats, Store } from './types'
+import type { ApiOrder, BackendStatus, ConfigCategory, ConfigEnvelope, DashboardPayload, Order, PricingConfig, RiderApplication, ServiceAreaConfig, Stats, Store, SystemSettingsConfig } from './types'
 
 const configuredApiBase = import.meta.env.VITE_API_BASE_URL?.trim()
 export const DEFAULT_API_BASE = configuredApiBase || 'http://127.0.0.1:3000/api'
@@ -257,27 +257,67 @@ export class OperationsApi {
     return this.request<RiderApplication[]>('/operations/riders/applications')
   }
 
-  reviewRider(rider: RiderApplication, approved: boolean) {
+  reviewRider(rider: RiderApplication, approved: boolean, reason = '') {
     const requestedType = rider.application?.requestedVehicleType || 'ETRIKE'
+    const requestedTypes = rider.application?.requestedVehicleTypes?.length ? rider.application.requestedVehicleTypes : [requestedType]
     const servicesByVehicle: Record<string, string[]> = {
       EBIKE: ['urgent_delivery', 'pickup', 'buy_for_me'],
       ETRIKE: ['cargo_haul', 'pedicab_delivery'],
-      VAN: ['carpool_ride', 'moving'],
+      VAN: ['carpool_ride'],
       MANUAL: ['moving_handling']
     }
-    const serviceIds = servicesByVehicle[requestedType] || []
+    const serviceIds = Array.from(new Set(requestedTypes.flatMap((type) => servicesByVehicle[type] || [])))
     if (rider.application?.requestsHandling && !serviceIds.includes('moving_handling')) serviceIds.push('moving_handling')
     return this.request(`/operations/riders/${encodeURIComponent(rider.id)}/review`, {
       method: 'POST',
       body: JSON.stringify({
         status: approved ? 'APPROVED' : 'REJECTED',
         vehicleType: requestedType,
+        vehicleTypes: requestedTypes,
         vehicleName: rider.application?.requestedVehicleName || requestedType,
         handlingQualified: Boolean(rider.application?.requestsHandling),
         serviceIds,
         serviceCity: '宁德市',
-        maxActiveOrders: 1
+        maxActiveOrders: 1,
+        reason
       })
     })
+  }
+
+  listRiders(roleStatus = '', workStatus = '') {
+    const query = new URLSearchParams()
+    if (roleStatus) query.set('roleStatus', roleStatus)
+    if (workStatus) query.set('workStatus', workStatus)
+    return this.request<RiderApplication[]>(`/operations/riders${query.toString() ? `?${query.toString()}` : ''}`)
+  }
+
+  changeRiderStatus(riderId: string, action: 'suspend' | 'restore' | 'resign', reason: string) {
+    return this.request(`/operations/riders/${encodeURIComponent(riderId)}/${action}`, {
+      method: 'POST',
+      body: JSON.stringify({ reason })
+    })
+  }
+
+  getConfig<T>(category: ConfigCategory) {
+    const path = category === 'PRICING' ? '/v1/admin/pricing' : category === 'SERVICE_AREA' ? '/v1/admin/service-areas' : '/v1/admin/system-settings'
+    return this.request<ConfigEnvelope<T>>(path)
+  }
+
+  saveConfigDraft(category: ConfigCategory, baseVersion: number, payload: unknown) {
+    return this.request<{ category: ConfigCategory; baseVersion: number }>('/v1/admin/config-drafts', {
+      method: 'PUT',
+      body: JSON.stringify({ category, baseVersion, payload })
+    })
+  }
+
+  publishConfig(category: ConfigCategory) {
+    return this.request<{ category: ConfigCategory; version: number }>('/v1/admin/config-publish', {
+      method: 'POST',
+      body: JSON.stringify({ category })
+    })
+  }
+
+  listConfigRevisions(category?: ConfigCategory) {
+    return this.request<Array<{ id: string; category: ConfigCategory; version: number; publishedBy: string; publishedAt: string }>>(`/v1/admin/config-revisions${category ? `?category=${category}` : ''}`)
   }
 }

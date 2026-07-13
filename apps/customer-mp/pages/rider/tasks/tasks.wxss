@@ -1,0 +1,14 @@
+@import "../../../styles/rider-common.wxss";
+
+.section-head { margin: 10rpx 0 28rpx; display: flex; align-items: flex-end; justify-content: space-between; }
+.section-kicker { margin-bottom: 8rpx; color: var(--cinnabar); font-size: 17rpx; font-weight: 900; letter-spacing: 3rpx; }
+.section-title { font-family: "Songti SC", serif; font-size: 46rpx; font-weight: 900; }
+.task-count { padding: 10rpx 18rpx; border-radius: 999rpx; color: #7b5938; background: #eadac6; font-size: 21rpx; font-weight: 800; }
+.task-title { font-size: 31rpx; font-weight: 900; }
+.address { margin-top: 20rpx; color: #555d5a; font-size: 25rpx; line-height: 1.6; display: flex; align-items: flex-start; gap: 10rpx; }
+.route-label { width: 38rpx; height: 38rpx; flex: 0 0 auto; border-radius: 12rpx; color: #fff; display: inline-flex; align-items: center; justify-content: center; font-size: 19rpx; font-weight: 900; }
+.route-label.pickup { background: var(--cinnabar); }
+.route-label.dropoff { background: var(--jade); }
+.actions { margin-top: 24rpx; display: flex; gap: 18rpx; }
+.actions button { flex: 1; min-height: 76rpx; margin: 0; border: 2rpx solid rgba(24,32,29,.08); border-radius: 38rpx; background: #f4efe6; font-size: 24rpx; }
+.actions .rider-primary { border: 0; background: linear-gradient(110deg, var(--cinnabar), var(--cinnabar-strong)); }

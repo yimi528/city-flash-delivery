@@ -8,6 +8,46 @@ const DEFAULT_LOCATION = {
 
 const MOCK_POIS = [
   {
+    id: 'mock-cangnan-station',
+    title: '苍南站',
+    address: '浙江省温州市苍南县灵溪镇站前大道',
+    category: '火车站',
+    city: '温州市',
+    district: '苍南县',
+    adcode: '330327',
+    location: { lat: 27.5364, lng: 120.4164 }
+  },
+  {
+    id: 'mock-cangnan-center',
+    title: '苍南县人民政府',
+    address: '浙江省温州市苍南县灵溪镇人民大道',
+    category: '公共服务',
+    city: '温州市',
+    district: '苍南县',
+    adcode: '330327',
+    location: { lat: 27.5186, lng: 120.4258 }
+  },
+  {
+    id: 'mock-wenzhou-south',
+    title: '温州南站',
+    address: '浙江省温州市瓯海区工业路',
+    category: '火车站',
+    city: '温州市',
+    district: '瓯海区',
+    adcode: '330304',
+    location: { lat: 27.9727, lng: 120.5856 }
+  },
+  {
+    id: 'mock-wenzhou-center',
+    title: '温州市人民政府',
+    address: '浙江省温州市鹿城区绣山路321号',
+    category: '公共服务',
+    city: '温州市',
+    district: '鹿城区',
+    adcode: '330302',
+    location: { lat: 27.9943, lng: 120.6994 }
+  },
+  {
     id: 'mock-nd-wanda',
     title: '宁德万达广场',
     address: '福建省宁德市蕉城区天湖东路 1 号',

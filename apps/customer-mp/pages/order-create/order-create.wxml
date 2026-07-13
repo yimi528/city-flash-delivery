@@ -21,13 +21,13 @@
     </view>
     <view class="handling-options">
       <block wx:for="{{handlingTypes}}" wx:key="name">
-        <view class="handling-option {{draft.item === item.name ? 'active' : ''}}" data-item="{{item.name}}" bindtap="selectItem">
+        <view class="handling-option {{selectedItem === item.name ? 'active' : ''}}" data-item="{{item.name}}" bindtap="selectItem">
           <view class="handling-icon">{{item.icon}}</view>
           <view class="handling-copy">
             <view class="handling-name">{{item.name}}</view>
             <view class="handling-desc">{{item.desc}}</view>
           </view>
-          <view class="handling-check">{{draft.item === item.name ? '✓' : ''}}</view>
+          <view class="handling-check">{{selectedItem === item.name ? '✓' : ''}}</view>
         </view>
       </block>
     </view>
@@ -55,20 +55,20 @@
     <view class="service-badge" wx:if="{{draft.service === '帮买'}}">帮买 · 商品价格 ￥{{estimate.productFee}}</view>
     <view class="service-badge" wx:else>{{draft.service}} · 预计 {{estimate.distance}}km</view>
     <view class="route-meter" wx:if="{{draft.taskId !== 'moving_handling' || draft.requiresDelivery}}">{{isRouteLoading ? '正在获取腾讯地图距离...' : routeSource}} · {{routeDuration ? '约 ' + routeDuration + ' 分钟' : '预计 ' + estimate.distance + 'km'}}</view>
-    <view class="route-line">
+    <view class="route-line" data-type="pickup" bindtap="chooseRouteAddress">
       <view class="{{draft.service === '帮买' ? 'tag-buy' : 'tag-red'}}">{{draft.service === '帮买' ? '买' : '发'}}</view>
       <view class="route-info">
         <view class="title">{{draft.pickup.name}}</view>
         <view class="sub" wx:if="{{draft.service === '帮买'}}">购买地址 · {{draft.pickup.detail}}</view>
-        <view class="sub" wx:else>{{draft.pickup.detail}} · {{draft.pickup.phone}}</view>
+        <view class="sub" wx:else>{{draft.pickup.detail}}<text wx:if="{{draft.pickup.phone}}"> · {{draft.pickup.phone}}</text></view>
       </view>
     </view>
     <view class="connector {{draft.service === '帮买' ? 'buy' : ''}}" wx:if="{{draft.taskId !== 'moving_handling' || draft.requiresDelivery}}"></view>
-    <view class="route-line" wx:if="{{draft.taskId !== 'moving_handling' || draft.requiresDelivery}}">
+    <view class="route-line" wx:if="{{draft.taskId !== 'moving_handling' || draft.requiresDelivery}}" data-type="dropoff" bindtap="chooseRouteAddress">
       <view class="tag-green">收</view>
       <view class="route-info">
         <view class="title">{{draft.dropoff.name}}</view>
-        <view class="sub">{{draft.dropoff.detail}} · {{draft.dropoff.phone}}</view>
+        <view class="sub">{{draft.dropoff.detail}}<text wx:if="{{draft.dropoff.phone}}"> · {{draft.dropoff.phone}}</text></view>
       </view>
     </view>
   </view>
@@ -127,14 +127,14 @@
     <view class="limit-banner" wx:if="{{fieldConfig.limitText}}">{{fieldConfig.limitText}}</view>
     <view class="chips">
       <block wx:for="{{itemTypes}}" wx:key="*this">
-        <view class="chip {{draft.item === item ? 'active' : ''}}" data-item="{{item}}" bindtap="selectItem">{{item}}</view>
+        <view class="chip {{selectedItem === item ? 'active' : ''}}" data-item="{{item}}" bindtap="selectItem">{{item}}</view>
       </block>
     </view>
     <view class="weight-row" wx:if="{{fieldConfig.showWeight}}">
       <text>重量</text>
       <view class="weight-list">
         <block wx:for="{{weights}}" wx:key="*this">
-          <view class="weight {{draft.weight === item ? 'active' : ''}}" data-weight="{{item}}" bindtap="selectWeight">{{item}}kg</view>
+          <view class="weight {{selectedWeight === item ? 'active' : ''}}" data-weight="{{item}}" bindtap="selectWeight">{{item}}kg</view>
         </block>
       </view>
     </view>

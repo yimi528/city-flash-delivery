@@ -9,6 +9,7 @@ import {
   statusClass
 } from './api'
 import type { Order, RiderApplication, Stats, Store } from './types'
+import { PricingWorkspace, ServiceAreasWorkspace, SystemSettingsWorkspace } from './ConfigWorkspaces'
 
 const orderFilters = ['全部', '待商家报价', '待确认报价', '待支付', '待接单', '已接单', '进行中', '已完成', '已取消']
 
@@ -75,7 +76,7 @@ function LoginDialog({
   )
 }
 
-function Sidebar({ onTodo }: { onTodo: (message: string) => void }) {
+function Sidebar({ activeView, onNavigate }: { activeView: string; onNavigate: (view: string) => void }) {
   return (
     <aside className="sidebar">
       <div className="brand-lockup">
@@ -86,14 +87,24 @@ function Sidebar({ onTodo }: { onTodo: (message: string) => void }) {
         </div>
       </div>
       <nav className="nav-list" aria-label="运营后台导航">
-        <button className="nav-item active" type="button"><span>01</span>订单调度</button>
-        <button className="nav-item" type="button" onClick={() => onTodo('价格规则下一步接入')}><span>02</span>价格规则</button>
-        <button className="nav-item" type="button" onClick={() => onTodo('服务范围下一步接入')}><span>03</span>服务范围</button>
-        <button className="nav-item" type="button" onClick={() => onTodo('系统设置下一步接入')}><span>04</span>系统设置</button>
+        <button className={`nav-item ${activeView === 'orders' ? 'active' : ''}`} type="button" onClick={() => onNavigate('orders')}><span>01</span>订单调度</button>
+        <button className={`nav-item ${activeView === 'pricing' ? 'active' : ''}`} type="button" onClick={() => onNavigate('pricing')}><span>02</span>价格规则</button>
+        <button className={`nav-item ${activeView === 'service-areas' ? 'active' : ''}`} type="button" onClick={() => onNavigate('service-areas')}><span>03</span>服务范围</button>
+        <button className={`nav-item ${activeView === 'rider-applications' ? 'active' : ''}`} type="button" onClick={() => onNavigate('rider-applications')}><span>04</span>骑手申请</button>
+        <button className={`nav-item ${activeView === 'riders' ? 'active' : ''}`} type="button" onClick={() => onNavigate('riders')}><span>05</span>骑手管理</button>
+        <button className={`nav-item ${activeView === 'settings' ? 'active' : ''}`} type="button" onClick={() => onNavigate('settings')}><span>06</span>系统设置</button>
       </nav>
       <div className="sidebar-note">
-        <span>标准履约流程</span>
-        <strong>接单 → 上门/取货 → 服务/配送 → 完成</strong>
+        <div className="sidebar-note-head">
+          <span>履约节奏</span>
+          <b>4 步</b>
+        </div>
+        <ol className="fulfillment-flow" aria-label="标准履约流程">
+          <li className="flow-step"><span>01</span><strong>接单</strong></li>
+          <li className="flow-step"><span>02</span><strong>上门</strong></li>
+          <li className="flow-step"><span>03</span><strong>服务</strong></li>
+          <li className="flow-step"><span>04</span><strong>完成</strong></li>
+        </ol>
       </div>
     </aside>
   )
@@ -142,6 +153,12 @@ function StatsGrid({ stats }: { stats: Stats }) {
   )
 }
 
+const RIDER_VEHICLE_LABELS: Record<string, string> = { EBIKE: '二轮车', ETRIKE: '货三轮车', VAN: '小车', MANUAL: '人力服务' }
+
+function riderRequestedVehicles(rider: RiderApplication) {
+  return rider.application?.requestedVehicleTypes?.map((type) => RIDER_VEHICLE_LABELS[type] || type).join('、') || rider.application?.requestedVehicleName || rider.application?.requestedVehicleType || '未选择车型'
+}
+
 function RiderReviewPanel({ riders, onReview }: { riders: RiderApplication[]; onReview: (rider: RiderApplication, approved: boolean) => void }) {
   if (!riders.length) return null
   return (
@@ -151,10 +168,59 @@ function RiderReviewPanel({ riders, onReview }: { riders: RiderApplication[]; on
         {riders.map((rider) => (
           <article className="rider-review-card" key={rider.id}>
             <div><strong>{rider.name}</strong><p>{rider.phone || '未填写手机号'}</p></div>
-            <div className="rider-request">{rider.application?.requestedVehicleName || rider.application?.requestedVehicleType || '未选择车型'} · {rider.application?.requestsHandling ? '申请搬运资格' : '普通履约'}</div>
+            <div className="rider-request">{riderRequestedVehicles(rider)} · {rider.application?.requestsHandling ? '申请搬运资格' : '普通履约'}</div>
             <div className="rider-actions"><button type="button" onClick={() => onReview(rider, false)}>拒绝</button><button className="approve" type="button" onClick={() => onReview(rider, true)}>审核通过</button></div>
           </article>
         ))}
+      </div>
+    </section>
+  )
+}
+
+function RiderApplicationsWorkspace({ riders, onReview }: { riders: RiderApplication[]; onReview: (rider: RiderApplication, approved: boolean) => void }) {
+  const [filter, setFilter] = useState('ALL')
+  const filtered = riders.filter((item) => filter === 'ALL' || (item.application?.applicationStatus || item.status) === filter)
+  return (
+    <section className="workspace rider-workspace">
+      <div className="toolbar"><div><h2>骑手申请管理</h2><p className="muted">审核通过会在原用户账号上增加骑手身份；拒绝必须保留原因。</p></div><div className="rider-toolbar"><div className="rider-filters">{[['ALL', '全部'], ['PENDING', '待审核'], ['APPROVED', '已通过'], ['REJECTED', '已拒绝']].map(([value, label]) => <button key={value} className={filter === value ? 'active' : ''} type="button" onClick={() => setFilter(value)}>{label}</button>)}</div><span className="workspace-count">{riders.filter((item) => (item.application?.applicationStatus || item.status) === 'PENDING').length} 条待处理</span></div></div>
+      <div className="rider-review-grid">
+        {filtered.length ? filtered.map((rider) => {
+          const applicationStatus = rider.application?.applicationStatus || rider.status
+          const reviewed = applicationStatus !== 'PENDING'
+          return <article className="rider-review-card" key={rider.application?.applicationId || rider.id}>
+            <div className="rider-card-top"><div><strong>{rider.name}</strong><p>{rider.phone || '未填写手机号'} · 用户 {rider.userId || rider.application?.userId || '历史档案'}</p></div><span className={`rider-status ${String(applicationStatus).toLowerCase()}`}>{applicationStatus === 'PENDING' ? '审核中' : applicationStatus === 'APPROVED' ? '已通过' : applicationStatus === 'REJECTED' ? '已拒绝' : applicationStatus}</span></div>
+            <div className="rider-request">{riderRequestedVehicles(rider)} · {rider.application?.requestsHandling ? '申请搬运资格' : '普通履约'}</div>
+            <div className="rider-request-meta">提交 {rider.application?.submittedAt ? new Date(rider.application.submittedAt).toLocaleString() : '-'} {rider.application?.reviewedBy ? `· 审核人 ${rider.application.reviewedBy}` : ''}</div>
+            {rider.application?.rejectionReason ? <div className="rider-reason">拒绝原因：{rider.application.rejectionReason}</div> : null}
+            <div className="rider-actions">{reviewed ? <span className="muted">已完成审核，历史记录保留</span> : <><button type="button" onClick={() => onReview(rider, false)}>拒绝</button><button className="approve" type="button" onClick={() => onReview(rider, true)}>审核通过</button></>}</div>
+          </article>
+        }) : <div className="empty">暂无骑手申请。用户端提交后会同步到这里。</div>}
+      </div>
+    </section>
+  )
+}
+
+function RidersWorkspace({ riders, onChangeStatus }: { riders: RiderApplication[]; onChangeStatus: (rider: RiderApplication, action: 'suspend' | 'restore' | 'resign') => void }) {
+  const [roleFilter, setRoleFilter] = useState('ALL')
+  const [workFilter, setWorkFilter] = useState('ALL')
+  const filtered = riders.filter((rider) => {
+    const work = rider.workStatus || (rider.online ? 'ONLINE' : 'OFFLINE')
+    return (roleFilter === 'ALL' || rider.roleStatus === roleFilter) && (workFilter === 'ALL' || work === workFilter)
+  })
+  return (
+    <section className="workspace rider-workspace">
+      <div className="toolbar"><div><h2>骑手管理</h2><p className="muted">查看在线状态、当前配送和历史完成量。暂停、离职不会删除用户账号或历史订单。</p></div><div className="rider-toolbar"><div className="rider-filters">{[['ALL', '全部'], ['ACTIVE', '在职'], ['SUSPENDED', '已暂停'], ['RESIGNED', '已离职']].map(([value, label]) => <button key={value} className={roleFilter === value ? 'active' : ''} type="button" onClick={() => setRoleFilter(value)}>{label}</button>)}</div><select className="rider-select" value={workFilter} onChange={(event) => setWorkFilter(event.target.value)}><option value="ALL">全部工作状态</option><option value="ONLINE">在线</option><option value="DELIVERING">配送中</option><option value="OFFLINE">离线</option></select></div></div>
+      <div className="rider-management-grid">
+        {filtered.length ? filtered.map((rider) => {
+          const status = rider.roleStatus || 'SUSPENDED'
+          const work = rider.workStatus || (rider.online ? 'ONLINE' : 'OFFLINE')
+          return <article className="rider-management-card" key={rider.id}>
+            <div className="rider-card-top"><div><strong>{rider.name}</strong><p>{rider.phone || '未填写手机号'}</p></div><span className={`rider-status ${String(status).toLowerCase()}`}>{status === 'ACTIVE' ? '在职' : status === 'SUSPENDED' ? '已暂停' : status === 'RESIGNED' ? '已离职' : status}</span></div>
+            <div className="rider-metrics"><span><b>{work === 'ONLINE' ? '在线' : work === 'DELIVERING' ? '配送中' : work === 'PAUSED' ? '主动暂停' : '离线'}</b><small>工作状态</small></span><span><b>{rider.deliveryCount || 0}</b><small>已完成配送</small></span><span><b>{(rider.currentOrders || []).length}</b><small>当前订单</small></span></div>
+            {(rider.currentOrders || []).length ? <div className="rider-current-order">当前配送：{rider.currentOrders?.map((order) => order.orderNo || order.id).join('、')}</div> : null}
+            <div className="rider-actions">{status === 'ACTIVE' ? <><button type="button" onClick={() => onChangeStatus(rider, 'suspend')}>暂停接单</button><button type="button" onClick={() => onChangeStatus(rider, 'resign')}>标记离职</button></> : <button className="approve" type="button" onClick={() => onChangeStatus(rider, 'restore')}>恢复接单</button>}</div>
+          </article>
+        }) : <div className="empty">暂无有效骑手档案。</div>}
       </div>
     </section>
   )
@@ -345,8 +411,10 @@ export function OperationsApp() {
   const [showLogin, setShowLogin] = useState(() => !getInitialToken())
   const [loggingIn, setLoggingIn] = useState(false)
   const [filter, setFilter] = useState('全部')
+  const [view, setView] = useState(() => window.location.hash.replace(/^#/, '') || 'orders')
   const [orders, setOrders] = useState<Order[]>([])
   const [riders, setRiders] = useState<RiderApplication[]>([])
+  const [managedRiders, setManagedRiders] = useState<RiderApplication[]>([])
   const [store, setStore] = useState<Store | null>(null)
   const [connected, setConnected] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
@@ -357,6 +425,11 @@ export function OperationsApp() {
 
   const api = useMemo(() => new OperationsApi(apiBase.replace(/\/$/, ''), token), [apiBase, token])
   const stats = useMemo(() => calcStats(orders), [orders])
+
+  const navigate = useCallback((nextView: string) => {
+    setView(nextView)
+    window.history.replaceState(null, '', `#${nextView}`)
+  }, [])
 
   const showToast = useCallback((message: string) => {
     setToast(message)
@@ -369,11 +442,12 @@ export function OperationsApp() {
     refreshingRef.current = true
     setRefreshing(true)
     try {
-      const [payload, riderApplications] = await Promise.all([api.listOrders(), api.listRiderApplications()])
+      const [payload, riderApplications, riderList] = await Promise.all([api.listOrders(), api.listRiderApplications(), api.listRiders()])
       const dashboard = normalizeDashboard(payload, operatorId)
       setStore(dashboard.store)
       setOrders(dashboard.orders)
       setRiders(riderApplications)
+      setManagedRiders(riderList)
       setConnected(true)
       setHealthText('已连接 NestJS 后端，订单状态会和用户端同步')
       if (!silent) showToast('订单已刷新')
@@ -409,11 +483,12 @@ export function OperationsApp() {
       setShowLogin(false)
       showToast('运营登录成功')
       const sessionApi = new OperationsApi(cleanBase, nextToken)
-      const [payload, riderApplications] = await Promise.all([sessionApi.listOrders(), sessionApi.listRiderApplications()])
+      const [payload, riderApplications, riderList] = await Promise.all([sessionApi.listOrders(), sessionApi.listRiderApplications(), sessionApi.listRiders()])
       const dashboard = normalizeDashboard(payload, nextOperatorId)
       setStore(dashboard.store)
       setOrders(dashboard.orders)
       setRiders(riderApplications)
+      setManagedRiders(riderList)
       setConnected(true)
       setHealthText('已连接 NestJS 后端，订单状态会和用户端同步')
     } catch (error) {
@@ -431,6 +506,7 @@ export function OperationsApp() {
     setOperatorName('')
     setOrders([])
     setRiders([])
+    setManagedRiders([])
     setStore(null)
     setConnected(false)
     localStorage.removeItem('merchantToken')
@@ -465,12 +541,35 @@ export function OperationsApp() {
   }, [api, loadDashboard, showToast])
 
   const reviewRider = useCallback(async (rider: RiderApplication, approved: boolean) => {
+    if (!window.confirm(approved ? '确认通过这条骑手申请？通过后原用户账号会获得骑手身份。' : '确认拒绝这条骑手申请？')) return
+    const reason = approved ? '' : window.prompt('请输入拒绝原因（必填）', '')?.trim() || ''
+    if (!approved && !reason) {
+      showToast('拒绝申请必须填写原因')
+      return
+    }
     try {
-      await api.reviewRider(rider, approved)
+      await api.reviewRider(rider, approved, reason)
       showToast(approved ? '骑手已审核通过' : '骑手申请已拒绝')
       await loadDashboard(true)
     } catch (error) {
       showToast(`审核失败：${error instanceof Error ? error.message : '未知错误'}`)
+    }
+  }, [api, loadDashboard, showToast])
+
+  const changeRiderStatus = useCallback(async (rider: RiderApplication, action: 'suspend' | 'restore' | 'resign') => {
+    const labels = { suspend: '暂停接单', restore: '恢复接单', resign: '标记离职' }
+    if (!window.confirm(`确认${labels[action]}？`)) return
+    const reason = window.prompt(`${labels[action]}原因（必填）`, '')?.trim() || ''
+    if (!reason) {
+      showToast('状态变更必须填写原因')
+      return
+    }
+    try {
+      await api.changeRiderStatus(rider.id, action, reason)
+      showToast(`已${labels[action]}`)
+      await loadDashboard(true)
+    } catch (error) {
+      showToast(`操作失败：${error instanceof Error ? error.message : '未知错误'}`)
     }
   }, [api, loadDashboard, showToast])
 
@@ -481,15 +580,24 @@ export function OperationsApp() {
     return () => window.clearInterval(timer)
   }, [loadDashboard, token])
 
+  useEffect(() => {
+    const onHashChange = () => setView(window.location.hash.replace(/^#/, '') || 'orders')
+    window.addEventListener('hashchange', onHashChange)
+    return () => window.removeEventListener('hashchange', onHashChange)
+  }, [])
+
+  const pageTitle = view === 'pricing' ? '价格规则' : view === 'service-areas' ? '服务范围' : view === 'rider-applications' ? '骑手申请' : view === 'riders' ? '骑手管理' : view === 'settings' ? '系统设置' : '订单调度中心'
+  const pageSubtitle = view === 'pricing' ? '管理线路单价、距离计价和搬运服务费。' : view === 'service-areas' ? '圈定每项业务的服务边界，地址范围由后端最终判断。' : view === 'rider-applications' ? '审核骑手资料，记录每一次通过、拒绝和通知。' : view === 'riders' ? '管理骑手身份权限、在线状态和当前配送任务。' : view === 'settings' ? '管理营业状态、报价有效期和骑手履约边界。' : '集中处理用户订单、最终报价与配送进度。'
+
   return (
     <div className="shell">
-      <Sidebar onTodo={showToast} />
+      <Sidebar activeView={view} onNavigate={navigate} />
       <main className="main">
         <header className="topbar">
           <div>
             <p className="eyebrow">今日运营</p>
-            <h1>订单调度中心</h1>
-            <p className="muted">集中处理用户订单、最终报价与配送进度。</p>
+            <h1>{pageTitle}</h1>
+            <p className="muted">{pageSubtitle}</p>
           </div>
           <div className="top-actions">
             <label className="api-field">
@@ -503,17 +611,19 @@ export function OperationsApp() {
           </div>
         </header>
 
-        <StorePanel store={store} connected={connected} healthText={healthText} />
-        <StatsGrid stats={stats} />
-        <RiderReviewPanel riders={riders} onReview={reviewRider} />
-        <OrdersWorkspace
-          filter={filter}
-          orders={orders}
-          onFilter={setFilter}
-          onAdvance={advanceOrder}
-          onQuote={quoteOrder}
-          onTicket={() => showToast('已模拟打印小票')}
-        />
+        {view === 'orders' ? <>
+          <StorePanel store={store} connected={connected} healthText={healthText} />
+          <StatsGrid stats={stats} />
+          <RiderReviewPanel riders={riders} onReview={reviewRider} />
+          <OrdersWorkspace
+            filter={filter}
+            orders={orders}
+            onFilter={setFilter}
+            onAdvance={advanceOrder}
+            onQuote={quoteOrder}
+            onTicket={() => showToast('已模拟打印小票')}
+          />
+        </> : view === 'rider-applications' ? <RiderApplicationsWorkspace riders={riders} onReview={reviewRider} /> : view === 'riders' ? <RidersWorkspace riders={managedRiders} onChangeStatus={changeRiderStatus} /> : view === 'pricing' ? <PricingWorkspace api={api} onToast={showToast} /> : view === 'service-areas' ? <ServiceAreasWorkspace api={api} onToast={showToast} /> : <SystemSettingsWorkspace api={api} onToast={showToast} />}
       </main>
       <Toast message={toast} />
       <LoginDialog

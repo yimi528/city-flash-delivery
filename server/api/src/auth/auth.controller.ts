@@ -18,8 +18,4 @@ export class AuthController {
     return this.authService.operatorLogin(dto)
   }
 
-  @Post('rider-wechat-login')
-  async riderWechatLogin(@Body() dto: WechatLoginDto) {
-    return this.authService.riderWechatLogin(dto)
-  }
 }

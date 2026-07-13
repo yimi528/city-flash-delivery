@@ -1,6 +1,7 @@
 const app = getApp()
 const api = require('../../utils/api')
 const map = require('../../utils/map')
+const carpool = require('../../utils/carpool')
 const serviceConfig = require('../../utils/service-config')
 const vehicleConfig = require('../../utils/vehicle-config')
 
@@ -30,14 +31,6 @@ const FIELD_PRESETS = {
     showWeight: true,
     limitText: '',
     remarkPlaceholder: '备注：货物尺寸、件数、是否需要装货/卸货/搬楼'
-  },
-  moving: {
-    sectionTitle: '搬家信息',
-    sectionHint: '厢式货车固定服务',
-    itemTypes: ['住宅搬家', '宿舍搬家', '门店搬迁', '家具家电'],
-    showWeight: false,
-    limitText: '',
-    remarkPlaceholder: '备注：楼层、有无电梯、家具数量和大件尺寸'
   },
   urgent_delivery: {
     sectionTitle: '急送物品',
@@ -74,7 +67,7 @@ const FIELD_PRESETS = {
 }
 
 function getFieldPreset(draft) {
-  if (draft && inferPricingMode(draft) === 'manual_quote') return FIELD_PRESETS.manual_quote
+  if (draft && ['manual_quote', 'handling_fixed'].includes(inferPricingMode(draft))) return FIELD_PRESETS.manual_quote
   return FIELD_PRESETS[(draft && draft.taskId) || ''] || FIELD_PRESETS.urgent_delivery
 }
 
@@ -133,7 +126,8 @@ function inferPricingMode(draft) {
 function getPricingRule(draft) {
   const vehicle = (draft && draft.cargoOptions) || {}
   const servicePricing = (draft && draft.servicePricing) || {}
-  const hasVehicleRule = Boolean(vehicle.vehicleId)
+  const hasRemoteRule = Boolean(servicePricing.remote)
+  const hasVehicleRule = Boolean(vehicle.vehicleId) && !hasRemoteRule
   const hasServiceRule = Number(servicePricing.basePrice || 0) > 0
   return {
     baseDistanceKm: hasServiceRule ? Number(servicePricing.baseDistanceKm || 4) : 4,
@@ -144,6 +138,40 @@ function getPricingRule(draft) {
     linePriceMultiplier: Number(vehicle.linePriceMultiplier || servicePricing.linePriceMultiplier || 1),
     maxDeliveryFee: Number(vehicle.maxDeliveryFee || servicePricing.maxDeliveryFee || 168)
   }
+}
+
+function applyRemotePricing(draft) {
+  const config = app.globalData.appConfig || {}
+  const remoteService = (config.services || []).find((item) => item.id === (draft && draft.taskId))
+  const remoteRule = (config.pricing && config.pricing.rules || []).find((item) => item.serviceId === (draft && draft.taskId))
+  if (!draft || !remoteService || !remoteRule) return false
+  const basePrice = Number(remoteRule.baseFeeFen || 0) / 100
+  const extraPerKm = Number(remoteRule.perKmFen || 0) / 100
+  const serviceSurcharge = Number(remoteRule.serviceSurchargeFen || 0) / 100
+  draft.priceSummary = remoteService.priceSummary || draft.priceSummary
+  draft.pricingVersion = Number(config.pricingVersion || (config.pricing && config.pricing.version) || 0)
+  draft.servicePricing = Object.assign({}, draft.servicePricing || {}, {
+    remote: true,
+    baseDistanceKm: Number(remoteRule.includedDistanceMeters || 0) / 1000,
+    basePrice,
+    extraPerKm,
+    serviceSurcharge,
+    deliveryStartFee: Number(remoteRule.deliveryStartFeeFen || 0) / 100,
+    minimumFee: Number(remoteRule.minimumFeeFen || 0) / 100,
+    maxDeliveryFee: Number(remoteRule.maxFeeFen || 0) / 100,
+    badWeatherMultiplier: Number(remoteRule.weatherMultiplierBps || 10000) / 10000
+  })
+  if (draft.cargoOptions) {
+    draft.cargoOptions.baseFee = basePrice
+    draft.cargoOptions.distanceRate = extraPerKm
+    draft.cargoOptions.maxDeliveryFee = Number(remoteRule.maxFeeFen || 0) / 100
+  }
+  if (remoteRule.pricingMode === 'fixed_route' && remoteService.routes && remoteService.routes.length) {
+    const taskLines = remoteService.routes.map((route) => ({ id: route.id, name: route.destinationName || route.city, price: Number(route.unitPriceFen || 0) / 100 }))
+    draft.remoteTaskLines = taskLines
+    draft.selectedLine = taskLines.find((line) => draft.selectedLine && line.id === draft.selectedLine.id) || taskLines[0]
+  }
+  return true
 }
 
 function estimateFee(draft) {
@@ -176,10 +204,15 @@ function estimateFee(draft) {
     baseTitle = selectedLine.name ? `${selectedLine.name}线路价` : '线路价格'
     pricingNote = selectedLine.name ? `${draft.taskName || draft.service} · ${selectedLine.name}` : pricingNote
   } else if (isHandlingFixed) {
-    base = 48
+    const remoteHandling = Boolean(draft && draft.servicePricing && draft.servicePricing.remote)
+    const handlingBase = remoteHandling ? Number(draft.servicePricing.basePrice || 48) : 48
+    const handlingIncludedKm = remoteHandling ? Number(draft.servicePricing.baseDistanceKm || 4) : 4
+    const handlingStartFee = remoteHandling ? Number(draft.servicePricing.deliveryStartFee || 28) : 28
+    const handlingPerKm = remoteHandling ? Number(draft.servicePricing.extraPerKm || 2.8) : 2.8
+    base = handlingBase
     if (draft && draft.requiresDelivery) {
-      const extraKm = Math.ceil(Math.max(distance - 4, 0))
-      distanceFee = 28 + extraKm * 2.8
+      const extraKm = Math.ceil(Math.max(distance - handlingIncludedKm, 0))
+      distanceFee = handlingStartFee + extraKm * handlingPerKm
     }
     serviceFee = base + distanceFee
     baseTitle = '固定上门搬运费'
@@ -288,7 +321,9 @@ function prepareFormState(draft) {
     selectedLineId: draft && draft.selectedLine ? draft.selectedLine.id : '',
     fieldConfig,
     itemTypes: fieldConfig.itemTypes,
-    handlingTypes: HANDLING_TYPES
+    handlingTypes: HANDLING_TYPES,
+    selectedItem: (draft && draft.item) || '',
+    selectedWeight: Number((draft && draft.weight) || 1)
   }
 }
 
@@ -379,29 +414,28 @@ function buildBackendPayload(draft) {
 }
 
 function requestBackendQuote(draft) {
-  if (draft.taskId === 'carpool_ride') {
-    return api.quoteCarpool({
-      routeId: draft.selectedLine.id,
-      direction: draft.direction || 'OUTBOUND',
-      passengerCount: Number(draft.passengerCount || 1)
-    })
-  }
-  if (draft.taskId === 'moving_handling') {
-    const pickup = draft.pickup || {}
-    const dropoff = draft.dropoff || {}
-    return api.quoteHandling({
-      requiresDelivery: Boolean(draft.requiresDelivery),
-      pickupName: pickup.name || '',
-      pickupDetail: pickup.detail || '',
-      pickupLat: Number(pickup.latitude || (pickup.location && pickup.location.latitude) || 0),
-      pickupLng: Number(pickup.longitude || (pickup.location && pickup.location.longitude) || 0),
-      dropoffName: dropoff.name || '',
-      dropoffDetail: dropoff.detail || '',
-      dropoffLat: Number(dropoff.latitude || (dropoff.location && dropoff.location.latitude) || 0),
-      dropoffLng: Number(dropoff.longitude || (dropoff.location && dropoff.location.longitude) || 0)
-    })
-  }
-  return Promise.resolve(null)
+  const pickup = draft.pickup || {}
+  const dropoff = draft.dropoff || null
+  const point = (address) => address ? {
+    name: address.name || '',
+    detail: address.detail || '',
+    city: address.city || '',
+    district: address.district || '',
+    adcode: String(address.adcode || ''),
+    latitude: Number(address.latitude || (address.location && address.location.latitude) || 0),
+    longitude: Number(address.longitude || (address.location && address.location.longitude) || 0)
+  } : undefined
+  return api.quoteOrder({
+    taskId: draft.taskId,
+    routeId: draft.selectedLine ? draft.selectedLine.id : '',
+    direction: draft.direction || 'OUTBOUND',
+    passengerCount: Number(draft.passengerCount || 1),
+    requiresDelivery: Boolean(draft.requiresDelivery),
+    pickup: point(pickup),
+    dropoff: point(dropoff),
+    weightKg: Math.round(Number(draft.weight || 1)),
+    productFeeFen: Math.round(Number(draft.budget || 0) * 100)
+  })
 }
 
 function confirmServerQuote(quote, displayedTotal) {
@@ -442,6 +476,8 @@ Page({
     selectedLineId: '',
     fieldConfig: FIELD_PRESETS.urgent_delivery,
     handlingTypes: HANDLING_TYPES,
+    selectedItem: '',
+    selectedWeight: 1,
     vehicles: vehicleConfig.VEHICLES,
     selectedVehicle: 'ebike',
     isVehicleSelectorOpen: false,
@@ -458,6 +494,7 @@ Page({
   onShow() {
     const draft = app.globalData.draftOrder
     normalizeHandlingDraft(draft)
+    if (draft.taskId === 'carpool_ride') carpool.applyRoute(draft)
     const selectedVehicle = ensureDraftVehicle(draft)
     const formState = prepareFormState(draft)
     this.setData({
@@ -470,19 +507,53 @@ Page({
       fieldConfig: formState.fieldConfig,
       itemTypes: formState.itemTypes,
       handlingTypes: formState.handlingTypes,
+      selectedItem: formState.selectedItem,
+      selectedWeight: formState.selectedWeight,
       routeSource: getRouteSource(draft),
       routeDuration: draft.routeDuration || '',
       weatherRisk: draft.weatherRisk || buildWeatherRisk(),
       passengerCount: Number(draft.passengerCount || 1)
     })
-    this.refreshRouteEstimate()
-    this.refreshWeatherRisk()
-    this.refreshCarpoolRoutes()
+    const sync = app.globalData.useBackend && app.refreshAppConfig
+      ? this.syncRemotePricing()
+      : Promise.resolve()
+    sync.then(() => {
+      this.refreshRouteEstimate()
+      this.refreshWeatherRisk()
+      this.refreshCarpoolRoutes()
+    })
+    if (this.pricingSyncTimer) clearInterval(this.pricingSyncTimer)
+    if (app.globalData.useBackend && app.refreshAppConfig) this.pricingSyncTimer = setInterval(() => this.syncRemotePricing(true), 30000)
+  },
+
+  onHide() {
+    if (this.pricingSyncTimer) {
+      clearInterval(this.pricingSyncTimer)
+      this.pricingSyncTimer = null
+    }
+  },
+
+  syncRemotePricing(showNotice) {
+    const previousVersion = Number(app.globalData.pricingVersion || 0)
+    return app.refreshAppConfig().then((config) => {
+      const draft = app.globalData.draftOrder
+      const changed = applyRemotePricing(draft)
+      if (changed) this.refreshLocalEstimate()
+      const nextVersion = Number((config && (config.pricingVersion || (config.pricing && config.pricing.version))) || app.globalData.pricingVersion || 0)
+      if (showNotice && previousVersion && nextVersion !== previousVersion) wx.showToast({ title: '价格规则已更新', icon: 'none' })
+      return config
+    })
   },
 
   refreshCarpoolRoutes() {
     const draft = app.globalData.draftOrder
     if (!app.globalData.useBackend || draft.taskId !== 'carpool_ride') return
+    const remoteService = (app.globalData.appConfig && app.globalData.appConfig.services || []).find((item) => item.id === draft.taskId)
+    if (remoteService && remoteService.routes && remoteService.routes.length) {
+      applyRemotePricing(draft)
+      this.refreshLocalEstimate()
+      return
+    }
     api.getCarpoolRoutes().then((routes) => {
       const taskLines = routes.map((route) => ({ id: route.id, name: route.city, price: Number(route.unitPriceFen) / 100 }))
       const selected = taskLines.find((line) => draft.selectedLine && line.id === draft.selectedLine.id) || taskLines[0]
@@ -506,6 +577,8 @@ Page({
       fieldConfig: formState.fieldConfig,
       itemTypes: formState.itemTypes,
       handlingTypes: formState.handlingTypes,
+      selectedItem: formState.selectedItem,
+      selectedWeight: formState.selectedWeight,
       routeSource: getRouteSource(draft),
       routeDuration: draft.routeDuration || '',
       weatherRisk: draft.weatherRisk || buildWeatherRisk(),
@@ -606,9 +679,10 @@ Page({
       serviceConfig.applyHandlingType(draft, handlingType.name)
       draft.pricingMode = 'handling_fixed'
       vehicleConfig.applyVehicleToDraft(draft, draft.requiresDelivery ? 'cargo_tricycle' : handlingType.vehicleId)
-      this.setData({ isVehicleSelectorOpen: false })
+      this.setData({ selectedItem: handlingType.name, 'draft.item': handlingType.name, isVehicleSelectorOpen: false })
     } else {
       draft.item = item
+      this.setData({ selectedItem: item, 'draft.item': item })
     }
     this.refreshLocalEstimate()
     this.refreshWeatherRisk()
@@ -620,7 +694,7 @@ Page({
     if (!line) return
     const draft = app.globalData.draftOrder
     draft.selectedLine = line
-    if (draft.taskId === 'carpool_ride') this.applyCarpoolRoute(draft)
+    if (draft.taskId === 'carpool_ride') carpool.applyRoute(draft)
     vehicleConfig.applyVehicleToDraft(draft, draft.cargoOptions.vehicleId)
     this.refreshLocalEstimate()
   },
@@ -632,6 +706,7 @@ Page({
       app.globalData.draftOrder.cargoOptions.weight = weight
       app.globalData.draftOrder.cargoOptions.weightLabel = getWeightLabel(weight)
     }
+    this.setData({ selectedWeight: weight, 'draft.weight': weight })
     this.refreshLocalEstimate()
   },
 
@@ -645,8 +720,9 @@ Page({
 
   selectDirection(event) {
     const draft = app.globalData.draftOrder
+    const previousAddress = carpool.getCitySideAddress(draft)
     draft.direction = event.currentTarget.dataset.direction
-    this.applyCarpoolRoute(draft)
+    carpool.applyRoute(draft, { address: previousAddress })
     this.refreshLocalEstimate()
   },
 
@@ -660,11 +736,14 @@ Page({
   },
 
   applyCarpoolRoute(draft) {
-    const city = (draft.selectedLine && draft.selectedLine.name) || '苍南'
-    const outbound = (draft.direction || 'OUTBOUND') === 'OUTBOUND'
-    draft.pickup = Object.assign({}, draft.pickup || {}, { name: outbound ? '福鼎' : city })
-    draft.dropoff = Object.assign({}, draft.dropoff || {}, { name: outbound ? city : '福鼎' })
-    draft.quoteId = ''
+    carpool.applyRoute(draft)
+  },
+
+  chooseRouteAddress(event) {
+    const draft = app.globalData.draftOrder
+    if (draft.taskId !== 'carpool_ride') return
+    const type = event.currentTarget.dataset.type
+    wx.navigateTo({ url: `/pages/address/address?type=${type}&mode=carpool` })
   },
 
   toggleHandlingDelivery() {
@@ -704,6 +783,13 @@ Page({
 
   submitOrder() {
     const draft = app.globalData.draftOrder
+    if (draft.taskId === 'carpool_ride') {
+      const validation = carpool.validateDraft(draft)
+      if (!validation.valid) {
+        wx.showToast({ title: validation.message, icon: 'none' })
+        return
+      }
+    }
     if (draft.taskId === 'moving_handling' && draft.requiresDelivery && !draft.dropoff) {
       wx.showToast({ title: '请选择配送目的地', icon: 'none' })
       return

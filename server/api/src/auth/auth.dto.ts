@@ -27,3 +27,9 @@ export class OperatorLoginDto {
   @MinLength(6)
   password!: string
 }
+
+export class SwitchRoleDto {
+  @IsString()
+  @IsNotEmpty()
+  role!: 'customer' | 'rider'
+}

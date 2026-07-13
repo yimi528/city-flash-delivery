@@ -1,0 +1,30 @@
+<view class="rider-page">
+  <view class="section-head">
+    <view><view class="section-kicker">ACTIVE DELIVERY</view><view class="section-title">当前任务</view></view>
+    <view class="task-count">{{tasks.length}} 单</view>
+  </view>
+
+  <block wx:for="{{tasks}}" wx:key="id">
+    <view class="rider-card task-card">
+      <view class="task-title">{{item.serviceName}} · {{item.vehicleName}}</view>
+      <view class="address"><text class="route-label pickup">取</text><text> {{item.pickupName}} {{item.pickupDetail}}</text></view>
+      <view class="address" wx:if="{{item.dropoffName}}"><text class="route-label dropoff">送</text><text> {{item.dropoffName}} {{item.dropoffDetail}}</text></view>
+      <view class="actions">
+        <button data-lat="{{item.pickupLat}}" data-lng="{{item.pickupLng}}" bindtap="navigate">导航</button>
+        <button data-phone="{{item.pickupPhone}}" bindtap="callUser">联系用户</button>
+      </view>
+      <view class="actions">
+        <button data-id="{{item.id}}" bindtap="reportException">上报异常</button>
+        <button class="rider-primary" data-id="{{item.id}}" data-status="{{item.status}}" data-arrived="{{item.arrivedAt}}" bindtap="advance">{{item.status === 'PICKING_UP' ? (item.arrivedAt ? '开始服务/配送' : '确认到达') : '确认完成'}}</button>
+      </view>
+    </view>
+  </block>
+
+  <view class="rider-empty" wx:if="{{!loading && !tasks.length}}"><view>暂无进行中的任务</view><view>抢单成功后会显示在这里</view></view>
+
+  <view class="rider-nav">
+    <view class="rider-nav-item" data-page="hall" bindtap="goRiderPage"><view class="rider-nav-glyph hall"></view><text class="rider-nav-label">抢单</text></view>
+    <view class="rider-nav-item active"><view class="rider-nav-glyph tasks"></view><text class="rider-nav-label">任务</text></view>
+    <view class="rider-nav-item" data-page="profile" bindtap="goRiderPage"><view class="rider-nav-glyph profile"></view><text class="rider-nav-label">我的</text></view>
+  </view>
+</view>

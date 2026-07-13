@@ -1,0 +1,50 @@
+<view class="rider-page hall-page">
+  <view class="hero">
+    <view class="hero-top">
+      <view class="eyebrow">CITY FLASH · RIDER</view>
+      <view class="signal"><text></text>{{online ? '接单信号正常' : '当前未上线'}}</view>
+    </view>
+    <view class="hero-row">
+      <view>
+        <view class="title">附近订单</view>
+        <view class="sub">{{online ? '持续刷新符合车型与资格的订单' : '上线后开始接收附近订单'}}</view>
+      </view>
+      <button wx:if="{{rider}}" class="online-btn {{online ? 'on' : ''}}" bindtap="toggleOnline"><text class="online-label">{{online ? '收工' : '上线'}}</text></button>
+    </view>
+    <view class="hero-stats" wx:if="{{rider}}">
+      <view><text class="stat-value">{{orders.length}}</text><text>附近可抢</text></view>
+      <view class="stat-divider"></view>
+      <view><text class="stat-value">{{rider.maxActiveOrders || 1}}</text><text>任务上限</text></view>
+      <view class="stat-divider"></view>
+      <view><text class="stat-value">8s</text><text>自动刷新</text></view>
+    </view>
+  </view>
+
+  <view class="status-strip" wx:if="{{rider}}">
+    <text class="dot {{online ? 'on' : ''}}"></text>
+    <text>{{online ? '在线接单中' : '当前已下线'}}</text>
+    <text class="vehicle">{{rider.vehicleName || '待配置车型'}}</text>
+  </view>
+
+  <block wx:for="{{orders}}" wx:key="id">
+    <view class="rider-card order-card">
+      <view class="order-head">
+        <view><view class="order-kicker">NEW ORDER</view><text class="service">{{item.serviceName}}</text><text class="vehicle-tag">{{item.vehicleName}}</text></view>
+        <view class="income-wrap"><view class="income-label">预计收入</view><view class="income">¥{{item.expectedIncomeFen / 100}}</view></view>
+      </view>
+      <view class="route"><text class="pickup-dot"></text><text>{{item.pickupArea}}</text></view>
+      <view class="route-line"></view>
+      <view class="route"><text class="dropoff-dot"></text><text>{{item.dropoffArea || '仅上门服务'}}</text></view>
+      <view class="meta">距你 {{item.pickupDistanceKm === null ? '未知' : item.pickupDistanceKm + 'km'}} · 行程 {{item.routeDistanceKm}}km</view>
+      <button class="claim-btn" data-id="{{item.id}}" bindtap="claim" loading="{{claimingId === item.id}}"><text>立即抢单</text><text class="claim-arrow">→</text></button>
+    </view>
+  </block>
+
+  <view class="rider-empty" wx:if="{{rider && online && !orders.length}}"><view class="empty-radar">⌁</view><view>正在扫描附近订单</view><view>有新任务会立即出现在这里</view></view>
+
+  <view class="rider-nav">
+    <view class="rider-nav-item active"><view class="rider-nav-glyph hall"></view><text class="rider-nav-label">抢单</text></view>
+    <view class="rider-nav-item" data-page="tasks" bindtap="goRiderPage"><view class="rider-nav-glyph tasks"></view><text class="rider-nav-label">任务</text></view>
+    <view class="rider-nav-item" data-page="profile" bindtap="goRiderPage"><view class="rider-nav-glyph profile"></view><text class="rider-nav-label">我的</text></view>
+  </view>
+</view>

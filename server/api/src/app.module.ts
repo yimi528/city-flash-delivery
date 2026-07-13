@@ -12,6 +12,7 @@ import { PrismaModule } from './common/prisma/prisma.module'
 import { UsersModule } from './users/users.module'
 import { CatalogModule } from './catalog/catalog.module'
 import { RidersModule } from './riders/riders.module'
+import { ConfigCenterModule } from './config-center/config-center.module'
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { RidersModule } from './riders/riders.module'
     MapsModule,
     CatalogModule,
     RidersModule,
+    ConfigCenterModule,
   ],
 })
 export class AppModule {}

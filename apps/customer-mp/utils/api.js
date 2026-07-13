@@ -29,11 +29,11 @@ const SERVICE_VALUES = {
   帮取: 'PICKUP',
   送货: 'CARGO',
   '送货/送客': 'CARGO',
-  搬家: 'MOVING',
-  '搬家/搬店': 'MOVING',
+  搬家: 'HANDLING',
+  '搬家/搬店': 'HANDLING',
   搬运装卸: 'HANDLING',
-  装货: 'CARGO',
-  卸货: 'CARGO',
+  装货: 'HANDLING',
+  卸货: 'HANDLING',
   帮买: 'BUY_FOR_ME',
   '1对1急送': 'DELIVERY'
 }
@@ -44,7 +44,7 @@ const SERVICE_LABELS = {
   CARGO: '送货',
   BUY_FOR_ME: '帮买',
   CARPOOL: '拼车',
-  MOVING: '搬家',
+  MOVING: '搬运装卸',
   HANDLING: '搬运装卸'
 }
 
@@ -139,7 +139,8 @@ function request(path, options) {
         reject(new Error(detail || `API ${path} failed with ${res.statusCode}`))
       },
       fail(error) {
-        reject(error)
+        const detail = error && (error.errMsg || error.message)
+        reject(new Error(detail || '无法连接后端服务，请确认 API 已启动'))
       }
     })
   })
@@ -436,8 +437,8 @@ function buildNestStatusPayload(payload) {
   }
 }
 
-function getAddresses(userId) {
-  return request(`/addresses?userId=${encodeURIComponent(userId || 'demo-user')}`)
+function getAddresses() {
+  return request('/addresses')
 }
 
 function getCurrentUser() {
@@ -449,6 +450,22 @@ function wechatLogin(payload) {
     method: 'POST',
     data: isNestApi() ? buildNestLoginPayload(payload) : (payload || {})
   })
+}
+
+function getAccountRoles() {
+  return request('/v1/account/roles')
+}
+
+function switchAccountRole(role) {
+  return request('/v1/account/switch-role', { method: 'POST', data: { role } })
+}
+
+function getCurrentRiderApplication() {
+  return request('/v1/rider/applications/current')
+}
+
+function submitRiderApplication(payload) {
+  return request('/v1/rider/applications', { method: 'POST', data: payload })
 }
 
 function merchantLogin(payload) {
@@ -467,17 +484,40 @@ function merchantLogin(payload) {
   })
 }
 
+function buildAddressPayload(payload) {
+  const source = payload || {}
+  const result = {
+    name: source.name || '',
+    detail: source.detail || '',
+    contact: source.contact || '',
+    phone: source.phone || '',
+    tag: source.tag || '',
+    city: source.city || '',
+    district: source.district || '',
+    adcode: String(source.adcode || ''),
+    mapPoiId: source.mapPoiId || '',
+    isDefault: !!source.isDefault
+  }
+  const latitude = Number(source.latitude)
+  const longitude = Number(source.longitude)
+  if (source.latitude !== '' && source.longitude !== '' && Number.isFinite(latitude) && Number.isFinite(longitude)) {
+    result.latitude = latitude
+    result.longitude = longitude
+  }
+  return result
+}
+
 function createAddress(payload) {
   return request('/addresses', {
     method: 'POST',
-    data: payload
+    data: buildAddressPayload(payload)
   })
 }
 
 function updateAddress(id, payload) {
   return request(`/addresses/${encodeURIComponent(id)}`, {
     method: 'PUT',
-    data: payload
+    data: buildAddressPayload(payload)
   })
 }
 
@@ -539,6 +579,10 @@ function getServiceCatalog() {
   return request('/v1/services')
 }
 
+function getAppConfig() {
+  return request('/v1/app-config')
+}
+
 function getCarpoolRoutes() {
   return request('/v1/carpool/routes')
 }
@@ -549,6 +593,10 @@ function quoteCarpool(payload) {
 
 function quoteHandling(payload) {
   return request('/v1/quotes/handling', { method: 'POST', data: payload })
+}
+
+function quoteOrder(payload) {
+  return request('/v1/quotes', { method: 'POST', data: payload })
 }
 
 function getOrders(userId) {
@@ -646,6 +694,10 @@ function updateMerchantOrderStatus(id, payload) {
 module.exports = {
   request,
   wechatLogin,
+  getAccountRoles,
+  switchAccountRole,
+  getCurrentRiderApplication,
+  submitRiderApplication,
   merchantLogin,
   getAddresses,
   getCurrentUser,
@@ -656,9 +708,11 @@ module.exports = {
   getWeatherRisk,
   estimatePrice,
   getServiceCatalog,
+  getAppConfig,
   getCarpoolRoutes,
   quoteCarpool,
   quoteHandling,
+  quoteOrder,
   createOrder,
   getOrders,
   getOrder,

@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer'
-import { IsBoolean, IsIn, IsInt, IsNumber, IsOptional, IsString, Max, Min } from 'class-validator'
+import { IsBoolean, IsIn, IsInt, IsNotEmpty, IsNumber, IsOptional, IsString, Max, Min } from 'class-validator'
 
 export class CarpoolQuoteDto {
   @IsString()
@@ -13,6 +13,36 @@ export class CarpoolQuoteDto {
   @Min(1)
   @Max(6)
   passengerCount!: number
+
+  @IsString()
+  @IsNotEmpty()
+  addressName!: string
+
+  @IsString()
+  @IsNotEmpty()
+  addressDetail!: string
+
+  @IsOptional()
+  @IsString()
+  addressCity?: string
+
+  @IsOptional()
+  @IsString()
+  addressDistrict?: string
+
+  @IsOptional()
+  @IsString()
+  addressAdcode?: string
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  addressLat?: number
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  addressLng?: number
 }
 
 export class HandlingQuoteDto {

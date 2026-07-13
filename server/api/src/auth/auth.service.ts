@@ -1,7 +1,8 @@
-import { BadGatewayException, Injectable, UnauthorizedException } from '@nestjs/common'
+import { BadGatewayException, ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto'
 import { PrismaService } from '../common/prisma/prisma.service'
+import { UserRole, RoleStatus } from '@prisma/client'
 import { AuthTokenService } from './auth-token.service'
 import { OperatorLoginDto, WechatLoginDto } from './auth.dto'
 
@@ -64,10 +65,14 @@ export class AuthService {
           },
         })
 
+    await this.ensureRoleAssignment(user.id, UserRole.CUSTOMER)
+
+    const roleSnapshot = await this.accountRoles(user.id)
     return {
       token: this.tokens.sign(user.id, 'customer'),
       role: 'customer',
       mode,
+      ...roleSnapshot,
       user: {
         id: user.id,
         phone: user.phone || '',
@@ -96,44 +101,50 @@ export class AuthService {
     }
   }
 
-  async riderWechatLogin(dto: WechatLoginDto) {
-    const mockEnabled = this.isDevelopmentMockEnabled('RIDER_WECHAT_LOGIN_MOCK_ENABLED')
-    const openid = mockEnabled
-      ? 'mock-rider-openid'
-      : await this.exchangeWechatCode(dto.code || '', 'RIDER_WECHAT_MINI_APP_ID', 'RIDER_WECHAT_MINI_APP_SECRET')
-    const rider = mockEnabled
-      ? await this.prisma.riderProfile.upsert({
-          where: { id: 'rider-demo' },
-          update: { lastLoginAt: new Date() },
-          create: {
-            id: 'rider-demo',
-            openid,
-            name: dto.nickname || '演示骑手',
-            phone: dto.phone || '13800000000',
-            status: 'APPROVED',
-            vehicleType: 'ETRIKE',
-            vehicleName: '货三轮车',
-            handlingQualified: true,
-            serviceCity: '宁德市',
-            qualifications: {
-              create: [
-                { serviceId: 'cargo_haul' },
-                { serviceId: 'moving_handling' },
-              ],
-            },
-          },
-        })
-      : await this.prisma.riderProfile.upsert({
-          where: { openid },
-          update: { lastLoginAt: new Date() },
-          create: { openid, name: dto.nickname || '微信骑手', phone: dto.phone || '' },
-        })
+  async accountRoles(userId: string) {
+    const [user, roles, rider, application] = await Promise.all([
+      this.prisma.user.findUnique({ where: { id: userId }, select: { preferredRole: true } }),
+      this.prisma.userRoleAssignment.findMany({ where: { userId }, orderBy: { createdAt: 'asc' } }),
+      this.prisma.riderProfile.findUnique({ where: { userId }, select: { id: true, status: true, roleStatus: true, workStatus: true, name: true, vehicleName: true } }),
+      this.prisma.riderApplication.findFirst({ where: { userId }, orderBy: { createdAt: 'desc' } }),
+    ])
     return {
-      token: this.tokens.sign(rider.id, 'rider'),
-      role: 'rider',
-      mode: mockEnabled ? 'mock' : 'wechat',
-      rider,
+      roles: roles.map((role) => ({ role: role.role.toLowerCase(), status: role.status.toLowerCase() })),
+      availableRoles: roles.filter((role) => role.status === RoleStatus.ACTIVE).map((role) => role.role.toLowerCase()),
+      currentRole: user?.preferredRole === UserRole.RIDER && roles.some((role) => role.role === UserRole.RIDER && role.status === RoleStatus.ACTIVE) ? 'rider' : 'customer',
+      rider: rider ? { ...rider, roleStatus: rider.roleStatus.toLowerCase(), workStatus: rider.workStatus.toLowerCase() } : null,
+      application: application ? {
+        id: application.id,
+        status: application.status.toLowerCase(),
+        realName: application.realName,
+        vehicleName: application.vehicleName,
+        submittedAt: application.submittedAt,
+        reviewedAt: application.reviewedAt,
+        rejectionReason: application.rejectionReason,
+      } : null,
     }
+  }
+
+  async switchRole(userId: string, role: 'customer' | 'rider') {
+    if (role === 'customer') {
+      await this.prisma.user.update({ where: { id: userId }, data: { preferredRole: UserRole.CUSTOMER } })
+      return { token: this.tokens.sign(userId, 'customer'), currentRole: 'customer' }
+    }
+    const assignment = await this.prisma.userRoleAssignment.findUnique({ where: { userId_role: { userId, role: UserRole.RIDER } } })
+    const rider = await this.prisma.riderProfile.findUnique({ where: { userId } })
+    if (!assignment || assignment.status !== RoleStatus.ACTIVE || !rider || rider.roleStatus !== RoleStatus.ACTIVE) {
+      throw new ForbiddenException('当前骑手身份不可用')
+    }
+    await this.prisma.user.update({ where: { id: userId }, data: { preferredRole: UserRole.RIDER } })
+    return { token: this.tokens.sign(rider.id, 'rider'), currentRole: 'rider', rider }
+  }
+
+  private async ensureRoleAssignment(userId: string, role: UserRole, status: RoleStatus = RoleStatus.ACTIVE) {
+    return this.prisma.userRoleAssignment.upsert({
+      where: { userId_role: { userId, role } },
+      update: { status },
+      create: { userId, role, status },
+    })
   }
 
   private async exchangeWechatCode(

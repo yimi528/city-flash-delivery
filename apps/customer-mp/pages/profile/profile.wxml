@@ -20,6 +20,17 @@
     </view>
   </view>
 
+  <view class="rider-entry" wx:if="{{isLoggedIn}}" bindtap="openRiderCenter">
+    <view class="rider-entry-icon">骑</view>
+    <view class="rider-entry-copy">
+      <view class="rider-entry-title">{{riderState && riderState.rider && riderState.rider.roleStatus === 'active' ? '骑手工作台' : '申请成为骑手'}}</view>
+      <view class="rider-entry-note" wx:if="{{riderState && riderState.application && riderState.application.status === 'pending'}}">资料审核中，审核结果会在这里通知</view>
+      <view class="rider-entry-note" wx:elif="{{riderState && riderState.rider && riderState.rider.roleStatus === 'suspended'}}">骑手权限已暂停，用户端仍可正常使用</view>
+      <view class="rider-entry-note" wx:else>使用当前账号开通骑手身份，不需要重新注册</view>
+    </view>
+    <view class="rider-entry-arrow">›</view>
+  </view>
+
   <view class="balance-card">
     <block wx:for="{{stats}}" wx:key="label">
       <view class="balance-item" bindtap="openCoupons">

@@ -1,1 +1,0 @@
-.section-title { margin: 14rpx 0 28rpx; font-size: 44rpx; font-weight: 900; }.task-title { font-size: 31rpx; font-weight: 900; }.address { margin-top: 20rpx; color: #555d5a; font-size: 25rpx; line-height: 1.6; }.actions { margin-top: 28rpx; display: flex; gap: 18rpx; }.actions button { flex: 1; margin: 0; border-radius: 38rpx; font-size: 25rpx; }

@@ -247,6 +247,50 @@ describe('OrdersService quote confirmation', () => {
     expect(orderApi.update).not.toHaveBeenCalled()
   })
 
+  it('uses server map distance and weather instead of client pricing inputs', async () => {
+    const maps = {
+      distance: jest.fn().mockResolvedValue({
+        configured: true,
+        route: { distanceKm: 8.4, duration: 28, source: '腾讯地图' },
+      }),
+    }
+    const weather = {
+      resolve: jest.fn().mockResolvedValue({ isBadWeather: true }),
+    }
+    const secureService = new OrdersService(new PricingService(), prisma as never, maps as never, weather as never)
+
+    const result = await (secureService as never as {
+      resolveAuthoritativeInputs: (input: object, taskId: string) => Promise<{ distanceKm: number; badWeather: boolean }>
+    }).resolveAuthoritativeInputs({
+      taskId: 'urgent_delivery',
+      pickupLat: 27.52,
+      pickupLng: 120.40,
+      dropoffLat: 27.98,
+      dropoffLng: 120.68,
+      distanceKm: 0.1,
+      badWeather: false,
+      pickupName: '福鼎',
+      dropoffName: '温州',
+    }, 'urgent_delivery')
+
+    expect(result).toEqual({ distanceKm: 8.4, badWeather: true })
+    expect(maps.distance).toHaveBeenCalledWith(27.52, 120.4, 27.98, 120.68, 'driving')
+    expect(weather.resolve).toHaveBeenCalledWith(expect.objectContaining({ latitude: 27.98, longitude: 120.68 }))
+  })
+
+  it('rejects distance-priced orders without coordinates', async () => {
+    const secureService = new OrdersService(new PricingService(), prisma as never, {
+      distance: jest.fn(),
+    } as never, {
+      resolve: jest.fn(),
+    } as never)
+
+    await expect((secureService as never as {
+      resolveAuthoritativeInputs: (input: object, taskId: string) => Promise<unknown>
+    }).resolveAuthoritativeInputs({ pickupLat: 27.52, pickupLng: 120.4 }, 'urgent_delivery'))
+      .rejects.toThrow('收货地址必须包含有效坐标')
+  })
+
   it('advances through the complete fulfillment flow in order', async () => {
     const base = manualQuoteOrder(QuoteStatus.ACCEPTED)
     const statuses = [

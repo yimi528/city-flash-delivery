@@ -70,7 +70,7 @@ const PRIMARY_TASKS = [
 const HANDLING_TYPES = [
   {
     name: '搬家/搬店',
-    icon: '搬',
+    icon: '🏠',
     desc: '住宅、宿舍或门店整体搬运',
     vehicleId: 'manual_labor',
     vehicleName: '人力服务',
@@ -79,7 +79,7 @@ const HANDLING_TYPES = [
   },
   {
     name: '装货',
-    icon: '装',
+    icon: '📦',
     desc: '协助装车、码放和短时搬运',
     vehicleId: 'manual_labor',
     vehicleName: '人力服务',
@@ -88,7 +88,7 @@ const HANDLING_TYPES = [
   },
   {
     name: '卸货',
-    icon: '卸',
+    icon: '📥',
     desc: '协助卸车、入库和搬至指定位置',
     vehicleId: 'manual_labor',
     vehicleName: '人力服务',
@@ -98,21 +98,6 @@ const HANDLING_TYPES = [
 ]
 
 const COMMON_TASKS = [
-  {
-    id: 'moving',
-    icon: '🏠',
-    name: '搬家',
-    subtitle: '厢式货车',
-    desc: '住宅、宿舍或门店整体搬运',
-    vehicleType: 'moving_van',
-    vehicleName: '厢式货车',
-    priceSummary: '厢式货车固定车型，55元起',
-    pricingMode: 'distance',
-    baseDistanceKm: 4,
-    basePrice: 35,
-    extraPerKm: 3.2,
-    serviceSurcharge: 20
-  },
   {
     id: 'pickup',
     icon: '📥',
@@ -185,7 +170,6 @@ const TASKS_BY_ID = PRIMARY_TASKS.concat(COMMON_TASKS).reduce((result, task) => 
 const ALL_TASKS = [
   'carpool_ride',
   'cargo_haul',
-  'moving',
   'moving_handling',
   'send_parcel',
   'urgent_delivery',
@@ -198,7 +182,6 @@ const DEFAULT_ITEMS = {
   send_parcel: '文件/小件',
   carpool_ride: '1人',
   cargo_haul: '门店补货',
-  moving: '搬家',
   urgent_delivery: '文件/小件',
   pickup: '快递包裹',
   buy_for_me: '万能帮买',
@@ -207,7 +190,7 @@ const DEFAULT_ITEMS = {
 }
 
 function normalizeTaskId(id) {
-  if (id === 'move_shop' || id === 'load_goods' || id === 'unload_goods') return 'moving_handling'
+  if (id === 'moving' || id === 'move_shop' || id === 'load_goods' || id === 'unload_goods') return 'moving_handling'
   return id
 }
 

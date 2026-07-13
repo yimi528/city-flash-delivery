@@ -2,75 +2,120 @@
   <view style="height: {{statusBarHeight}}px"></view>
 
   <view class="topbar">
-    <view class="brand">同城速送</view>
-    <view class="city" bindtap="openCity">{{city}} <text class="down">▾</text></view>
-    <view class="menu-pill">
-      <text>•••</text>
-      <view class="pill-dot"></view>
+    <view class="brand-lockup">
+      <view class="brand-seal">速</view>
+      <view>
+        <view class="brand">同城速送</view>
+        <view class="brand-caption">福鼎本地生活运力</view>
+      </view>
+    </view>
+    <view class="city-chip" bindtap="openCity">
+      <view class="city-dot"></view>
+      <text>{{city}}</text>
+      <text class="down">⌄</text>
     </view>
   </view>
 
-  <view class="map-card">
-    <view class="road road-a"></view>
-    <view class="road road-b"></view>
-    <view class="road road-c"></view>
-    <view class="block block-a"></view>
-    <view class="block block-b"></view>
-    <view class="block block-c"></view>
-    <view class="map-label label-a">福鼎高铁站</view>
-    <view class="map-label label-b">华润便利店</view>
-    <view class="map-label label-c">4栋</view>
-    <view class="accept-bubble"><text>1分钟</text>内接单</view>
-    <view class="pin"><view class="pin-head"></view><view class="pin-tail"></view></view>
+  <view class="hero-card">
+    <view class="hero-copy">
+      <view class="hero-kicker">今日运力充足</view>
+      <view class="hero-title">从福鼎出发，<br/>人和货都准时到。</view>
+      <view class="hero-meta">
+        <view><text>1</text> 分钟响应</view>
+        <view class="meta-divider"></view>
+        <view><text>9</text> 项服务</view>
+      </view>
+    </view>
+    <view class="route-art">
+      <view class="route-orbit orbit-a"></view>
+      <view class="route-orbit orbit-b"></view>
+      <view class="route-node node-a"><text>福</text></view>
+      <view class="route-node node-b"><text>达</text></view>
+      <view class="route-rider">➜</view>
+    </view>
     <view class="locate" bindtap="refreshLocation">⌖</view>
   </view>
 
   <view class="order-panel">
     <view class="panel-head">
       <view>
-        <view class="panel-title">你要做什么？</view>
-        <view class="panel-sub">先选任务，系统自动推荐车型</view>
+        <view class="section-kicker">选择服务</view>
+        <view class="panel-title">今天要办什么？</view>
       </view>
-      <view class="vehicle-pill">{{draft.recommendedVehicleName || '推荐车型'}}</view>
+      <view class="vehicle-pill">{{draft.recommendedVehicleName || '固定车型'}}</view>
     </view>
 
-    <view class="task-grid all-task-grid">
-      <block wx:for="{{allTasks}}" wx:key="id">
-        <view class="task-card {{draft.taskId === item.id ? 'active' : ''}}" data-task="{{item.id}}" bindtap="chooseTask">
+    <view class="core-task-grid">
+      <block wx:for="{{coreTasks}}" wx:key="id">
+        <view class="task-card core-task {{draft.taskId === item.id ? 'active' : ''}}" data-task="{{item.id}}" bindtap="chooseTask">
           <view class="task-icon">{{item.icon}}</view>
-          <view class="task-name">{{item.name}}</view>
+          <view class="task-copy">
+            <view class="task-name">{{item.name}}</view>
+            <view class="task-desc">{{item.subtitle}}</view>
+          </view>
+          <view class="task-check">{{draft.taskId === item.id ? '✓' : ''}}</view>
+        </view>
+      </block>
+    </view>
+
+    <view class="more-head">
+      <view class="more-title">更多服务</view>
+      <view class="more-line"></view>
+    </view>
+    <view class="more-task-row">
+      <block wx:for="{{moreTasks}}" wx:key="id">
+        <view class="more-task {{draft.taskId === item.id ? 'active' : ''}}" data-task="{{item.id}}" bindtap="chooseTask">
+          <view class="more-icon">{{item.icon}}</view>
+          <view>{{item.name}}</view>
         </view>
       </block>
     </view>
 
     <view class="price-strip" bindtap="openPricing">
-      <view class="price-tag">价</view>
+      <view class="price-tag">¥</view>
       <view class="price-main">
-        <view class="price-title">{{draft.taskName || '寄货'}} · {{draft.priceSummary || '按甲方规则计价'}}</view>
-        <view class="price-sub">推荐运力：{{draft.recommendedVehicleName || '小车'}} · {{draft.serviceDesc || '填写地址后下单'}}</view>
+        <view class="price-title">{{draft.priceSummary || '按甲方规则计价'}}</view>
+        <view class="price-sub">{{draft.taskName}} · {{draft.recommendedVehicleName}} · 后端统一计价</view>
       </view>
       <view class="price-arrow">›</view>
     </view>
 
-    <view class="route-row" data-type="pickup" bindtap="chooseAddress">
-      <view class="tag-red">起</view>
-      <view class="route-main address-field">
-        <view class="route-title">{{draft.pickup.name}} <text class="arrow">›</text></view>
-        <view class="route-sub">{{draft.pickup.phone}}</view>
+    <view class="route-group">
+      <view class="route-rail">
+        <view class="rail-dot start"></view>
+        <view class="rail-line"></view>
+        <view class="rail-dot end" wx:if="{{draft.taskId !== 'moving_handling' || draft.requiresDelivery}}"></view>
       </view>
-      <view class="address-book-btn">地址簿</view>
+      <view class="route-fields">
+        <view class="route-row" data-type="pickup" bindtap="chooseAddress">
+          <view class="route-main">
+            <view class="route-label">{{draft.taskId === 'moving_handling' ? '上门服务地址' : '从哪里出发'}}</view>
+            <view class="route-title">{{draft.pickup.name || '选择地址'}}</view>
+            <view class="route-sub">{{draft.pickup.detail || draft.pickup.phone}}</view>
+          </view>
+          <view class="address-book-btn">地址簿</view>
+        </view>
+
+        <view class="route-separator" wx:if="{{draft.taskId !== 'moving_handling' || draft.requiresDelivery}}"></view>
+        <view class="route-row" wx:if="{{draft.taskId !== 'moving_handling' || draft.requiresDelivery}}" data-type="dropoff" bindtap="chooseAddress">
+          <view class="route-main">
+            <view class="route-label">送到哪里</view>
+            <view class="route-title {{draft.dropoff ? '' : 'placeholder'}}">{{draft.dropoff ? draft.dropoff.name : '选择目的地'}}</view>
+            <view class="route-sub" wx:if="{{draft.dropoff}}">{{draft.dropoff.detail}}</view>
+          </view>
+          <view class="address-book-btn">地址簿</view>
+        </view>
+      </view>
     </view>
 
-    <view class="route-row dropoff" wx:if="{{draft.taskId !== 'moving_handling' || draft.requiresDelivery}}" data-type="dropoff" bindtap="chooseAddress">
-      <view class="tag-green">到</view>
-      <view class="route-main address-field big-input">
-        <view class="route-title {{draft.dropoff ? '' : 'placeholder'}}">{{draft.dropoff ? draft.dropoff.name : '目的地/收货地？'}}</view>
-        <view class="route-sub" wx:if="{{draft.dropoff}}">{{draft.dropoff.detail}}</view>
-      </view>
-      <view class="address-book-btn">地址簿</view>
+    <view class="handling-home-tip" wx:if="{{draft.taskId === 'moving_handling' && !draft.requiresDelivery}}">
+      <text>先预约上门服务</text>，下一步可选择是否需要送往别处
     </view>
-
-    <view class="handling-home-tip" wx:if="{{draft.taskId === 'moving_handling' && !draft.requiresDelivery}}">先填写上门服务地址，是否配送可在下一步选择</view>
-    <button class="primary-btn order-btn" bindtap="goOrder">去下单</button>
+    <button class="primary-btn order-btn" bindtap="goOrder">
+      <text class="order-btn-label">继续填写订单</text><text class="button-arrow">→</text>
+    </button>
+    <view class="trust-row">
+      <text>平台计价</text><text>·</text><text>骑手认证</text><text>·</text><text>全程可追踪</text>
+    </view>
   </view>
 </view>

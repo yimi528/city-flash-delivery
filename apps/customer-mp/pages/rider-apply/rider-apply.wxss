@@ -1,0 +1,26 @@
+.page { min-height: 100vh; padding-bottom: 60rpx; background: #f5f6fa; color: #172033; }
+.topbar { display: flex; align-items: center; position: sticky; top: 0; z-index: 5; padding-right: 30rpx; background: rgba(245,246,250,.94); backdrop-filter: blur(18rpx); }
+.back { width: 80rpx; color: #172033; font-size: 54rpx; font-weight: 300; }
+.title { flex: 1; text-align: center; font-size: 35rpx; font-weight: 950; }
+.topbar-mark { color: #8a94a7; font-size: 22rpx; font-weight: 800; }
+.content { padding: 24rpx 30rpx 0; }
+.loading-card, .form-card, .detail-card, .notice-card { margin: 24rpx 30rpx 0; padding: 28rpx; border-radius: 26rpx; background: #fff; box-shadow: 0 16rpx 36rpx rgba(24,34,52,.05); }
+.intro-card { padding: 38rpx 30rpx; color: #fff; border-radius: 30rpx; background: linear-gradient(135deg, #112542, #087e77); box-shadow: 0 20rpx 44rpx rgba(17,37,66,.2); }
+.eyebrow { display: block; color: #8df5d4; font-size: 19rpx; font-weight: 900; letter-spacing: 2rpx; }
+.headline { display: block; margin-top: 26rpx; font-size: 44rpx; line-height: 1.18; font-weight: 950; }
+.intro-copy { display: block; margin-top: 20rpx; color: rgba(255,255,255,.74); font-size: 25rpx; line-height: 1.6; }
+.notice-card { border: 2rpx solid #ffdfb5; background: #fff9ed; }
+.notice-title, .notice-copy { display: block; }
+.notice-title { color: #b76310; font-size: 29rpx; font-weight: 950; }.notice-copy { margin-top: 12rpx; color: #7f6b53; font-size: 25rpx; line-height: 1.5; }.text-button { margin: 20rpx 0 0; padding: 0; color: #e95d1d; text-align: left; font-size: 25rpx; font-weight: 900; }.text-button::after { border: 0; }
+.form-card { margin: 24rpx 0 0; }.section-label { display: block; margin-bottom: 24rpx; color: #172033; font-size: 29rpx; font-weight: 950; }.field { display: block; padding: 22rpx 0; border-bottom: 2rpx solid #eef0f4; }.field > text { display: block; margin-bottom: 12rpx; color: #6d7890; font-size: 23rpx; font-weight: 800; }.field input, .field textarea { width: 100%; color: #172033; font-size: 29rpx; }.field textarea { min-height: 120rpx; line-height: 1.5; }.field small { margin-left: 8rpx; color: #a3a9b5; font-weight: 500; }.picker-value { color: #172033; font-size: 29rpx; }.picker-value text { float: right; color: #9ca5b5; }
+.agreement { display: flex; gap: 12rpx; align-items: center; padding: 24rpx 0; color: #69758b; font-size: 23rpx; line-height: 1.4; }
+.agreement-box { display: grid; place-items: center; width: 34rpx; height: 34rpx; flex: 0 0 auto; border: 2rpx solid #c8ced8; border-radius: 8rpx; color: #fff; font-size: 25rpx; font-weight: 950; }
+.agreement-box.checked { border-color: #18a77a; background: #18a77a; }
+.submit-button { margin-top: 14rpx; height: 84rpx; color: #fff; background: linear-gradient(110deg, #ff4c25, #f31639); border-radius: 999rpx; font-size: 29rpx; font-weight: 950; }.submit-button::after { border: 0; }
+.state-card { margin: 24rpx 0; padding: 62rpx 32rpx 36rpx; text-align: center; border-radius: 30rpx; background: #fff; box-shadow: 0 16rpx 36rpx rgba(24,34,52,.06); }.state-mark { display: grid; place-items: center; width: 100rpx; height: 100rpx; margin: 0 auto 24rpx; color: #fff; border-radius: 32rpx; background: #ffad29; font-size: 48rpx; font-weight: 950; }.state-card.active .state-mark { background: #18a77a; }.state-card.blocked .state-mark { background: #8e96a6; }.state-title { display: block; color: #172033; font-size: 38rpx; font-weight: 950; }.state-copy { display: block; margin: 18rpx 0 28rpx; color: #768198; font-size: 26rpx; line-height: 1.65; }.state-card .submit-button { width: 100%; }
+.detail-card { margin: 0; }.detail-row { display: flex; justify-content: space-between; padding: 20rpx 0; border-top: 2rpx solid #eef0f4; color: #7b8597; font-size: 25rpx; }.detail-row text:last-child { color: #1d2638; font-weight: 850; }
+.apply-vehicle-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14rpx; }
+.apply-vehicle { min-height: 68rpx; padding: 0 16rpx; border: 2rpx solid #e5e9ef; border-radius: 16rpx; color: #68748a; background: #fafbfc; display: flex; align-items: center; gap: 10rpx; font-size: 24rpx; font-weight: 800; }
+.apply-vehicle.selected { border-color: #ff8b62; color: #c54a29; background: #fff1eb; }
+.apply-vehicle-check { width: 30rpx; height: 30rpx; border: 2rpx solid #c8ced8; border-radius: 8rpx; color: #fff; display: grid; place-items: center; font-size: 20rpx; font-weight: 950; }
+.apply-vehicle.selected .apply-vehicle-check { border-color: #ff5b2b; background: #ff5b2b; }

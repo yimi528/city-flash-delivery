@@ -1,19 +1,20 @@
-import { BadRequestException, Injectable, OnModuleInit, ServiceUnavailableException } from '@nestjs/common'
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { BadRequestException, Injectable, OnModuleInit, Optional, ServiceUnavailableException } from '@nestjs/common'
 import { Prisma, VehicleType } from '@prisma/client'
 import { PrismaService } from '../common/prisma/prisma.service'
 import { TencentMapService } from '../maps/tencent-map.service'
 import { CarpoolQuoteDto, HandlingQuoteDto, UpdatePricingRuleDto, UpdateServiceConfigDto } from './catalog.dto'
+import { ConfigCenterService } from '../config-center/config-center.service'
 
 const DEFAULT_SERVICES = [
   { id: 'carpool_ride', name: '拼车', sortOrder: 10, vehicleType: VehicleType.VAN, vehicleName: '7座商务车', passengerCapacity: 6 },
   { id: 'cargo_haul', name: '运货', sortOrder: 20, vehicleType: VehicleType.ETRIKE, vehicleName: '货三轮车', passengerCapacity: 0 },
-  { id: 'moving', name: '搬家', sortOrder: 30, vehicleType: VehicleType.VAN, vehicleName: '厢式货车', passengerCapacity: 0 },
-  { id: 'moving_handling', name: '搬运装卸', sortOrder: 40, vehicleType: VehicleType.MANUAL, vehicleName: '人力服务', passengerCapacity: 0 },
-  { id: 'send_parcel', name: '寄货', sortOrder: 50, vehicleType: VehicleType.VAN, vehicleName: '小车', passengerCapacity: 0 },
-  { id: 'urgent_delivery', name: '急送', sortOrder: 60, vehicleType: VehicleType.EBIKE, vehicleName: '二轮车', passengerCapacity: 0 },
-  { id: 'pickup', name: '帮取', sortOrder: 70, vehicleType: VehicleType.EBIKE, vehicleName: '二轮车', passengerCapacity: 0 },
-  { id: 'buy_for_me', name: '帮买', sortOrder: 80, vehicleType: VehicleType.EBIKE, vehicleName: '二轮车', passengerCapacity: 0 },
-  { id: 'pedicab_delivery', name: '送货/送客', sortOrder: 90, vehicleType: VehicleType.ETRIKE, vehicleName: '人力三轮车', passengerCapacity: 0 },
+  { id: 'moving_handling', name: '搬运装卸', sortOrder: 30, vehicleType: VehicleType.MANUAL, vehicleName: '人力服务', passengerCapacity: 0 },
+  { id: 'send_parcel', name: '寄货', sortOrder: 40, vehicleType: VehicleType.VAN, vehicleName: '小车', passengerCapacity: 0 },
+  { id: 'urgent_delivery', name: '急送', sortOrder: 50, vehicleType: VehicleType.EBIKE, vehicleName: '二轮车', passengerCapacity: 0 },
+  { id: 'pickup', name: '帮取', sortOrder: 60, vehicleType: VehicleType.EBIKE, vehicleName: '二轮车', passengerCapacity: 0 },
+  { id: 'buy_for_me', name: '帮买', sortOrder: 70, vehicleType: VehicleType.EBIKE, vehicleName: '二轮车', passengerCapacity: 0 },
+  { id: 'pedicab_delivery', name: '送货/送客', sortOrder: 80, vehicleType: VehicleType.ETRIKE, vehicleName: '人力三轮车', passengerCapacity: 0 },
 ]
 
 @Injectable()
@@ -21,6 +22,7 @@ export class CatalogService implements OnModuleInit {
   constructor(
     private readonly prisma: PrismaService,
     private readonly maps: TencentMapService,
+    @Optional() private readonly configCenter?: ConfigCenterService,
   ) {}
 
   async onModuleInit() {
@@ -30,6 +32,10 @@ export class CatalogService implements OnModuleInit {
       create: service,
     })))
     await Promise.all([
+      this.prisma.serviceCatalog.updateMany({
+        where: { id: 'moving' },
+        data: { enabled: false },
+      }),
       this.prisma.carpoolRoute.upsert({
         where: { id: 'cangnan' },
         update: {},
@@ -58,15 +64,23 @@ export class CatalogService implements OnModuleInit {
   }
 
   listServices() {
-    return this.prisma.serviceCatalog.findMany({ where: { enabled: true }, orderBy: { sortOrder: 'asc' } })
+    return this.prisma.serviceCatalog.findMany({
+      where: { enabled: true, id: { not: 'moving' } },
+      orderBy: { sortOrder: 'asc' },
+    })
   }
 
   async listCarpoolRoutes() {
-    const routes = await this.prisma.carpoolRoute.findMany({ where: { enabled: true }, orderBy: { unitPriceFen: 'asc' } })
-    return routes.map((route) => ({
+    const modernRoutes = (this.prisma as any).serviceRoute
+      ? await (this.prisma as any).serviceRoute.findMany({ where: { serviceId: 'carpool_ride', enabled: true }, orderBy: { unitPriceFen: 'asc' } })
+      : []
+    const routes = modernRoutes.length
+      ? modernRoutes.map((route: any) => ({ ...route, city: route.destinationName }))
+      : await this.prisma.carpoolRoute.findMany({ where: { enabled: true }, orderBy: { unitPriceFen: 'asc' } })
+    return routes.map((route: any) => ({
       ...route,
       origin: '福鼎',
-      destination: route.city,
+      destination: route.destinationName || route.city,
       unitPrice: route.unitPriceFen / 100,
       returnDestination: '福鼎',
     }))
@@ -74,13 +88,20 @@ export class CatalogService implements OnModuleInit {
 
   async quoteCarpool(userId: string, dto: CarpoolQuoteDto) {
     const [route, service] = await Promise.all([
-      this.prisma.carpoolRoute.findFirst({ where: { id: dto.routeId, enabled: true } }),
+      (this.prisma as any).serviceRoute
+        ? (this.prisma as any).serviceRoute.findFirst({ where: { id: dto.routeId, serviceId: 'carpool_ride', enabled: true } }).then((modern: any) => modern || this.prisma.carpoolRoute.findFirst({ where: { id: dto.routeId, enabled: true } }))
+        : this.prisma.carpoolRoute.findFirst({ where: { id: dto.routeId, enabled: true } }),
       this.getService('carpool_ride'),
     ])
     if (!route) throw new BadRequestException('拼车线路不存在或已停用')
     if (dto.passengerCount > service.passengerCapacity) throw new BadRequestException('乘车人数超过车型可用座位数')
+    const matchedRouteId = this.carpoolRouteId(dto)
+    if (!matchedRouteId) throw new BadRequestException('拼车地址仅支持苍南或温州境内')
+    if (matchedRouteId !== route.id) throw new BadRequestException('所选地址与拼车线路不匹配')
     const totalFen = route.unitPriceFen * dto.passengerCount
     const outbound = dto.direction === 'OUTBOUND'
+    const cityAddress = this.carpoolAddress(dto)
+    const fudingStop = { name: '福鼎', detail: '固定线路集合点，具体上车点由客服确认' }
     return this.prisma.quote.create({
       data: {
         userId,
@@ -88,15 +109,40 @@ export class CatalogService implements OnModuleInit {
         routeId: route.id,
         direction: dto.direction,
         passengerCount: dto.passengerCount,
-        pickup: { name: outbound ? '福鼎' : route.city },
-        dropoff: { name: outbound ? route.city : '福鼎' },
+        pickup: outbound ? fudingStop : cityAddress,
+        dropoff: outbound ? cityAddress : fudingStop,
         vehicleType: service.vehicleType,
         vehicleName: service.vehicleName,
         unitPriceFen: route.unitPriceFen,
         totalFen,
-        expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+        expiresAt: new Date(Date.now() + await this.quoteValidityMs()),
       },
     })
+  }
+
+  private carpoolRouteId(dto: CarpoolQuoteDto) {
+    const adcode = String(dto.addressAdcode || '')
+    const text = [dto.addressName, dto.addressDetail, dto.addressCity, dto.addressDistrict].filter(Boolean).join('')
+    if (adcode) {
+      if (adcode === '330327') return 'cangnan'
+      if (adcode.startsWith('3303')) return 'wenzhou'
+      return ''
+    }
+    if (/苍南县|苍南/.test(text)) return 'cangnan'
+    if (/温州市|温州/.test(text)) return 'wenzhou'
+    return ''
+  }
+
+  private carpoolAddress(dto: CarpoolQuoteDto): Prisma.InputJsonObject {
+    return {
+      name: dto.addressName,
+      detail: dto.addressDetail,
+      city: dto.addressCity || '',
+      district: dto.addressDistrict || '',
+      adcode: dto.addressAdcode || '',
+      ...(dto.addressLat ? { latitude: dto.addressLat } : {}),
+      ...(dto.addressLng ? { longitude: dto.addressLng } : {}),
+    }
   }
 
   async quoteHandling(userId: string, dto: HandlingQuoteDto) {
@@ -140,7 +186,7 @@ export class CatalogService implements OnModuleInit {
         totalFen,
         pricingRuleVersion: rule.version,
         requiresDelivery: dto.requiresDelivery,
-        expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+        expiresAt: new Date(Date.now() + await this.quoteValidityMs()),
       },
     })
   }
@@ -179,5 +225,10 @@ export class CatalogService implements OnModuleInit {
 
   private addressJson(name: string, detail: string, latitude: number, longitude: number): Prisma.InputJsonObject {
     return { name, detail, latitude, longitude }
+  }
+
+  private async quoteValidityMs() {
+    const setting = await (this.prisma as any).platformSetting?.findUnique?.({ where: { id: 'platform' }, select: { quoteValidityMinutes: true } })
+    return Number(setting?.quoteValidityMinutes || 10) * 60 * 1000
   }
 }

@@ -42,6 +42,7 @@ jobs:
           apps/customer-mp/tests/service-flow.test.js
           apps/customer-mp/tests/map-backend.test.js
           apps/customer-mp/tests/auth-payment.test.js
+          apps/customer-mp/tests/rider-mode.test.js
 
   rider-mini-program:
     runs-on: ubuntu-latest
@@ -50,7 +51,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: find apps/rider-mp -name '*.js' -print0 | xargs -0 -n1 node --check
+      - run: >-
+          find apps/customer-mp apps/rider-mp -name '*.js' -print0 |
+          xargs -0 -n1 node --check
 
   merchant-web:
     runs-on: ubuntu-latest

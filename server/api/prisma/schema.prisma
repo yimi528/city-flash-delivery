@@ -36,6 +36,22 @@ enum RiderStatus {
   APPROVED
   SUSPENDED
   REJECTED
+  WITHDRAWN
+  CANCELLED
+}
+
+enum RoleStatus {
+  ACTIVE
+  SUSPENDED
+  RESIGNED
+  DISABLED
+}
+
+enum RiderWorkStatus {
+  OFFLINE
+  ONLINE
+  DELIVERING
+  PAUSED
 }
 
 enum AssignmentMethod {
@@ -75,36 +91,66 @@ enum PaymentRecordStatus {
   CLOSED
 }
 
+enum ConfigCategory {
+  PRICING
+  SERVICE_AREA
+  SYSTEM
+}
+
+enum RoutePriceUnit {
+  PER_PERSON
+  PER_ORDER
+}
+
 model User {
-  id          String    @id @default(cuid())
-  openid      String?   @unique
-  phone       String?
-  nickname    String
-  avatarUrl   String    @default("")
-  memberLevel String    @default("NORMAL")
-  role        UserRole  @default(CUSTOMER)
-  addresses   Address[]
-  orders      Order[]
-  quotes      Quote[]
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id                String               @id @default(cuid())
+  openid            String?              @unique
+  phone             String?
+  nickname          String
+  avatarUrl         String               @default("")
+  memberLevel       String               @default("NORMAL")
+  role              UserRole             @default(CUSTOMER)
+  preferredRole     UserRole             @default(CUSTOMER)
+  addresses         Address[]
+  orders            Order[]
+  quotes            Quote[]
+  roleAssignments   UserRoleAssignment[]
+  riderApplications RiderApplication[]
+  riderProfile      RiderProfile?
+  notifications     Notification[]
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
 
   @@map("users")
 }
 
 model Operator {
-  id        String   @id @default(cuid())
-  username  String   @unique
-  name      String
-  phone     String?
-  passwordHash String @default("")
-  role      UserRole @default(OPERATOR)
-  enabled   Boolean  @default(true)
-  lastLoginAt DateTime?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id           String    @id @default(cuid())
+  username     String    @unique
+  name         String
+  phone        String?
+  passwordHash String    @default("")
+  role         UserRole  @default(OPERATOR)
+  enabled      Boolean   @default(true)
+  lastLoginAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
   @@map("operators")
+}
+
+model UserRoleAssignment {
+  id        String     @id @default(cuid())
+  userId    String
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      UserRole
+  status    RoleStatus @default(ACTIVE)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  @@unique([userId, role])
+  @@index([role, status])
+  @@map("user_role_assignments")
 }
 
 model Address {
@@ -115,8 +161,10 @@ model Address {
   detail    String
   contact   String
   phone     String
+  tag       String                                 @default("")
   city      String                                 @default("")
   district  String                                 @default("")
+  adcode    String                                 @default("")
   latitude  Decimal?                               @db.Decimal(10, 7)
   longitude Decimal?                               @db.Decimal(10, 7)
   location  Unsupported("geography(Point, 4326)")?
@@ -126,6 +174,7 @@ model Address {
   updatedAt DateTime                               @updatedAt
 
   @@index([userId])
+  @@index([userId, isDefault])
   @@map("addresses")
 }
 
@@ -148,15 +197,15 @@ model VehicleProfile {
 }
 
 model ServiceCatalog {
-  id                String      @id
+  id                String       @id
   name              String
   sortOrder         Int
   vehicleType       VehicleType?
-  vehicleName       String      @default("")
-  passengerCapacity Int         @default(0)
-  enabled           Boolean     @default(true)
-  createdAt         DateTime    @default(now())
-  updatedAt         DateTime    @updatedAt
+  vehicleName       String       @default("")
+  passengerCapacity Int          @default(0)
+  enabled           Boolean      @default(true)
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
 
   @@index([enabled, sortOrder])
   @@map("service_catalog")
@@ -182,6 +231,10 @@ model PricingRule {
   perKmFen               Int      @default(0)
   minimumFeeFen          Int      @default(0)
   maxDistanceMeters      Int      @default(50000)
+  pricingMode            String   @default("distance")
+  serviceSurchargeFen    Int      @default(0)
+  maxFeeFen              Int      @default(0)
+  weatherMultiplierBps   Int      @default(10000)
   version                Int      @default(1)
   enabled                Boolean  @default(true)
   createdAt              DateTime @default(now())
@@ -190,60 +243,160 @@ model PricingRule {
   @@map("pricing_rules")
 }
 
+model ServiceRoute {
+  id              String         @id
+  serviceId       String
+  originName      String         @default("福鼎")
+  destinationName String
+  priceUnit       RoutePriceUnit
+  unitPriceFen    Int
+  enabled         Boolean        @default(true)
+  sortOrder       Int            @default(0)
+  version         Int            @default(1)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@index([serviceId, enabled, sortOrder])
+  @@map("service_routes")
+}
+
 model Quote {
-  id                 String      @id @default(cuid())
+  id                 String       @id @default(cuid())
   userId             String
-  user               User        @relation(fields: [userId], references: [id])
+  user               User         @relation(fields: [userId], references: [id])
   serviceId          String
   routeId            String?
-  direction          String      @default("")
-  passengerCount     Int         @default(1)
+  direction          String       @default("")
+  passengerCount     Int          @default(1)
   pickup             Json?
   dropoff            Json?
-  distanceMeters     Int         @default(0)
+  distanceMeters     Int          @default(0)
   vehicleType        VehicleType?
-  vehicleName        String      @default("")
-  unitPriceFen       Int         @default(0)
-  baseFeeFen         Int         @default(0)
-  distanceFeeFen     Int         @default(0)
+  vehicleName        String       @default("")
+  unitPriceFen       Int          @default(0)
+  baseFeeFen         Int          @default(0)
+  distanceFeeFen     Int          @default(0)
+  weatherFeeFen      Int          @default(0)
+  productFeeFen      Int          @default(0)
+  priceBreakdown     Json?
+  configVersions     Json?
   totalFen           Int
-  pricingRuleVersion Int         @default(1)
-  requiresDelivery   Boolean     @default(false)
+  pricingRuleVersion Int          @default(1)
+  requiresDelivery   Boolean      @default(false)
   expiresAt          DateTime
   usedAt             DateTime?
-  createdAt          DateTime    @default(now())
+  createdAt          DateTime     @default(now())
 
   @@index([userId, expiresAt])
   @@map("quotes")
 }
 
 model RiderProfile {
-  id                   String              @id @default(cuid())
-  openid               String?             @unique
-  name                 String
-  phone                String              @default("")
-  status               RiderStatus         @default(PENDING)
-  vehicleType          VehicleType?
-  vehicleName          String              @default("")
-  handlingQualified    Boolean             @default(false)
-  online               Boolean             @default(false)
-  latitude             Decimal?            @db.Decimal(10, 7)
-  longitude            Decimal?            @db.Decimal(10, 7)
-  serviceCity          String              @default("宁德市")
-  maxActiveOrders      Int                 @default(1)
-  lastLocationAt       DateTime?
-  lastLoginAt          DateTime?
-  application          Json?
-  enabled              Boolean             @default(true)
-  qualifications       RiderQualification[]
-  orders               Order[]
-  assignments          OrderAssignment[]
-  idempotencyRecords   RiderIdempotency[]
-  createdAt            DateTime            @default(now())
-  updatedAt            DateTime            @updatedAt
+  id                 String               @id @default(cuid())
+  userId             String?              @unique
+  user               User?                @relation(fields: [userId], references: [id], onDelete: SetNull)
+  openid             String?              @unique
+  name               String
+  phone              String               @default("")
+  status             RiderStatus          @default(PENDING)
+  roleStatus         RoleStatus           @default(SUSPENDED)
+  workStatus         RiderWorkStatus      @default(OFFLINE)
+  vehicleType        VehicleType?
+  vehicleName        String               @default("")
+  handlingQualified  Boolean              @default(false)
+  online             Boolean              @default(false)
+  latitude           Decimal?             @db.Decimal(10, 7)
+  longitude          Decimal?             @db.Decimal(10, 7)
+  serviceCity        String               @default("宁德市")
+  maxActiveOrders    Int                  @default(1)
+  lastSeenAt         DateTime?
+  lastLocationAt     DateTime?
+  lastLoginAt        DateTime?
+  application        Json?
+  enabled            Boolean              @default(true)
+  qualifications     RiderQualification[]
+  vehicles           RiderVehicle[]
+  orders             Order[]
+  assignments        OrderAssignment[]
+  idempotencyRecords RiderIdempotency[]
+  applications       RiderApplication[]
+  statusLogs         RiderStatusLog[]
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
 
   @@index([status, online])
   @@map("rider_profiles")
+}
+
+model RiderApplication {
+  id                 String        @id @default(cuid())
+  userId             String
+  user               User          @relation(fields: [userId], references: [id], onDelete: Restrict)
+  riderId            String?
+  rider              RiderProfile? @relation(fields: [riderId], references: [id], onDelete: SetNull)
+  status             RiderStatus   @default(PENDING)
+  realName           String
+  phone              String
+  verificationStatus String        @default("UNVERIFIED")
+  vehicleType        VehicleType
+  vehicleName        String        @default("")
+  vehicleTypes       VehicleType[]  @default([])
+  statement          String        @default("")
+  agreementAccepted  Boolean       @default(false)
+  submittedAt        DateTime      @default(now())
+  reviewedAt         DateTime?
+  reviewedBy         String        @default("")
+  rejectionReason    String        @default("")
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  @@index([userId, createdAt])
+  @@index([status, createdAt])
+  @@map("rider_applications")
+}
+
+model RiderStatusLog {
+  id         String       @id @default(cuid())
+  riderId    String
+  rider      RiderProfile @relation(fields: [riderId], references: [id], onDelete: Cascade)
+  oldStatus  RoleStatus
+  newStatus  RoleStatus
+  reason     String
+  operatedBy String
+  createdAt  DateTime     @default(now())
+
+  @@index([riderId, createdAt])
+  @@map("rider_status_logs")
+}
+
+model RiderVehicle {
+  id          String       @id @default(cuid())
+  riderId     String
+  rider       RiderProfile @relation(fields: [riderId], references: [id], onDelete: Cascade)
+  vehicleType VehicleType
+  vehicleName String       @default("")
+  enabled     Boolean      @default(true)
+  verified    Boolean      @default(true)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@unique([riderId, vehicleType])
+  @@index([riderId, enabled, verified])
+  @@map("rider_vehicles")
+}
+
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String
+  title     String
+  content   String
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, createdAt])
+  @@map("notifications")
 }
 
 model RiderQualification {
@@ -259,73 +412,73 @@ model RiderQualification {
 }
 
 model Order {
-  id               String                                 @id @default(cuid())
-  orderNo          String                                 @unique
-  userId           String
-  user             User                                   @relation(fields: [userId], references: [id])
-  serviceType      ServiceType
-  serviceName      String                                 @default("")
-  taskId           String                                 @default("")
-  direction        String                                 @default("")
-  routeId          String?
-  passengerCount   Int                                    @default(1)
-  unitPriceFen     Int                                    @default(0)
-  totalFeeFen      Int                                    @default(0)
-  baseFeeFen       Int                                    @default(0)
-  distanceFeeFen   Int                                    @default(0)
-  pricingRuleVersion Int                                  @default(1)
-  requiresDelivery Boolean                                @default(false)
-  status           OrderStatus                            @default(PENDING)
-  paymentStatus    PaymentStatus                          @default(UNPAID)
-  pickupName       String
-  pickupDetail     String
-  pickupContact    String
-  pickupPhone      String
-  pickupLat        Decimal?                               @db.Decimal(10, 7)
-  pickupLng        Decimal?                               @db.Decimal(10, 7)
-  pickupLocation   Unsupported("geography(Point, 4326)")?
-  dropoffName      String
-  dropoffDetail    String
-  dropoffContact   String
-  dropoffPhone     String
-  dropoffLat       Decimal?                               @db.Decimal(10, 7)
-  dropoffLng       Decimal?                               @db.Decimal(10, 7)
-  dropoffLocation  Unsupported("geography(Point, 4326)")?
-  itemName         String
-  buyItems         String                                 @default("")
-  weightKg         Decimal                                @db.Decimal(8, 2)
-  distanceKm       Decimal                                @db.Decimal(8, 2)
-  vehicleType      VehicleType                            @default(EBIKE)
-  vehicleName      String                                 @default("")
-  vehicleId        String?
-  vehicle          VehicleProfile?                        @relation(fields: [vehicleId], references: [id])
-  riderId          String?
-  rider            RiderProfile?                          @relation(fields: [riderId], references: [id])
-  acceptedAt       DateTime?
-  arrivedAt        DateTime?
-  version          Int                                    @default(0)
-  pricingMode      String                                 @default("distance")
-  isManualQuote    Boolean                                @default(false)
-  quotedFee        Decimal?                               @db.Decimal(8, 2)
-  quoteStatus      QuoteStatus                            @default(NONE)
-  quoteNote        String                                 @default("")
-  quoteUpdatedAt   DateTime?
-  quoteRespondedAt DateTime?
-  baseFee          Decimal                                @db.Decimal(8, 2)
-  distanceFee      Decimal                                @db.Decimal(8, 2)
-  weightFee        Decimal                                @db.Decimal(8, 2)
-  vehicleFee       Decimal                                @db.Decimal(8, 2)
-  discountFee      Decimal                                @db.Decimal(8, 2)
-  productFee       Decimal                                @default(0) @db.Decimal(8, 2)
-  deliveryFee      Decimal                                @default(0) @db.Decimal(8, 2)
-  estimatedFee     Decimal                                @default(0) @db.Decimal(8, 2)
-  totalFee         Decimal                                @db.Decimal(8, 2)
-  remark           String                                 @default("")
-  statusLogs       OrderStatusLog[]
-  payment          PaymentRecord?
-  assignments      OrderAssignment[]
-  createdAt        DateTime                               @default(now())
-  updatedAt        DateTime                               @updatedAt
+  id                 String                                 @id @default(cuid())
+  orderNo            String                                 @unique
+  userId             String
+  user               User                                   @relation(fields: [userId], references: [id])
+  serviceType        ServiceType
+  serviceName        String                                 @default("")
+  taskId             String                                 @default("")
+  direction          String                                 @default("")
+  routeId            String?
+  passengerCount     Int                                    @default(1)
+  unitPriceFen       Int                                    @default(0)
+  totalFeeFen        Int                                    @default(0)
+  baseFeeFen         Int                                    @default(0)
+  distanceFeeFen     Int                                    @default(0)
+  pricingRuleVersion Int                                    @default(1)
+  requiresDelivery   Boolean                                @default(false)
+  status             OrderStatus                            @default(PENDING)
+  paymentStatus      PaymentStatus                          @default(UNPAID)
+  pickupName         String
+  pickupDetail       String
+  pickupContact      String
+  pickupPhone        String
+  pickupLat          Decimal?                               @db.Decimal(10, 7)
+  pickupLng          Decimal?                               @db.Decimal(10, 7)
+  pickupLocation     Unsupported("geography(Point, 4326)")?
+  dropoffName        String
+  dropoffDetail      String
+  dropoffContact     String
+  dropoffPhone       String
+  dropoffLat         Decimal?                               @db.Decimal(10, 7)
+  dropoffLng         Decimal?                               @db.Decimal(10, 7)
+  dropoffLocation    Unsupported("geography(Point, 4326)")?
+  itemName           String
+  buyItems           String                                 @default("")
+  weightKg           Decimal                                @db.Decimal(8, 2)
+  distanceKm         Decimal                                @db.Decimal(8, 2)
+  vehicleType        VehicleType                            @default(EBIKE)
+  vehicleName        String                                 @default("")
+  vehicleId          String?
+  vehicle            VehicleProfile?                        @relation(fields: [vehicleId], references: [id])
+  riderId            String?
+  rider              RiderProfile?                          @relation(fields: [riderId], references: [id])
+  acceptedAt         DateTime?
+  arrivedAt          DateTime?
+  version            Int                                    @default(0)
+  pricingMode        String                                 @default("distance")
+  isManualQuote      Boolean                                @default(false)
+  quotedFee          Decimal?                               @db.Decimal(8, 2)
+  quoteStatus        QuoteStatus                            @default(NONE)
+  quoteNote          String                                 @default("")
+  quoteUpdatedAt     DateTime?
+  quoteRespondedAt   DateTime?
+  baseFee            Decimal                                @db.Decimal(8, 2)
+  distanceFee        Decimal                                @db.Decimal(8, 2)
+  weightFee          Decimal                                @db.Decimal(8, 2)
+  vehicleFee         Decimal                                @db.Decimal(8, 2)
+  discountFee        Decimal                                @db.Decimal(8, 2)
+  productFee         Decimal                                @default(0) @db.Decimal(8, 2)
+  deliveryFee        Decimal                                @default(0) @db.Decimal(8, 2)
+  estimatedFee       Decimal                                @default(0) @db.Decimal(8, 2)
+  totalFee           Decimal                                @db.Decimal(8, 2)
+  remark             String                                 @default("")
+  statusLogs         OrderStatusLog[]
+  payment            PaymentRecord?
+  assignments        OrderAssignment[]
+  createdAt          DateTime                               @default(now())
+  updatedAt          DateTime                               @updatedAt
 
   @@index([userId, createdAt])
   @@index([status, createdAt])
@@ -411,12 +564,84 @@ model OrderStatusLog {
 }
 
 model ServiceArea {
-  id        String                                   @id @default(cuid())
-  name      String
-  enabled   Boolean                                  @default(true)
-  boundary  Unsupported("geography(Polygon, 4326)")?
-  createdAt DateTime                                 @default(now())
-  updatedAt DateTime                                 @updatedAt
+  id              String                                   @id @default(cuid())
+  name            String
+  enabled         Boolean                                  @default(true)
+  boundaryGeoJson Json?
+  sortOrder       Int                                      @default(0)
+  version         Int                                      @default(1)
+  boundary        Unsupported("geography(Polygon, 4326)")?
+  bindings        ServiceAreaBinding[]
+  createdAt       DateTime                                 @default(now())
+  updatedAt       DateTime                                 @updatedAt
 
   @@map("service_areas")
+}
+
+model ServiceAreaBinding {
+  id            String      @id @default(cuid())
+  serviceAreaId String
+  serviceArea   ServiceArea @relation(fields: [serviceAreaId], references: [id], onDelete: Cascade)
+  serviceId     String
+  createdAt     DateTime    @default(now())
+
+  @@unique([serviceAreaId, serviceId])
+  @@index([serviceId])
+  @@map("service_area_bindings")
+}
+
+model ServiceCoveragePolicy {
+  serviceId          String   @id
+  enforcementEnabled Boolean  @default(false)
+  version            Int      @default(1)
+  updatedAt          DateTime @updatedAt
+
+  @@map("service_coverage_policies")
+}
+
+model PlatformSetting {
+  id                     String   @id @default("platform")
+  acceptingOrders        Boolean  @default(true)
+  closureReason          String   @default("")
+  timeZone               String   @default("Asia/Shanghai")
+  weeklyHours            Json
+  customerServicePhone   String   @default("")
+  announcementEnabled    Boolean  @default(false)
+  announcementTitle      String   @default("")
+  announcementContent    String   @default("")
+  quoteValidityMinutes   Int      @default(10)
+  riderOrderRadiusMeters Int      @default(30000)
+  riderMaxActiveOrders   Int      @default(1)
+  allowCancelBeforeClaim Boolean  @default(true)
+  version                Int      @default(1)
+  publishedAt            DateTime @default(now())
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  @@map("platform_settings")
+}
+
+model ConfigDraft {
+  id          String         @id @default(cuid())
+  category    ConfigCategory @unique
+  baseVersion Int
+  payload     Json
+  updatedBy   String
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  @@map("config_drafts")
+}
+
+model ConfigRevision {
+  id          String         @id @default(cuid())
+  category    ConfigCategory
+  version     Int
+  payload     Json
+  publishedBy String
+  publishedAt DateTime       @default(now())
+
+  @@unique([category, version])
+  @@index([category, publishedAt])
+  @@map("config_revisions")
 }

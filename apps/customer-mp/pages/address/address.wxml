@@ -8,19 +8,19 @@
 
   <view class="search-card">
     <text class="search-icon">⌕</text>
-    <input placeholder="搜索小区、写字楼、门店" value="{{keyword}}" bindinput="onSearch" confirm-type="search" />
+    <input placeholder="{{isCarpool ? '搜索苍南或温州地点' : '搜索小区、写字楼、门店'}}" value="{{keyword}}" bindinput="onSearch" confirm-type="search" />
     <view class="locate-btn" bindtap="locateCurrent">{{isLocating ? '定位中' : '定位'}}</view>
   </view>
 
   <view class="hint-card">
     <view>
-      <view class="hint-title">腾讯地图地址搜索</view>
-      <view class="hint-sub">{{locationTip}}，搜索结果可直接带回下单页。</view>
+      <view class="hint-title">{{isCarpool ? '拼车地址范围' : '腾讯地图地址搜索'}}</view>
+      <view class="hint-sub">{{locationTip}}。{{scopeTip || '搜索结果可直接带回下单页。'}}</view>
     </view>
     <view class="hint-action" bindtap="locateCurrent">重新定位</view>
   </view>
 
-  <view class="current-card" wx:if="{{currentAddress}}" bindtap="chooseCurrent">
+  <view class="current-card" wx:if="{{currentAddress && !isCarpool}}" bindtap="chooseCurrent">
     <view class="pin current">定</view>
     <view class="info">
       <view class="name">{{currentAddress.name}} <text>{{currentAddress.distance}}</text></view>
@@ -31,9 +31,9 @@
   </view>
 
   <view class="list-header">
-    <view>{{keyword ? '搜索结果' : '我的地址'}}</view>
+    <view>{{keyword ? '搜索结果' : (isCarpool ? '苍南 / 温州推荐' : '我的地址')}}</view>
     <view class="list-sub" wx:if="{{isSearching}}">正在搜索腾讯地图...</view>
-    <view class="list-sub" wx:elif="{{keyword}}">包含地址簿和地图建议</view>
+    <view class="list-sub" wx:elif="{{keyword}}">{{isCarpool ? '仅显示可匹配拼车线路的地点' : '包含地址簿和地图建议'}}</view>
   </view>
 
   <view class="address-list">

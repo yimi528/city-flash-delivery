@@ -1,8 +1,10 @@
 const app = getApp()
 const api = require('../../utils/api')
 const map = require('../../utils/map')
+const carpool = require('../../utils/carpool')
 
-function addressMeta(type) {
+function addressMeta(type, isCarpool) {
+  if (isCarpool) return { title: '选择苍南/温州地址', pinLabel: '拼', pinClass: 'pickup', toast: '已匹配拼车线路' }
   if (type === 'pickup') return { title: '选择发货地址', pinLabel: '发', pinClass: 'pickup', toast: '已选发货地址' }
   if (type === 'purchase') return { title: '选择购买地址', pinLabel: '买', pinClass: 'purchase', toast: '已选购买地址' }
   return { title: '选择收货地址', pinLabel: '收', pinClass: 'dropoff', toast: '已选收货地址' }
@@ -39,6 +41,7 @@ Page({
   data: {
     statusBarHeight: 24,
     type: 'dropoff',
+    isCarpool: false,
     title: '选择收货地址',
     pinLabel: '收',
     pinClass: 'dropoff',
@@ -48,22 +51,28 @@ Page({
     currentAddress: null,
     isLocating: false,
     isSearching: false,
-    locationTip: '点击定位后，会按当前位置推荐附近地址'
+    locationTip: '点击定位后，会按当前位置推荐附近地址',
+    scopeTip: ''
   },
 
   onLoad(query) {
     const type = query.type || 'dropoff'
-    const meta = addressMeta(type)
+    const isCarpool = query.mode === 'carpool'
+    const meta = addressMeta(type, isCarpool)
     this.searchSeq = 0
     this.setData({
       statusBarHeight: app.globalData.statusBarHeight,
       type,
+      isCarpool,
       title: meta.title,
       pinLabel: meta.pinLabel,
       pinClass: meta.pinClass,
       currentAddress: app.globalData.currentAddress || null,
-      addresses: app.globalData.addresses
+      addresses: app.globalData.addresses,
+      locationTip: isCarpool ? '仅显示苍南或温州境内地址' : '点击定位后，会按当前位置推荐附近地址',
+      scopeTip: isCarpool ? '选择后会自动匹配苍南线或温州线' : ''
     })
+    if (isCarpool) this.loadCarpoolRecommendations()
   },
 
   onShow() {
@@ -88,17 +97,21 @@ Page({
     const keyword = this.data.keyword.trim()
     const origin = app.globalData.currentLocation
     const localAddresses = (source || []).filter((item) => {
+      if (this.data.isCarpool && !carpool.isAllowedAddress(item)) return false
       return !keyword || item.name.indexOf(keyword) > -1 || item.detail.indexOf(keyword) > -1 || (item.tag || '').indexOf(keyword) > -1
     }).map((item) => decorateAddress(item, origin, { isMapResult: false, sourceLabel: item.tag || '常用' }))
 
-    const mapResults = keyword ? this.data.mapResults : []
+    const mapResults = keyword || this.data.isCarpool ? this.data.mapResults : []
     this.setData({ addresses: mergeUnique(localAddresses.concat(mapResults)) })
   },
 
   onSearch(event) {
     const keyword = event.detail.value.trim()
     this.setData({ keyword, mapResults: keyword ? this.data.mapResults : [] }, () => this.applySearch(app.globalData.addresses))
-    if (!keyword) return
+    if (!keyword) {
+      if (this.data.isCarpool) this.loadCarpoolRecommendations()
+      return
+    }
     this.searchMap(keyword)
   },
 
@@ -107,15 +120,36 @@ Page({
     this.searchSeq = searchSeq
     this.setData({ isSearching: true })
     map.searchAddress(keyword, {
-      region: app.globalData.city,
+      region: this.data.isCarpool ? '温州市' : app.globalData.city,
       location: app.globalData.currentLocation
     }).then((results) => {
       if (this.searchSeq !== searchSeq || this.data.keyword !== keyword) return
-      const mapResults = results.map((item) => decorateAddress(item, app.globalData.currentLocation, {
+      const scopedResults = this.data.isCarpool ? results.filter(carpool.isAllowedAddress) : results
+      const mapResults = scopedResults.map((item) => decorateAddress(item, app.globalData.currentLocation, {
         isMapResult: true,
         sourceLabel: item.source === 'tencent' ? '腾讯地图' : '地图建议'
       }))
       this.setData({ mapResults, isSearching: false }, () => this.applySearch(app.globalData.addresses))
+    }).catch(() => {
+      if (this.searchSeq === searchSeq) this.setData({ mapResults: [], isSearching: false })
+    })
+  },
+
+  loadCarpoolRecommendations() {
+    const searchSeq = (this.searchSeq || 0) + 1
+    this.searchSeq = searchSeq
+    this.setData({ isSearching: true })
+    Promise.all([
+      map.searchAddress('苍南', { region: '温州市' }),
+      map.searchAddress('温州', { region: '温州市' })
+    ]).then((groups) => {
+      if (this.searchSeq !== searchSeq || this.data.keyword) return
+      const mapResults = mergeUnique([].concat.apply([], groups).filter(carpool.isAllowedAddress)).map((item) => decorateAddress(item, app.globalData.currentLocation, {
+        isMapResult: true,
+        sourceLabel: item.source === 'tencent' ? '腾讯地图推荐' : '拼车地点推荐'
+      }))
+      this.setData({ mapResults, isSearching: false })
+      this.applySearch(app.globalData.addresses)
     }).catch(() => {
       if (this.searchSeq === searchSeq) this.setData({ mapResults: [], isSearching: false })
     })
@@ -158,22 +192,34 @@ Page({
 
   selectAddress(address) {
     const selected = Object.assign({}, address)
+    if (this.data.isCarpool) {
+      const route = carpool.applySelectedAddress(app.globalData.draftOrder, selected, this.data.type)
+      if (!route) {
+        wx.showToast({ title: '拼车仅支持苍南或温州境内地址', icon: 'none' })
+        return
+      }
+      wx.showToast({ title: `已自动匹配${route.name}线`, icon: 'success' })
+      setTimeout(() => wx.navigateBack(), 350)
+      return
+    }
     const key = draftKey(this.data.type)
     app.globalData.draftOrder[key] = selected
     app.globalData.draftOrder.routeDistanceKm = 0
     app.globalData.draftOrder.routeDistanceSource = ''
     app.globalData.draftOrder.routeDuration = ''
-    wx.showToast({ title: addressMeta(this.data.type).toast, icon: 'success' })
+    wx.showToast({ title: addressMeta(this.data.type, false).toast, icon: 'success' })
     setTimeout(() => wx.navigateBack(), 350)
   },
 
   addAddress() {
-    wx.navigateTo({ url: `/pages/address-edit/address-edit?type=${this.data.type}` })
+    const mode = this.data.isCarpool ? '&mode=carpool' : ''
+    wx.navigateTo({ url: `/pages/address-edit/address-edit?type=${this.data.type}${mode}` })
   },
 
   editAddress(event) {
     const id = event.currentTarget.dataset.id
-    wx.navigateTo({ url: `/pages/address-edit/address-edit?type=${this.data.type}&id=${id}` })
+    const mode = this.data.isCarpool ? '&mode=carpool' : ''
+    wx.navigateTo({ url: `/pages/address-edit/address-edit?type=${this.data.type}&id=${id}${mode}` })
   },
 
   deleteAddress(event) {

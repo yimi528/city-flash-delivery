@@ -5,6 +5,29 @@ const test = require('node:test')
 const vm = require('node:vm')
 
 const customerRoot = path.resolve(__dirname, '..')
+const carpool = require('../utils/carpool')
+
+const CANGNAN_ADDRESS = {
+  id: 'test-cangnan',
+  name: '苍南站',
+  detail: '浙江省温州市苍南县灵溪镇站前大道',
+  city: '温州市',
+  district: '苍南县',
+  adcode: '330327',
+  latitude: 27.5364,
+  longitude: 120.4164
+}
+
+const WENZHOU_ADDRESS = {
+  id: 'test-wenzhou',
+  name: '温州南站',
+  detail: '浙江省温州市瓯海区工业路',
+  city: '温州市',
+  district: '瓯海区',
+  adcode: '330304',
+  latitude: 27.9727,
+  longitude: 120.5856
+}
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value))
@@ -87,7 +110,6 @@ test('all services create an order with their fixed vehicle', () => {
   const cases = [
     { id: 'carpool_ride', service: '拼车', vehicle: 'business_van', alternate: 'ebike' },
     { id: 'cargo_haul', service: '运货', vehicle: 'cargo_tricycle', alternate: 'small_car' },
-    { id: 'moving', service: '搬家', vehicle: 'moving_van', alternate: 'ebike' },
     { id: 'moving_handling', service: '搬运装卸', vehicle: 'manual_labor', alternate: 'small_car' },
     { id: 'send_parcel', service: '寄货', vehicle: 'small_car', alternate: 'ebike' },
     { id: 'urgent_delivery', service: '急送', vehicle: 'ebike', alternate: 'small_car' },
@@ -101,8 +123,12 @@ test('all services create an order with their fixed vehicle', () => {
   cases.forEach((flow) => {
     index.chooseTask(event({ task: flow.id }))
     const draft = app.globalData.draftOrder
-    draft.pickup = app.globalData.addresses[0]
-    draft.dropoff = app.globalData.addresses[1]
+    if (flow.id === 'carpool_ride') {
+      carpool.applySelectedAddress(draft, CANGNAN_ADDRESS, 'dropoff')
+    } else {
+      draft.pickup = app.globalData.addresses[0]
+      draft.dropoff = app.globalData.addresses[1]
+    }
     draft.routeDistanceKm = 2.5
     if (flow.id === 'buy_for_me') {
       draft.buyItems = '测试商品'
@@ -132,11 +158,118 @@ test('all services create an order with their fixed vehicle', () => {
   })
 })
 
+test('all eight services keep their form choices selectable', () => {
+  const cases = [
+    {
+      id: 'carpool_ride',
+      select(page, event) {
+        page.selectLine(event({ id: 'wenzhou' }))
+        assert.equal(page.data.selectedLineId, 'wenzhou')
+      }
+    },
+    {
+      id: 'cargo_haul',
+      select(page, event) {
+        page.selectItem(event({ item: '家具家电' }))
+        page.selectWeight(event({ weight: 10 }))
+        assert.equal(page.data.selectedItem, '家具家电')
+        assert.equal(page.data.selectedWeight, 10)
+      }
+    },
+    {
+      id: 'moving_handling',
+      select(page, event) {
+        page.selectItem(event({ item: '卸货' }))
+        assert.equal(page.data.selectedItem, '卸货')
+      }
+    },
+    {
+      id: 'send_parcel',
+      select(page, event) {
+        page.selectLine(event({ id: 'cangnan_parcel' }))
+        page.selectItem(event({ item: '数码配件' }))
+        page.selectWeight(event({ weight: 5 }))
+        assert.equal(page.data.selectedLineId, 'cangnan_parcel')
+        assert.equal(page.data.selectedItem, '数码配件')
+        assert.equal(page.data.selectedWeight, 5)
+      }
+    },
+    {
+      id: 'urgent_delivery',
+      select(page, event) {
+        page.selectItem(event({ item: '鲜花蛋糕' }))
+        assert.equal(page.data.selectedItem, '鲜花蛋糕')
+      }
+    },
+    {
+      id: 'pickup',
+      select(page, event) {
+        page.selectItem(event({ item: '文件证件' }))
+        assert.equal(page.data.selectedItem, '文件证件')
+      }
+    },
+    {
+      id: 'buy_for_me',
+      select(page, event) {
+        page.inputBuyItems(event({}, { value: '两盒纯牛奶' }))
+        page.inputBudget(event({}, { value: '26' }))
+        assert.equal(page.data.estimate.productFee, '26.0')
+      }
+    },
+    {
+      id: 'pedicab_delivery',
+      select(page, event) {
+        page.selectItem(event({ item: '小件行李' }))
+        assert.equal(page.data.selectedItem, '小件行李')
+      }
+    }
+  ]
+
+  cases.forEach((flow) => {
+    const { app, event, loadPage } = createHarness()
+    const index = loadPage('pages/index/index.js')
+    index.onShow()
+    index.chooseTask(event({ task: flow.id }))
+    const page = loadPage('pages/order-create/order-create.js')
+    page.onShow()
+    flow.select(page, event)
+    assert.equal(app.globalData.draftOrder.taskId, flow.id)
+  })
+})
+
+test('legacy moving entry opens the unified handling service', () => {
+  const { app, event, loadPage } = createHarness()
+  const index = loadPage('pages/index/index.js')
+  index.onShow()
+  index.chooseTask(event({ task: 'moving' }))
+
+  assert.equal(app.globalData.draftOrder.taskId, 'moving_handling')
+  assert.equal(app.globalData.draftOrder.service, '搬运装卸')
+  assert.equal(index.data.activeTask.id, 'moving_handling')
+})
+
+test('switching from carpool to cargo clears the carpool-only destination', () => {
+  const { app, event, loadPage } = createHarness()
+  const index = loadPage('pages/index/index.js')
+
+  index.onShow()
+  index.chooseTask(event({ task: 'carpool_ride' }))
+  assert.equal(app.globalData.draftOrder.dropoff.needsAddressSelection, true)
+
+  index.chooseTask(event({ task: 'cargo_haul' }))
+
+  assert.equal(app.globalData.draftOrder.taskId, 'cargo_haul')
+  assert.equal(app.globalData.draftOrder.pickup.name, '福鼎')
+  assert.equal(app.globalData.draftOrder.dropoff, null)
+  assert.equal(index.data.draft.dropoff, null)
+})
+
 test('carpool fare follows passenger count and return always ends in Fuding', () => {
   const { app, event, loadPage } = createHarness()
   const index = loadPage('pages/index/index.js')
   index.onShow()
   index.chooseTask(event({ task: 'carpool_ride' }))
+  carpool.applySelectedAddress(app.globalData.draftOrder, WENZHOU_ADDRESS, 'dropoff')
   const page = loadPage('pages/order-create/order-create.js')
   page.onShow()
   page.selectLine(event({ id: 'wenzhou' }))
@@ -145,9 +278,32 @@ test('carpool fare follows passenger count and return always ends in Fuding', ()
   assert.equal(page.data.passengerCount, 3)
   assert.equal(Number(page.data.estimate.total), 450)
   page.selectDirection(event({ direction: 'RETURN' }))
-  assert.equal(app.globalData.draftOrder.pickup.name, '温州')
+  assert.equal(app.globalData.draftOrder.pickup.name, '温州南站')
   assert.equal(app.globalData.draftOrder.dropoff.name, '福鼎')
   assert.equal(Number(page.data.estimate.total), 450)
+})
+
+test('carpool address selection only accepts Cangnan or Wenzhou and matches the route', async () => {
+  const { app, calls, event, loadPage } = createHarness()
+  const index = loadPage('pages/index/index.js')
+  index.onShow()
+  index.chooseTask(event({ task: 'carpool_ride' }))
+
+  const addressPage = loadPage('pages/address/address.js')
+  addressPage.onLoad({ type: 'dropoff', mode: 'carpool' })
+  await new Promise((resolve) => setTimeout(resolve, 20))
+
+  assert.ok(addressPage.data.addresses.length >= 2)
+  assert.ok(addressPage.data.addresses.every((item) => carpool.isAllowedAddress(item)))
+
+  addressPage.selectAddress(WENZHOU_ADDRESS)
+  assert.equal(app.globalData.draftOrder.selectedLine.id, 'wenzhou')
+  assert.equal(app.globalData.draftOrder.direction, 'OUTBOUND')
+  assert.equal(app.globalData.draftOrder.dropoff.name, '温州南站')
+
+  const before = calls.length
+  addressPage.selectAddress(app.globalData.addresses[0])
+  assert.equal(calls[before].options.title, '拼车仅支持苍南或温州境内地址')
 })
 
 test('handling-only order charges a fixed fee without a destination', () => {
@@ -194,7 +350,6 @@ test('all services expose cancellation before payment', () => {
   const taskIds = [
     'carpool_ride',
     'cargo_haul',
-    'moving',
     'moving_handling',
     'send_parcel',
     'urgent_delivery',
@@ -208,8 +363,12 @@ test('all services expose cancellation before payment', () => {
     const index = loadPage('pages/index/index.js')
     index.onShow()
     index.chooseTask(event({ task: taskId }))
-    app.globalData.draftOrder.pickup = app.globalData.addresses[0]
-    app.globalData.draftOrder.dropoff = app.globalData.addresses[1]
+    if (taskId === 'carpool_ride') {
+      carpool.applySelectedAddress(app.globalData.draftOrder, CANGNAN_ADDRESS, 'dropoff')
+    } else {
+      app.globalData.draftOrder.pickup = app.globalData.addresses[0]
+      app.globalData.draftOrder.dropoff = app.globalData.addresses[1]
+    }
     if (taskId === 'buy_for_me') {
       app.globalData.draftOrder.buyItems = '取消测试商品'
       app.globalData.draftOrder.budget = 20

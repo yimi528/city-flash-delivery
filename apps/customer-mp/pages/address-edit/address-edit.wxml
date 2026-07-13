@@ -9,14 +9,14 @@
   <view class="map-card">
     <view class="map-head">
       <view>
-        <view class="map-title">腾讯地图定位</view>
-        <view class="map-sub">搜索小区/门店，或一键填入当前位置</view>
+        <view class="map-title">{{isCarpool ? '苍南 / 温州地点' : '腾讯地图定位'}}</view>
+        <view class="map-sub">{{isCarpool ? '拼车仅可保存苍南或温州境内地址' : '搜索小区/门店，或一键填入当前位置'}}</view>
       </view>
       <view class="locate-action" bindtap="useCurrentLocation">{{isLocating ? '定位中' : '当前位置'}}</view>
     </view>
     <view class="map-search">
       <text>⌕</text>
-      <input value="{{mapKeyword}}" placeholder="输入小区、写字楼、门店名称" bindinput="inputMapKeyword" confirm-type="search" />
+      <input value="{{mapKeyword}}" placeholder="{{isCarpool ? '搜索苍南或温州地点' : '输入小区、写字楼、门店名称'}}" bindinput="inputMapKeyword" confirm-type="search" />
     </view>
     <view class="map-loading" wx:if="{{isSearching}}">正在搜索腾讯地图...</view>
     <view class="map-results" wx:if="{{mapResults.length}}">

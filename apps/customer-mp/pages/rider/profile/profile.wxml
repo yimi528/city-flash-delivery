@@ -1,0 +1,63 @@
+<view class="rider-page profile-page">
+  <view class="profile-hero" wx:if="{{rider}}">
+    <view class="hero-topline">
+      <text class="hero-eyebrow">RIDER ACCOUNT</text>
+      <view class="status-pill"><text class="status-dot"></text><text>{{statusText}}</text></view>
+    </view>
+    <view class="hero-identity">
+      <view class="avatar">骑</view>
+      <view class="identity"><view class="name">{{rider.name}}</view><view class="hero-caption">同城速送认证骑手</view></view>
+      <view class="role-badge">骑手模式</view>
+    </view>
+    <view class="hero-footer">
+      <view class="hero-meta"><text>当前车型</text><view>{{vehicleSummary || rider.vehicleName || '待配置车型'}}</view></view>
+      <view class="hero-divider"></view>
+      <view class="hero-meta"><text>服务区域</text><view>{{rider.serviceCity || '宁德市'}}</view></view>
+    </view>
+  </view>
+
+  <view class="section-heading overview-heading" wx:if="{{rider}}"><text>履约概览</text><text class="section-note">实时数据</text></view>
+  <view class="rider-card overview-card" wx:if="{{rider}}">
+    <view class="metric"><view class="value-line"><text class="value">{{income.completedOrders}}</text><text class="value-unit">单</text></view><view class="metric-label">已完成配送</view></view>
+    <view class="metric-divider"></view>
+    <view class="metric"><view class="value-line"><text class="value money">¥{{income.grossAmountFen / 100}}</text></view><view class="metric-label">累计订单金额</view></view>
+  </view>
+
+  <view class="section-heading profile-heading" wx:if="{{rider}}"><text>服务档案</text><text class="section-note">运营审核信息</text></view>
+  <view class="rider-card profile-list" wx:if="{{rider}}">
+    <view class="record-row"><view class="record-icon city">城</view><view class="record-copy"><text>服务城市</text><text>当前接单区域</text></view><text class="record-value">{{rider.serviceCity || '宁德市'}}</text></view>
+    <view class="record-row"><view class="record-icon vehicle">车</view><view class="record-copy"><text>配送车型</text><text>可使用已登记车型接单</text></view><text class="record-value">{{vehicleSummary || rider.vehicleName || '待配置'}}</text></view>
+    <view class="record-row"><view class="record-icon qualification">证</view><view class="record-copy"><text>搬运资格</text><text>大件搬运权限</text></view><text class="record-value {{rider.handlingQualified ? 'enabled' : ''}}">{{rider.handlingQualified ? '已开通' : '未开通'}}</text></view>
+    <view class="record-row"><view class="record-icon work">状</view><view class="record-copy"><text>接单状态</text><text>可在抢单页调整</text></view><text class="record-value">{{workStatusText}}</text></view>
+  </view>
+
+  <view class="section-heading vehicle-heading" wx:if="{{rider && rider.status === 'APPROVED' && (!rider.roleStatus || rider.roleStatus === 'ACTIVE')}}"><text>可接单车型</text><text class="section-note">可多选 · 可全部取消</text></view>
+  <view class="rider-card vehicle-editor" wx:if="{{rider && rider.status === 'APPROVED' && (!rider.roleStatus || rider.roleStatus === 'ACTIVE')}}">
+    <view class="vehicle-options">
+      <view wx:for="{{vehicleOptions}}" wx:key="value" class="vehicle-option {{item.selected ? 'selected' : ''}}" data-type="{{item.value}}" bindtap="toggleVehicle">
+        <view class="vehicle-check">{{item.selected ? '✓' : ''}}</view><text>{{item.label}}</text>
+      </view>
+    </view>
+    <button class="save-vehicles" bindtap="saveVehicles" loading="{{savingVehicles}}">保存配送车型</button>
+  </view>
+
+  <button class="switch-user" wx:if="{{rider}}" bindtap="switchToCustomer" loading="{{switchingRole}}">
+    <view class="switch-glyph">↔</view>
+    <view class="switch-copy"><text>切换到用户端</text></view>
+    <text class="switch-arrow">›</text>
+  </button>
+
+  <view class="section-heading history-heading" wx:if="{{rider}}"><text>历史订单</text><text class="section-count">{{historyItems.length}}</text></view>
+  <view class="rider-card history-card" wx:if="{{rider}}">
+    <block wx:for="{{historyItems}}" wx:key="id">
+      <view class="history-row"><view class="history-copy"><text>{{item.serviceName}}</text><text>{{item.dateText}}</text></view><text class="history-status">{{item.statusText}}</text></view>
+    </block>
+    <view class="history-empty" wx:if="{{!historyItems.length}}"><view class="history-empty-icon"></view><text>暂无历史订单</text><text>完成的配送任务会保存在这里</text></view>
+  </view>
+
+  <view class="rider-nav">
+    <view class="rider-nav-item" data-page="hall" bindtap="goRiderPage"><view class="rider-nav-glyph hall"></view><text class="rider-nav-label">抢单</text></view>
+    <view class="rider-nav-item" data-page="tasks" bindtap="goRiderPage"><view class="rider-nav-glyph tasks"></view><text class="rider-nav-label">任务</text></view>
+    <view class="rider-nav-item active"><view class="rider-nav-glyph profile"></view><text class="rider-nav-label">我的</text></view>
+  </view>
+</view>

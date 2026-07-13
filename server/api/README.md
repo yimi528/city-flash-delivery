@@ -1,6 +1,6 @@
 # NestJS API Skeleton
 
-This is the planned production backend for the city flash delivery project. It does not replace the current Python MVP yet. Use it as the migration target for TypeScript + NestJS + PostgreSQL/PostGIS + Redis.
+This is the current MVP backend for the city flash delivery project. The older Python/SQLite server remains only as a legacy compatibility demo; all current customer, rider, operations, pricing, and configuration flows use this NestJS + PostgreSQL/PostGIS + Redis service.
 
 ## Stack
 
@@ -41,6 +41,8 @@ Health check:
 http://127.0.0.1:3000/api/health
 ```
 
+If startup reports `EADDRINUSE` for port `3000`, another API instance is already running. Keep that instance and verify it with the health-check URL instead of starting a second copy.
+
 ## Current Scope
 
 This skeleton includes route/module placeholders for:
@@ -53,6 +55,26 @@ This skeleton includes route/module placeholders for:
 - `pricing`: delivery price estimate using fixed vehicle rules.
 - `maps`: server-side Tencent address search, reverse geocoding, route distance, and automatic bad-weather risk endpoints.
 - `health`: health check.
+
+## Unified customer and rider identity
+
+The customer and rider roles now share the same `users` row. A customer submits a rider application from the customer mini program; an operator review transaction creates or activates the `RIDER` role assignment and the rider profile. Rejected applications do not affect customer access, and suspend/resign operations only disable rider capabilities.
+
+New endpoints:
+
+- `GET /api/v1/account/roles`
+- `POST /api/v1/account/switch-role`
+- `POST /api/v1/rider/applications`
+- `GET /api/v1/rider/applications/current`
+- `POST /api/operations/riders/:id/review`
+- `GET /api/operations/riders`
+- `POST /api/operations/riders/:id/suspend|restore|resign`
+
+Apply the Prisma migration before using the new flow:
+
+```bash
+npm run prisma:deploy
+```
 
 ## Migration Plan
 

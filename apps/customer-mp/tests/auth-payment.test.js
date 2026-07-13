@@ -37,6 +37,52 @@ test('WeChat login sends the temporary code and profile to the backend', async (
   assert.equal(result.user.id, 'user-1')
 })
 
+test('network failures preserve the WeChat request error message', async () => {
+  requestHandler = (options) => {
+    options.fail({ errMsg: 'request:fail connect ECONNREFUSED 127.0.0.1:3000' })
+  }
+
+  await assert.rejects(
+    api.getOrders('demo-user'),
+    /ECONNREFUSED 127\.0\.0\.1:3000/
+  )
+})
+
+test('address writes only send the persisted backend fields', async () => {
+  requestHandler = (options) => {
+    assert.match(options.url, /\/addresses$/)
+    assert.equal(options.method, 'POST')
+    assert.equal(options.header.Authorization, 'Bearer signed-customer-token')
+    assert.equal(options.data.name, '苍南站')
+    assert.equal(options.data.adcode, '330327')
+    assert.equal(options.data.latitude, 27.5364)
+    assert.equal(options.data.longitude, 120.4164)
+    assert.equal('id' in options.data, false)
+    assert.equal('userId' in options.data, false)
+    assert.equal('distanceKm' in options.data, false)
+    options.success({ statusCode: 201, data: { id: 'address-1', ...options.data } })
+  }
+
+  const result = await api.createAddress({
+    id: 'temporary-id',
+    userId: 'forged-user',
+    name: '苍南站',
+    detail: '浙江省温州市苍南县灵溪镇站前大道',
+    contact: '测试用户',
+    phone: '13800000001',
+    tag: '常用',
+    city: '温州市',
+    district: '苍南县',
+    adcode: 330327,
+    latitude: '27.5364',
+    longitude: '120.4164',
+    distanceKm: 99,
+    isDefault: true
+  })
+
+  assert.equal(result.id, 'address-1')
+})
+
 test('payment requests include the bearer token and confirm development mock payments', async () => {
   const paths = []
   requestHandler = (options) => {

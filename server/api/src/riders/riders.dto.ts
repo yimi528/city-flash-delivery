@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer'
-import { IsArray, IsBoolean, IsIn, IsInt, IsNumber, IsOptional, IsString, Max, Min } from 'class-validator'
+import { ArrayNotEmpty, IsArray, IsBoolean, IsIn, IsInt, IsNumber, IsOptional, IsString, Max, Min } from 'class-validator'
 
 export class RiderOnlineDto {
   @IsBoolean()
@@ -14,6 +14,18 @@ export class RiderLocationDto {
   @Type(() => Number)
   @IsNumber()
   longitude!: number
+}
+
+export class RiderHeartbeatDto {
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  latitude?: number
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  longitude?: number
 }
 
 export class RiderStatusDto {
@@ -36,6 +48,12 @@ export class RiderApplicationDto {
   vehicleType!: 'EBIKE' | 'ETRIKE' | 'VAN' | 'MANUAL'
 
   @IsOptional()
+  @IsArray()
+  @ArrayNotEmpty()
+  @IsIn(['EBIKE', 'ETRIKE', 'VAN', 'MANUAL'], { each: true })
+  vehicleTypes?: Array<'EBIKE' | 'ETRIKE' | 'VAN' | 'MANUAL'>
+
+  @IsOptional()
   @IsString()
   vehicleName?: string
 
@@ -47,6 +65,18 @@ export class RiderApplicationDto {
   @IsArray()
   @IsString({ each: true })
   documentUrls?: string[]
+
+  @IsOptional()
+  @IsString()
+  statement?: string
+
+  @IsOptional()
+  @IsString()
+  verificationStatus?: string
+
+  @IsOptional()
+  @IsBoolean()
+  agreementAccepted?: boolean
 }
 
 export class ReviewRiderDto {
@@ -55,6 +85,12 @@ export class ReviewRiderDto {
 
   @IsIn(['EBIKE', 'ETRIKE', 'VAN', 'MANUAL'])
   vehicleType!: 'EBIKE' | 'ETRIKE' | 'VAN' | 'MANUAL'
+
+  @IsOptional()
+  @IsArray()
+  @ArrayNotEmpty()
+  @IsIn(['EBIKE', 'ETRIKE', 'VAN', 'MANUAL'], { each: true })
+  vehicleTypes?: Array<'EBIKE' | 'ETRIKE' | 'VAN' | 'MANUAL'>
 
   @IsString()
   vehicleName!: string
@@ -76,6 +112,21 @@ export class ReviewRiderDto {
   @Min(1)
   @Max(10)
   maxActiveOrders?: number
+
+  @IsOptional()
+  @IsString()
+  reason?: string
+}
+
+export class RiderVehicleUpdateDto {
+  @IsArray()
+  @IsIn(['EBIKE', 'ETRIKE', 'VAN', 'MANUAL'], { each: true })
+  vehicleTypes!: Array<'EBIKE' | 'ETRIKE' | 'VAN' | 'MANUAL'>
+}
+
+export class RiderStatusChangeDto {
+  @IsString()
+  reason!: string
 }
 
 export class RiderExceptionDto {

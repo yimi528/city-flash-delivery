@@ -31,6 +31,7 @@ Page({
     displayName: '微信授权登录',
     accountCaption: '登录后管理订单与支付',
     memberLevel: '登录领取权益',
+    riderState: null,
     stats: [
       { label: '账户余额', value: '0', badge: '' },
       { label: '优惠券', value: '6', badge: '' }
@@ -41,6 +42,7 @@ Page({
   onShow() {
     this.syncUserState()
     this.validateSession()
+    if (app.globalData.isLoggedIn && app.globalData.useBackend) this.loadRiderState()
   },
 
   syncUserState() {
@@ -76,6 +78,41 @@ Page({
     })
   },
 
+  loadRiderState() {
+    api.getAccountRoles().then((state) => {
+      app.globalData.accountRoles = state.roles || app.globalData.accountRoles
+      this.setData({ riderState: state })
+    }).catch(() => {})
+  },
+
+  openRiderCenter() {
+    if (!this.data.isLoggedIn) {
+      this.login()
+      return
+    }
+    const state = this.data.riderState || {}
+    const rider = state.rider || {}
+    const roleStatus = String(rider.roleStatus || '').toLowerCase()
+    if (roleStatus === 'active') {
+      wx.showModal({
+        title: '切换到骑手模式',
+        content: '将在当前小程序内进入骑手工作台，用户账号和历史订单都会保留。',
+        confirmText: '继续',
+        success: (result) => {
+          if (!result.confirm) return
+          api.switchAccountRole('rider').then((session) => {
+            app.setRiderSession(session)
+            wx.reLaunch({ url: '/pages/rider/order-hall/order-hall' })
+          }).catch((error) => {
+            wx.showToast({ title: (error && (error.message || error.errMsg)) || '骑手模式切换失败', icon: 'none' })
+          })
+        }
+      })
+      return
+    }
+    wx.navigateTo({ url: '/pages/rider-apply/rider-apply' })
+  },
+
   login() {
     const fallbackLogin = () => {
       const user = {
@@ -97,13 +134,14 @@ Page({
       }
       this.setData({ isLoggingIn: true })
       api.wechatLogin({ code, userInfo: { nickName: '微信用户' } }).then((result) => {
-        app.setCurrentUser(result.user, result.token)
+        app.setCurrentUser(Object.assign({}, result.user, { roles: result.roles, currentRole: result.currentRole }), result.token)
         this.syncUserState()
+        this.loadRiderState()
         wx.showToast({ title: '登录成功', icon: 'success' })
       }).catch((error) => {
         wx.showToast({ title: error.message || '微信登录失败', icon: 'none' })
       }).finally(() => {
-        this.setData({ isLoggingIn: false })
+      this.setData({ isLoggingIn: false })
       })
     }
 

@@ -1,6 +1,7 @@
 const app = getApp()
 const api = require('../../utils/api')
 const map = require('../../utils/map')
+const carpool = require('../../utils/carpool')
 
 function emptyForm() {
   return {
@@ -15,6 +16,7 @@ function emptyForm() {
     longitude: '',
     city: '',
     district: '',
+    adcode: '',
     mapPoiId: '',
     isDefault: false
   }
@@ -37,6 +39,7 @@ function normalizeAddress(form) {
     location: latitude !== '' && longitude !== '' ? { latitude, longitude } : null,
     city: form.city || app.globalData.city || '',
     district: form.district || '',
+    adcode: form.adcode || '',
     mapPoiId: form.mapPoiId || '',
     isDefault: !!form.isDefault
   }
@@ -52,6 +55,7 @@ function fillFromMapAddress(form, address) {
     longitude: address.longitude || '',
     city: address.city || form.city || app.globalData.city || '',
     district: address.district || form.district || '',
+    adcode: address.adcode || form.adcode || '',
     mapPoiId: address.mapPoiId || address.id || form.mapPoiId || ''
   })
 }
@@ -61,6 +65,7 @@ Page({
     statusBarHeight: 24,
     title: '新增地址',
     type: 'dropoff',
+    isCarpool: false,
     form: emptyForm(),
     tags: ['家', '公司', '门店', '学校', '商场', '药店'],
     mapKeyword: '',
@@ -77,6 +82,7 @@ Page({
       statusBarHeight: app.globalData.statusBarHeight,
       title: id ? '编辑地址' : '新增地址',
       type: query.type || 'dropoff',
+      isCarpool: query.mode === 'carpool',
       form: source ? Object.assign(emptyForm(), source, { distanceKm: source.distanceKm || Number(String(source.distance || '1').replace('km', '')) || 1 }) : emptyForm()
     })
   },
@@ -101,11 +107,12 @@ Page({
     this.searchSeq = searchSeq
     this.setData({ isSearching: true })
     map.searchAddress(keyword, {
-      region: app.globalData.city,
+      region: this.data.isCarpool ? '温州市' : app.globalData.city,
       location: app.globalData.currentLocation
     }).then((results) => {
       if (this.searchSeq !== searchSeq || this.data.mapKeyword !== keyword) return
-      this.setData({ mapResults: results.slice(0, 6), isSearching: false })
+      const scopedResults = this.data.isCarpool ? results.filter(carpool.isAllowedAddress) : results
+      this.setData({ mapResults: scopedResults.slice(0, 6), isSearching: false })
     }).catch(() => {
       if (this.searchSeq === searchSeq) this.setData({ mapResults: [], isSearching: false })
     })
@@ -166,6 +173,10 @@ Page({
       wx.showToast({ title: '请填写地址名称和详情', icon: 'none' })
       return
     }
+    if (this.data.isCarpool && !carpool.isAllowedAddress(payload)) {
+      wx.showToast({ title: '拼车地址仅支持苍南或温州境内', icon: 'none' })
+      return
+    }
 
     const done = (address, title) => {
       this.saveLocal(address)
@@ -181,8 +192,8 @@ Page({
     const request = payload.id ? api.updateAddress(payload.id, payload) : api.createAddress(payload)
     request.then((address) => {
       done(address, payload.id ? '已保存地址' : '已新增地址')
-    }).catch(() => {
-      done(payload, '已保存到本地')
+    }).catch((error) => {
+      wx.showToast({ title: error.message || '地址保存失败，请稍后重试', icon: 'none' })
     })
   },
 

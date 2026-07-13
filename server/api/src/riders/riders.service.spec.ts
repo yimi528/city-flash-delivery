@@ -1,4 +1,4 @@
-import { OrderStatus, PaymentStatus, QuoteStatus, RiderStatus, VehicleType } from '@prisma/client'
+import { OrderStatus, PaymentStatus, QuoteStatus, RiderStatus, RoleStatus, VehicleType } from '@prisma/client'
 import { RidersService } from './riders.service'
 
 describe('RidersService atomic claim', () => {
@@ -58,5 +58,90 @@ describe('RidersService atomic claim', () => {
     expect(results.filter((result) => result.status === 'rejected')).toHaveLength(99)
     expect(tx.orderAssignment.create).toHaveBeenCalledTimes(1)
     expect(tx.outboxEvent.create).toHaveBeenCalledTimes(1)
+  })
+
+  it('records a presence heartbeat separately from the last known location', async () => {
+    const rider = {
+      id: 'rider-1',
+      online: true,
+      status: RiderStatus.APPROVED,
+      lastSeenAt: null,
+      qualifications: [],
+    }
+    const update = jest.fn().mockResolvedValue({ ...rider, lastSeenAt: new Date() })
+    const prisma = {
+      riderProfile: { findUnique: jest.fn().mockResolvedValue(rider), update },
+    }
+    const service = new RidersService(prisma as never, { get: jest.fn() } as never)
+
+    await service.heartbeat(rider.id, {})
+
+    expect(update).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: rider.id },
+      data: { lastSeenAt: expect.any(Date) },
+    }))
+  })
+
+  it('marks a rider offline after the presence heartbeat expires', async () => {
+    const rider = {
+      id: 'rider-1',
+      online: true,
+      status: RiderStatus.APPROVED,
+      enabled: true,
+      lastSeenAt: new Date(Date.now() - 120_000),
+      qualifications: [],
+    }
+    const update = jest.fn().mockResolvedValue({ ...rider, online: false, qualifications: [] })
+    const prisma = {
+      riderProfile: { findUnique: jest.fn().mockResolvedValue(rider), update },
+    }
+    const service = new RidersService(prisma as never, { get: jest.fn().mockReturnValue('90') } as never)
+
+    const profile = await service.profile(rider.id)
+
+    expect(profile.online).toBe(false)
+    expect(update).toHaveBeenCalledWith(expect.objectContaining({ data: { online: false } }))
+  })
+
+  it('creates a pending application under the existing customer identity', async () => {
+    const application = { id: 'application-1', userId: 'user-1', status: RiderStatus.PENDING }
+    const rider = { id: 'rider-1', userId: 'user-1' }
+    const tx = {
+      riderProfile: { upsert: jest.fn().mockResolvedValue(rider) },
+      riderApplication: { create: jest.fn().mockResolvedValue(application) },
+    }
+    const prisma = {
+      user: { findUnique: jest.fn().mockResolvedValue({ id: 'user-1' }) },
+      userRoleAssignment: { findUnique: jest.fn().mockResolvedValue(null) },
+      riderApplication: { findFirst: jest.fn().mockResolvedValue(null) },
+      $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)),
+    }
+    const service = new RidersService(prisma as never, { get: jest.fn() } as never)
+
+    const result = await service.applyForUser('user-1', {
+      name: '陈先生',
+      phone: '13800000000',
+      vehicleType: 'ETRIKE',
+      agreementAccepted: true,
+    })
+
+    expect(result).toEqual(application)
+    expect(tx.riderApplication.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ userId: 'user-1', riderId: 'rider-1', status: RiderStatus.PENDING }),
+    }))
+  })
+
+  it('rejects online access immediately after rider role suspension', async () => {
+    const rider = {
+      id: 'rider-1',
+      status: RiderStatus.APPROVED,
+      roleStatus: RoleStatus.SUSPENDED,
+      online: false,
+      qualifications: [],
+    }
+    const prisma = { riderProfile: { findUnique: jest.fn().mockResolvedValue(rider) } }
+    const service = new RidersService(prisma as never, { get: jest.fn() } as never)
+
+    await expect(service.setOnline(rider.id, true)).rejects.toThrow('有效')
   })
 })

@@ -1,9 +1,9 @@
-import { Body, Controller, Get, Headers, Param, Post, UseGuards } from '@nestjs/common'
+import { Body, Controller, Get, Headers, Param, Post, Put, UseGuards } from '@nestjs/common'
 import { ApiTags } from '@nestjs/swagger'
 import { CurrentAuth } from '../auth/current-auth.decorator'
 import { RiderAuthGuard } from '../auth/auth.guard'
 import { AuthPrincipal } from '../auth/auth-token.service'
-import { RiderApplicationDto, RiderExceptionDto, RiderLocationDto, RiderOnlineDto, RiderStatusDto } from './riders.dto'
+import { RiderApplicationDto, RiderExceptionDto, RiderHeartbeatDto, RiderLocationDto, RiderOnlineDto, RiderStatusDto, RiderVehicleUpdateDto } from './riders.dto'
 import { RidersService } from './riders.service'
 
 @ApiTags('riders')
@@ -30,6 +30,16 @@ export class RidersController {
   @Post('location')
   updateLocation(@CurrentAuth() auth: AuthPrincipal, @Body() dto: RiderLocationDto) {
     return this.riders.updateLocation(auth.subjectId, dto)
+  }
+
+  @Post('heartbeat')
+  heartbeat(@CurrentAuth() auth: AuthPrincipal, @Body() dto: RiderHeartbeatDto) {
+    return this.riders.heartbeat(auth.subjectId, dto)
+  }
+
+  @Put('vehicles')
+  updateVehicles(@CurrentAuth() auth: AuthPrincipal, @Body() dto: RiderVehicleUpdateDto) {
+    return this.riders.updateVehicles(auth.subjectId, dto)
   }
 
   @Get('orders/available')

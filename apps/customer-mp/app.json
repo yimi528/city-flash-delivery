@@ -10,7 +10,11 @@
     "pages/order-detail/order-detail",
     "pages/orders/orders",
     "pages/message/message",
-    "pages/profile/profile"
+    "pages/profile/profile",
+    "pages/rider-apply/rider-apply",
+    "pages/rider/order-hall/order-hall",
+    "pages/rider/tasks/tasks",
+    "pages/rider/profile/profile"
   ],
   "window": {
     "navigationStyle": "custom",
