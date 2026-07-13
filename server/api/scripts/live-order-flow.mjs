@@ -28,18 +28,6 @@ async function request(path, options = {}) {
   return data
 }
 
-async function expectConflict(path, body) {
-  const response = await fetch(`${apiBase}${path}`, {
-    method: 'PATCH',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${operatorToken}`
-    },
-    body: JSON.stringify(body)
-  })
-  assert.equal(response.status, 409, `${path} should return HTTP 409`)
-}
-
 async function expectSyncedState(orderId, expected) {
   const customerOrder = await request(`/orders/${encodeURIComponent(orderId)}`, {
     token: customerToken
@@ -157,57 +145,34 @@ async function run() {
   assert.equal(paidDelivery.paymentStatus, 'PAID')
   const completedDelivery = await fulfill(delivery.id)
 
+  const handlingQuote = await request('/v1/quotes/handling', {
+    method: 'POST',
+    token: customerToken,
+    body: {
+      requiresDelivery: false,
+      pickupName: '联调搬运起点',
+      pickupDetail: '测试数据，完成后自动清理',
+      pickupLat: 26.6659,
+      pickupLng: 119.5476
+    }
+  })
+  assert.ok(handlingQuote.id, 'handling quote should be created')
+
   const moving = await createOrder({
+    quoteId: handlingQuote.id,
     serviceType: 'CARGO',
     serviceName: '搬运装卸',
     vehicleType: 'ETRIKE',
     vehicleName: '货三轮车',
-    pricingMode: 'manual_quote',
-    basePrice: 28,
-    extraPerKm: 2.8,
-    serviceSurcharge: 20,
-    maxDeliveryFee: 138,
     item: '搬家/搬店'
   })
-  assert.equal(moving.quoteStatus, 'PENDING')
+  assert.equal(moving.quoteStatus, 'NONE')
   await expectSyncedState(moving.id, {
-    step: '用户下单，等待商家报价',
-    businessStatus: 'AWAITING_QUOTE',
-    businessStatusText: '待商家报价',
-    status: 'PENDING',
-    quoteStatus: 'PENDING',
-    paymentStatus: 'UNPAID'
-  })
-  await expectConflict(`/operations/orders/${encodeURIComponent(moving.id)}/status`, { status: 'ACCEPTED' })
-
-  const quoted = await request(`/operations/orders/${encodeURIComponent(moving.id)}/quote`, {
-    method: 'PATCH',
-    token: operatorToken,
-    body: { quotedFee: 66, quoteNote: '联调测试最终报价' }
-  })
-  assert.equal(quoted.quoteStatus, 'QUOTED')
-  assert.equal(quoted.deliveryFee, 66)
-  await expectSyncedState(moving.id, {
-    step: '商家提交最终报价',
-    businessStatus: 'AWAITING_QUOTE_CONFIRMATION',
-    businessStatusText: '待确认报价',
-    status: 'PENDING',
-    quoteStatus: 'QUOTED',
-    paymentStatus: 'UNPAID'
-  })
-
-  const confirmed = await request(`/orders/${encodeURIComponent(moving.id)}/quote/confirm`, {
-    method: 'PATCH',
-    token: customerToken,
-    body: {}
-  })
-  assert.equal(confirmed.quoteStatus, 'ACCEPTED')
-  await expectSyncedState(moving.id, {
-    step: '用户接受报价',
+    step: '用户获取后端报价并下单',
     businessStatus: 'AWAITING_PAYMENT',
     businessStatusText: '待支付',
     status: 'PENDING',
-    quoteStatus: 'ACCEPTED',
+    quoteStatus: 'NONE',
     paymentStatus: 'UNPAID'
   })
   const movingPrepay = await request(`/payments/orders/${encodeURIComponent(moving.id)}/prepay`, {
@@ -225,7 +190,7 @@ async function run() {
     businessStatus: 'PENDING',
     businessStatusText: '待接单',
     status: 'PENDING',
-    quoteStatus: 'ACCEPTED',
+    quoteStatus: 'NONE',
     paymentStatus: 'PAID'
   })
   const completedMoving = await fulfill(moving.id, [
@@ -234,7 +199,7 @@ async function run() {
       businessStatus: 'ACCEPTED',
       businessStatusText: '已接单',
       status: 'ACCEPTED',
-      quoteStatus: 'ACCEPTED',
+      quoteStatus: 'NONE',
       paymentStatus: 'PAID'
     },
     {
@@ -242,7 +207,7 @@ async function run() {
       businessStatus: 'PICKING_UP',
       businessStatusText: '上门途中',
       status: 'PICKING_UP',
-      quoteStatus: 'ACCEPTED',
+      quoteStatus: 'NONE',
       paymentStatus: 'PAID'
     },
     {
@@ -250,7 +215,7 @@ async function run() {
       businessStatus: 'DELIVERING',
       businessStatusText: '搬运中',
       status: 'DELIVERING',
-      quoteStatus: 'ACCEPTED',
+      quoteStatus: 'NONE',
       paymentStatus: 'PAID'
     },
     {
@@ -258,7 +223,7 @@ async function run() {
       businessStatus: 'COMPLETED',
       businessStatusText: '已完成',
       status: 'COMPLETED',
-      quoteStatus: 'ACCEPTED',
+      quoteStatus: 'NONE',
       paymentStatus: 'PAID'
     }
   ])

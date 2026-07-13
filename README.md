@@ -238,8 +238,12 @@ WECHAT_PAY_API_V3_KEY=32字节APIv3Key
 WECHAT_PAY_PLATFORM_CERT_SERIAL=微信支付平台证书序列号
 WECHAT_PAY_PLATFORM_CERT_PATH=/绝对路径/wechatpay_platform.pem
 WECHAT_PAY_NOTIFY_URL=https://你的域名/api/payments/wechat/notify
+WECHAT_PAY_REFUND_NOTIFY_URL=https://你的域名/api/payments/wechat/refund-notify
+WECHAT_PAY_AUTO_RECONCILIATION_ENABLED=true
 JWT_SECRET=高强度随机密钥
 ```
+
+开启自动对账后，API 会在每天 UTC 03:30 下载前一日微信交易账单并将匹配、金额不一致、退款不一致和本地缺失订单写入对账表；也可以通过运营端接口手动补跑指定日期。
 
 首次升级数据库后执行 `npm run prisma:deploy`。微信支付回调必须使用公网可访问的 HTTPS 地址，不能填写 `127.0.0.1`。
 
@@ -302,14 +306,14 @@ cd server/api
 npm run test:live
 ```
 
-该脚本会创建普通急送和搬运报价测试订单，完成报价确认与履约流程，并自动清理自己创建的数据。
+该脚本会创建普通急送订单，并先通过 `/api/v1/quotes/handling` 获取搬运后端报价，再用报价创建订单、支付和完成履约；脚本结束后会自动清理自己创建的数据。请始终在 `server/api` 目录执行，否则 Prisma 找不到 `prisma/schema.prisma`。
 
 ## 推荐 Demo 演示方式
 
 建议只演示两个场景，控制在 8 至 10 分钟：
 
 1. 急送：选择地址、切换车型、观察价格变化，然后在运营后台依次接单、取货、配送和完成。
-2. 搬运装卸：展示系统预估价、运营最终报价、用户确认，以及确认前禁止履约。
+2. 搬运装卸：展示先获取后端报价、再创建订单、支付，以及支付前禁止履约。
 
 帮买功能可以用一句话说明“商品价格 + 配送价格 = 应付合计”。
 

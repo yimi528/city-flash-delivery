@@ -73,6 +73,7 @@ enum PaymentStatus {
   PAID
   REFUNDED
   CLOSED
+  REFUNDING
 }
 
 enum QuoteStatus {
@@ -89,6 +90,23 @@ enum PaymentRecordStatus {
   SUCCEEDED
   FAILED
   CLOSED
+  REFUNDING
+  REFUNDED
+}
+
+enum RefundRecordStatus {
+  CREATED
+  PROCESSING
+  SUCCEEDED
+  FAILED
+  CLOSED
+}
+
+enum ReconciliationStatus {
+  MATCHED
+  MISSING_LOCAL
+  AMOUNT_MISMATCH
+  REFUND_MISMATCH
 }
 
 enum ConfigCategory {
@@ -340,7 +358,7 @@ model RiderApplication {
   verificationStatus String        @default("UNVERIFIED")
   vehicleType        VehicleType
   vehicleName        String        @default("")
-  vehicleTypes       VehicleType[]  @default([])
+  vehicleTypes       VehicleType[] @default([])
   statement          String        @default("")
   agreementAccepted  Boolean       @default(false)
   submittedAt        DateTime      @default(now())
@@ -476,6 +494,7 @@ model Order {
   remark             String                                 @default("")
   statusLogs         OrderStatusLog[]
   payment            PaymentRecord?
+  refund             RefundRecord?
   assignments        OrderAssignment[]
   createdAt          DateTime                               @default(now())
   updatedAt          DateTime                               @updatedAt
@@ -532,22 +551,67 @@ model OutboxEvent {
 }
 
 model PaymentRecord {
-  id            String              @id @default(cuid())
-  orderId       String              @unique
-  order         Order               @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  outTradeNo    String              @unique
-  status        PaymentRecordStatus @default(CREATED)
-  amountFen     Int
-  prepayId      String              @default("")
-  transactionId String              @default("")
-  payerOpenid   String              @default("")
-  rawNotify     Json?
-  paidAt        DateTime?
-  createdAt     DateTime            @default(now())
-  updatedAt     DateTime            @updatedAt
+  id              String                  @id @default(cuid())
+  orderId         String                  @unique
+  order           Order                   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  outTradeNo      String                  @unique
+  status          PaymentRecordStatus     @default(CREATED)
+  amountFen       Int
+  prepayId        String                  @default("")
+  transactionId   String                  @default("")
+  payerOpenid     String                  @default("")
+  rawNotify       Json?
+  paidAt          DateTime?
+  refunds         RefundRecord[]
+  reconciliations PaymentReconciliation[]
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
 
   @@index([status, createdAt])
   @@map("payment_records")
+}
+
+model RefundRecord {
+  id            String             @id @default(cuid())
+  paymentId     String             @unique
+  payment       PaymentRecord      @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  orderId       String             @unique
+  order         Order              @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  outRefundNo   String             @unique
+  transactionId String             @default("")
+  status        RefundRecordStatus @default(CREATED)
+  amountFen     Int
+  reason        String             @default("")
+  rawNotify     Json?
+  successAt     DateTime?
+  retryCount    Int                @default(0)
+  lastError     String             @default("")
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  @@index([status, createdAt])
+  @@map("refund_records")
+}
+
+model PaymentReconciliation {
+  id              String               @id @default(cuid())
+  billDate        DateTime             @db.Date
+  outTradeNo      String
+  transactionId   String               @default("")
+  tradeState      String               @default("")
+  amountFen       Int                  @default(0)
+  refundAmountFen Int                  @default(0)
+  status          ReconciliationStatus
+  paymentId       String?
+  payment         PaymentRecord?       @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+  rawBill         Json?
+  reconciledAt    DateTime             @default(now())
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+
+  @@unique([billDate, outTradeNo])
+  @@index([status, billDate])
+  @@map("payment_reconciliations")
 }
 
 model OrderStatusLog {

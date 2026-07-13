@@ -11,6 +11,20 @@ permissions:
 jobs:
   api:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: city_flash_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U ci -d city_flash_ci"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=12
     env:
       DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/city_flash_ci?schema=public
     defaults:
@@ -25,6 +39,7 @@ jobs:
           cache-dependency-path: server/api/package-lock.json
       - run: npm ci
       - run: npm run prisma:generate
+      - run: npm run prisma:deploy
       - run: npm test -- --runInBand
       - run: npm run build
       - run: npm run lint
@@ -52,7 +67,7 @@ jobs:
         with:
           node-version: 22
       - run: >-
-          find apps/customer-mp apps/rider-mp -name '*.js' -print0 |
+          find apps/customer-mp -name '*.js' -print0 |
           xargs -0 -n1 node --check
 
   merchant-web:

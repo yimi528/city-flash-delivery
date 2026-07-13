@@ -44,6 +44,7 @@ function shouldPayOrder(order) {
 function paymentStatusText(order) {
   if (!order) return '待支付'
   if (order.paymentStatus === 'PAID') return '已支付'
+  if (order.paymentStatus === 'REFUNDING') return '退款处理中'
   if (order.paymentStatus === 'REFUNDED') return '已退款'
   if (order.paymentStatus === 'CLOSED') return '已关闭'
   return '待支付'

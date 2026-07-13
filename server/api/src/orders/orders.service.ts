@@ -1,5 +1,13 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException, Optional, ServiceUnavailableException } from '@nestjs/common'
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+  Optional,
+  ServiceUnavailableException,
+} from '@nestjs/common'
 import {
   OrderStatus as PrismaOrderStatus,
   Prisma,
@@ -17,6 +25,7 @@ import { PrismaService } from '../common/prisma/prisma.service'
 import { TencentMapService } from '../maps/tencent-map.service'
 import { WeatherRiskService } from '../maps/weather-risk.service'
 import { PricingService } from '../pricing/pricing.service'
+import { PaymentsService } from '../payments/payments.service'
 import { EstimatePriceDto } from '../pricing/pricing.dto'
 import { CreateOrderDto, QuoteDecisionDto, QuoteOrderDto, UpdateOrderStatusDto } from './orders.dto'
 
@@ -48,6 +57,7 @@ export class OrdersService {
     private readonly prisma: PrismaService,
     @Optional() private readonly maps?: TencentMapService,
     @Optional() private readonly weather?: WeatherRiskService,
+    @Optional() private readonly payments?: PaymentsService,
   ) {}
 
   async list(userId?: string) {
@@ -66,18 +76,26 @@ export class OrdersService {
   async cancel(id: string, userId: string) {
     const order = await this.findOrderEntity(id)
     if (order.userId !== userId) throw new ForbiddenException('无权取消该订单')
-    if (order.status === PrismaOrderStatus.COMPLETED) throw new ConflictException('已完成订单不能取消')
+    if (order.status === PrismaOrderStatus.COMPLETED)
+      throw new ConflictException('已完成订单不能取消')
     if (order.status === PrismaOrderStatus.CANCELLED) return this.toApiOrder(order)
-    let paymentStatus: 'CLOSED' | 'REFUNDED' = 'CLOSED'
+    let paymentStatus: 'CLOSED' | 'REFUNDED' | 'REFUNDING' = 'CLOSED'
     if (order.paymentStatus === 'PAID') {
       if (order.status !== PrismaOrderStatus.PENDING) {
         throw new ConflictException('商家已接单，请联系客服申请取消和退款')
       }
-      const payment = await this.prisma.paymentRecord.findUnique({ where: { orderId: order.id } })
-      if (!payment?.transactionId?.startsWith('MOCK-')) {
-        throw new ConflictException('真实支付订单需要通过微信退款接口处理')
+      if (this.payments) {
+        const refund = await this.payments.refundForCancellation(order.id, userId)
+        paymentStatus = refund.paymentStatus
+      } else {
+        const payment = await this.prisma.paymentRecord.findUnique({ where: { orderId: order.id } })
+        if (!payment?.transactionId?.startsWith('MOCK-')) {
+          throw new ConflictException('真实支付订单需要通过微信退款接口处理')
+        }
+        paymentStatus = 'REFUNDED'
       }
-      paymentStatus = 'REFUNDED'
+    } else if (this.payments) {
+      await this.payments.closePendingPayment(order.id)
     }
 
     const [updated] = await this.prisma.$transaction([
@@ -89,7 +107,12 @@ export class OrdersService {
           statusLogs: {
             create: {
               status: PrismaOrderStatus.CANCELLED,
-              note: paymentStatus === 'REFUNDED' ? '用户取消订单，模拟支付已退款' : '用户取消订单',
+              note:
+                paymentStatus === 'REFUNDED'
+                  ? '用户取消订单，支付已退款'
+                  : paymentStatus === 'REFUNDING'
+                    ? '用户取消订单，退款处理中'
+                    : '用户取消订单',
               createdBy: userId,
             },
           },
@@ -267,7 +290,10 @@ export class OrdersService {
           vehicleType: fixedVehicle.type,
           vehicleName: fixedVehicle.name,
           vehicleId: vehicle.id,
-          pricingMode: quote.serviceId === 'carpool_ride' || quote.serviceId === 'send_parcel' ? 'fixed_line' : 'distance',
+          pricingMode:
+            quote.serviceId === 'carpool_ride' || quote.serviceId === 'send_parcel'
+              ? 'fixed_line'
+              : 'distance',
           isManualQuote: false,
           quoteStatus: PrismaQuoteStatus.NONE,
           baseFee: quote.baseFeeFen / 100,
@@ -280,7 +306,13 @@ export class OrdersService {
           estimatedFee: totalFee,
           totalFee,
           remark: dto.remark || '',
-          statusLogs: { create: { status: PrismaOrderStatus.PENDING, note: '用户按后端报价下单', createdBy: userId } },
+          statusLogs: {
+            create: {
+              status: PrismaOrderStatus.PENDING,
+              note: '用户按后端报价下单',
+              createdBy: userId,
+            },
+          },
         },
         include: { vehicle: true },
       })
@@ -291,14 +323,18 @@ export class OrdersService {
   async updateStatus(id: string, dto: UpdateOrderStatusDto) {
     const order = await this.findOrderEntity(id)
     const status = (dto.status || this.nextPersistedStatus(order.status)) as PrismaOrderStatus
-    if (order.status === PrismaOrderStatus.COMPLETED || order.status === PrismaOrderStatus.CANCELLED) {
+    if (
+      order.status === PrismaOrderStatus.COMPLETED ||
+      order.status === PrismaOrderStatus.CANCELLED
+    ) {
       throw new ConflictException('订单已结束，不能再次更新状态')
     }
     const expectedStatus = this.nextPersistedStatus(order.status)
     if (status !== PrismaOrderStatus.CANCELLED && status !== expectedStatus) {
       throw new ConflictException('订单状态必须按接单、取货、配送、完成的顺序更新')
     }
-    const isProgressing = status !== PrismaOrderStatus.PENDING && status !== PrismaOrderStatus.CANCELLED
+    const isProgressing =
+      status !== PrismaOrderStatus.PENDING && status !== PrismaOrderStatus.CANCELLED
     if (order.isManualQuote && order.quoteStatus !== PrismaQuoteStatus.ACCEPTED && isProgressing) {
       throw new ConflictException('用户尚未确认商家报价，订单不能进入履约流程')
     }
@@ -563,7 +599,12 @@ export class OrdersService {
     return Number.isFinite(numberValue) ? numberValue : undefined
   }
 
-  private quoteAddress(value: Prisma.JsonValue | null): { name: string; detail: string; latitude?: number; longitude?: number } {
+  private quoteAddress(value: Prisma.JsonValue | null): {
+    name: string
+    detail: string
+    latitude?: number
+    longitude?: number
+  } {
     if (!value || Array.isArray(value) || typeof value !== 'object') return { name: '', detail: '' }
     const source = value as Record<string, Prisma.JsonValue>
     return {
@@ -602,26 +643,35 @@ export class OrdersService {
     taskId: string,
     vehicle: { type: PrismaVehicleType; name: string },
   ): Promise<EstimatePriceDto> {
-    const configuredRule = await (this.prisma as any).pricingRule?.findFirst?.({ where: { serviceId: taskId, enabled: true } })
+    const configuredRule = await (this.prisma as any).pricingRule?.findFirst?.({
+      where: { serviceId: taskId, enabled: true },
+    })
     const configuredRoute = dto.routeId
-      ? await (this.prisma as any).serviceRoute?.findFirst?.({ where: { id: dto.routeId, serviceId: taskId, enabled: true } })
+      ? await (this.prisma as any).serviceRoute?.findFirst?.({
+          where: { id: dto.routeId, serviceId: taskId, enabled: true },
+        })
       : null
     const fallback = VEHICLE_PRICING[vehicle.type]
-    const configured = configuredRule ? {
-      baseDistanceKm: Number(configuredRule.includedDistanceMeters || 0) / 1000,
-      basePrice: Number(configuredRule.baseFeeFen || 0) / 100,
-      extraPerKm: Number(configuredRule.perKmFen || 0) / 100,
-      serviceSurcharge: Number(configuredRule.serviceSurchargeFen || 0) / 100,
-      maxDeliveryFee: Number(configuredRule.maxFeeFen || 0) > 0 ? Number(configuredRule.maxFeeFen) / 100 : fallback.maxDeliveryFee,
-      pricingMode: configuredRule.pricingMode || 'distance',
-    } : {
-      baseDistanceKm: 4,
-      basePrice: fallback.baseFee,
-      extraPerKm: fallback.distanceRate,
-      serviceSurcharge: 0,
-      maxDeliveryFee: fallback.maxDeliveryFee,
-      pricingMode: 'distance',
-    }
+    const configured = configuredRule
+      ? {
+          baseDistanceKm: Number(configuredRule.includedDistanceMeters || 0) / 1000,
+          basePrice: Number(configuredRule.baseFeeFen || 0) / 100,
+          extraPerKm: Number(configuredRule.perKmFen || 0) / 100,
+          serviceSurcharge: Number(configuredRule.serviceSurchargeFen || 0) / 100,
+          maxDeliveryFee:
+            Number(configuredRule.maxFeeFen || 0) > 0
+              ? Number(configuredRule.maxFeeFen) / 100
+              : fallback.maxDeliveryFee,
+          pricingMode: configuredRule.pricingMode || 'distance',
+        }
+      : {
+          baseDistanceKm: 4,
+          basePrice: fallback.baseFee,
+          extraPerKm: fallback.distanceRate,
+          serviceSurcharge: 0,
+          maxDeliveryFee: fallback.maxDeliveryFee,
+          pricingMode: 'distance',
+        }
     const common = {
       serviceType: dto.serviceType,
       serviceName: dto.serviceName || '同城配送',
@@ -635,20 +685,62 @@ export class OrdersService {
       maxDeliveryFee: configured.maxDeliveryFee,
     }
     if (taskId === 'send_parcel') {
-      return { ...common, serviceType: 'CARGO', serviceName: '寄货', pricingMode: 'fixed_line_parcel', linePrice: configuredRoute?.unitPriceFen ? Number(configuredRoute.unitPriceFen) / 100 : PARCEL_LINE_PRICES[dto.routeId || ''] || 58 }
+      return {
+        ...common,
+        serviceType: 'CARGO',
+        serviceName: '寄货',
+        pricingMode: 'fixed_line_parcel',
+        linePrice: configuredRoute?.unitPriceFen
+          ? Number(configuredRoute.unitPriceFen) / 100
+          : PARCEL_LINE_PRICES[dto.routeId || ''] || 58,
+      }
     }
-    if (taskId === 'cargo_haul') return { ...common, serviceType: 'CARGO', serviceName: '运货', serviceSurcharge: 5 }
-    if (taskId === 'urgent_delivery') return { ...common, serviceType: 'DELIVERY', serviceName: '急送', pricingMode: 'distance_weather', serviceSurcharge: 3 }
-    if (taskId === 'pickup') return { ...common, serviceType: 'PICKUP', serviceName: '帮取', pricingMode: 'distance_weather' }
-    if (taskId === 'buy_for_me') return { ...common, serviceType: 'BUY_FOR_ME', serviceName: '帮买', pricingMode: 'distance_weather', serviceSurcharge: 2 }
+    if (taskId === 'cargo_haul')
+      return { ...common, serviceType: 'CARGO', serviceName: '运货', serviceSurcharge: 5 }
+    if (taskId === 'urgent_delivery')
+      return {
+        ...common,
+        serviceType: 'DELIVERY',
+        serviceName: '急送',
+        pricingMode: 'distance_weather',
+        serviceSurcharge: 3,
+      }
+    if (taskId === 'pickup')
+      return {
+        ...common,
+        serviceType: 'PICKUP',
+        serviceName: '帮取',
+        pricingMode: 'distance_weather',
+      }
+    if (taskId === 'buy_for_me')
+      return {
+        ...common,
+        serviceType: 'BUY_FOR_ME',
+        serviceName: '帮买',
+        pricingMode: 'distance_weather',
+        serviceSurcharge: 2,
+      }
     if (taskId === 'pedicab_delivery') {
-      return { ...common, serviceType: 'CARGO', serviceName: '送货/送客', basePrice: 15, extraPerKm: 2, maxDeliveryFee: 88 }
+      return {
+        ...common,
+        serviceType: 'CARGO',
+        serviceName: '送货/送客',
+        basePrice: 15,
+        extraPerKm: 2,
+        maxDeliveryFee: 88,
+      }
     }
     return common
   }
 
   private async resolveAuthoritativeInputs(dto: CreateOrderDto, taskId: string) {
-    const distancePriced = ['cargo_haul', 'urgent_delivery', 'pickup', 'buy_for_me', 'pedicab_delivery'].includes(taskId)
+    const distancePriced = [
+      'cargo_haul',
+      'urgent_delivery',
+      'pickup',
+      'buy_for_me',
+      'pedicab_delivery',
+    ].includes(taskId)
     if (!distancePriced) {
       return { distanceKm: dto.distanceKm, badWeather: false }
     }
@@ -657,7 +749,13 @@ export class OrdersService {
     }
     const from = this.orderPoint(dto.pickupLat, dto.pickupLng, '取货地址')
     const to = this.orderPoint(dto.dropoffLat, dto.dropoffLng, '收货地址')
-    const route = await this.maps.distance(from.latitude, from.longitude, to.latitude, to.longitude, 'driving')
+    const route = await this.maps.distance(
+      from.latitude,
+      from.longitude,
+      to.latitude,
+      to.longitude,
+      'driving',
+    )
     if (!route.configured || !route.route) {
       throw new ServiceUnavailableException('地图距离计算失败，请稍后重试或转人工报价')
     }
@@ -673,7 +771,12 @@ export class OrdersService {
   }
 
   private orderPoint(latitude: number | undefined, longitude: number | undefined, label: string) {
-    if (latitude === undefined || longitude === undefined || !Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+    if (
+      latitude === undefined ||
+      longitude === undefined ||
+      !Number.isFinite(latitude) ||
+      !Number.isFinite(longitude)
+    ) {
       throw new BadRequestException(`${label}必须包含有效坐标，无法使用普通距离计价`)
     }
     return { latitude, longitude }
@@ -714,12 +817,22 @@ export class OrdersService {
     if (taskId === 'moving_handling') return PrismaServiceType.HANDLING
     if (taskId === 'pickup') return PrismaServiceType.PICKUP
     if (taskId === 'buy_for_me') return PrismaServiceType.BUY_FOR_ME
-    if (['send_parcel', 'cargo_haul', 'pedicab_delivery'].includes(taskId)) return PrismaServiceType.CARGO
+    if (['send_parcel', 'cargo_haul', 'pedicab_delivery'].includes(taskId))
+      return PrismaServiceType.CARGO
     return PrismaServiceType.DELIVERY
   }
 
   private serviceNameForTask(taskId: string) {
-    const labels: Record<string, string> = { carpool_ride: '拼车', send_parcel: '寄货', cargo_haul: '运货', urgent_delivery: '急送', pickup: '帮取', buy_for_me: '帮买', pedicab_delivery: '送货/送客', moving_handling: '搬运装卸' }
+    const labels: Record<string, string> = {
+      carpool_ride: '拼车',
+      send_parcel: '寄货',
+      cargo_haul: '运货',
+      urgent_delivery: '急送',
+      pickup: '帮取',
+      buy_for_me: '帮买',
+      pedicab_delivery: '送货/送客',
+      moving_handling: '搬运装卸',
+    }
     return labels[taskId] || '帮送'
   }
 }

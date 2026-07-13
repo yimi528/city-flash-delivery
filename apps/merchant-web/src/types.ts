@@ -53,7 +53,7 @@ export type ApiOrder = {
   statusIndex?: number
   businessStatus?: string
   businessStatusText?: DisplayStatusLabel | string
-  paymentStatus?: 'UNPAID' | 'PAID' | 'REFUNDED' | 'CLOSED' | string
+  paymentStatus?: 'UNPAID' | 'PAID' | 'REFUNDING' | 'REFUNDED' | 'CLOSED' | string
   vehicleType?: BackendVehicle | string
   vehicleName?: string
   pickupName?: string
