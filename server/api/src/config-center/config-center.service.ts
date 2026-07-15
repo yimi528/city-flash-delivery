@@ -38,16 +38,20 @@ export class ConfigCenterService implements OnModuleInit {
   ) {}
 
   async onModuleInit() {
-    await this.prisma.platformSetting.upsert({
-      where: { id: 'platform' },
-      update: {},
-      create: { id: 'platform', weeklyHours: DEFAULT_WEEKLY_HOURS },
-    })
-    await Promise.all(SERVICE_IDS.map((serviceId) => this.prisma.serviceCoveragePolicy.upsert({
-      where: { serviceId },
-      update: {},
-      create: { serviceId },
-    })))
+    try {
+      await this.prisma.platformSetting.upsert({
+        where: { id: 'platform' },
+        update: {},
+        create: { id: 'platform', weeklyHours: DEFAULT_WEEKLY_HOURS },
+      })
+      await Promise.all(SERVICE_IDS.map((serviceId) => this.prisma.serviceCoveragePolicy.upsert({
+        where: { serviceId },
+        update: {},
+        create: { serviceId },
+      })))
+    } catch (error) {
+      console.warn('Config bootstrap skipped; database schema/data needs reconciliation.', error)
+    }
   }
 
   async getAppConfig() {

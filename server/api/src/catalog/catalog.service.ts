@@ -26,41 +26,45 @@ export class CatalogService implements OnModuleInit {
   ) {}
 
   async onModuleInit() {
-    await Promise.all(DEFAULT_SERVICES.map((service) => this.prisma.serviceCatalog.upsert({
-      where: { id: service.id },
-      update: {},
-      create: service,
-    })))
-    await Promise.all([
-      this.prisma.serviceCatalog.updateMany({
-        where: { id: 'moving' },
-        data: { enabled: false },
-      }),
-      this.prisma.carpoolRoute.upsert({
-        where: { id: 'cangnan' },
+    try {
+      await Promise.all(DEFAULT_SERVICES.map((service) => this.prisma.serviceCatalog.upsert({
+        where: { id: service.id },
         update: {},
-        create: { id: 'cangnan', city: '苍南', unitPriceFen: 4000 },
-      }),
-      this.prisma.carpoolRoute.upsert({
-        where: { id: 'wenzhou' },
-        update: {},
-        create: { id: 'wenzhou', city: '温州', unitPriceFen: 15000 },
-      }),
-      this.prisma.pricingRule.upsert({
-        where: { serviceId: 'moving_handling' },
-        update: {},
-        create: {
-          id: 'moving-handling-v1',
-          serviceId: 'moving_handling',
-          baseFeeFen: 4800,
-          deliveryStartFeeFen: 2800,
-          includedDistanceMeters: 4000,
-          perKmFen: 280,
-          minimumFeeFen: 4800,
-          maxDistanceMeters: 50000,
-        },
-      }),
-    ])
+        create: service,
+      })))
+      await Promise.all([
+        this.prisma.serviceCatalog.updateMany({
+          where: { id: 'moving' },
+          data: { enabled: false },
+        }),
+        this.prisma.carpoolRoute.upsert({
+          where: { id: 'cangnan' },
+          update: {},
+          create: { id: 'cangnan', city: '苍南', unitPriceFen: 4000 },
+        }),
+        this.prisma.carpoolRoute.upsert({
+          where: { id: 'wenzhou' },
+          update: {},
+          create: { id: 'wenzhou', city: '温州', unitPriceFen: 15000 },
+        }),
+        this.prisma.pricingRule.upsert({
+          where: { serviceId: 'moving_handling' },
+          update: {},
+          create: {
+            id: 'moving-handling-v1',
+            serviceId: 'moving_handling',
+            baseFeeFen: 4800,
+            deliveryStartFeeFen: 2800,
+            includedDistanceMeters: 4000,
+            perKmFen: 280,
+            minimumFeeFen: 4800,
+            maxDistanceMeters: 50000,
+          },
+        }),
+      ])
+    } catch (error) {
+      console.warn('Catalog bootstrap skipped; database schema/data needs reconciliation.', error)
+    }
   }
 
   listServices() {
