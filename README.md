@@ -171,9 +171,33 @@ city-flash-delivery/
   project.config.json  微信开发者工具根项目配置
 ```
 
-## 开发验证与云端运行
+## 本地一键启动
 
-共享后端和数据库必须部署到云端。本地命令只用于代码检查、单元测试和构建，不作为开发、测试或生产服务。腾讯云部署步骤见 `deploy/README.md`。
+首次运行前只需安装 Node.js 20+ 和 Docker Desktop，并确保 Docker Desktop 已打开。在仓库根目录执行：
+
+```bash
+npm run dev
+```
+
+脚本会自动创建本地 `.env`、安装缺失依赖、启动 PostgreSQL/Redis、迁移数据库、构建并启动 API 和运营后台。启动完成后访问：
+
+- 运营后台：`http://127.0.0.1:5173`
+- 后端 API：`http://127.0.0.1:3000/api`
+- Swagger：`http://127.0.0.1:3000/api/docs`
+
+停止全部本地服务：
+
+```bash
+npm run dev:stop
+```
+
+macOS 也可直接双击根目录的 `启动开发环境.command` 和 `停止开发环境.command`。小程序仍需用微信开发者工具导入仓库根目录。
+
+如果更喜欢按钮操作，可双击根目录的 `打开启停控制台.command`。浏览器会打开一个仅限本机访问的控制页面，提供“一键启动”“一键停机”、运行状态和实时日志；无需安装 macOS App。
+
+### 手动启动与云端运行
+
+以下命令适合需要分别观察服务日志时使用。腾讯云生产部署步骤见 `deploy/README.md`。
 
 ### 环境要求
 
@@ -278,13 +302,21 @@ npm run dev
 
 ## 测试与验收
 
+在仓库根目录执行完整 MVP 检查：
+
+```bash
+npm run test:mvp
+npm run test:start-stop
+npm run test:security
+npm run test:containers
+```
+
+`test:mvp` 覆盖小程序业务与语法、后端单元测试/代码检查/构建/Prisma 校验和运营后台生产构建；`test:start-stop` 实际验证一键启停；`test:security` 检查生产依赖漏洞；`test:containers` 构建三个生产镜像并校验运行配置。启动本地环境后还可执行 `RUN_LIVE=1 npm run test:mvp`，加入真实数据库 API 履约流程。
+
 ### 小程序业务和地图测试
 
 ```bash
-node --test \
-  apps/customer-mp/tests/service-flow.test.js \
-  apps/customer-mp/tests/map-backend.test.js \
-  apps/customer-mp/tests/auth-payment.test.js
+node --test apps/customer-mp/tests/*.test.js
 ```
 
 ### NestJS 测试和代码检查
@@ -322,7 +354,7 @@ npm run test:live
 以下能力尚未达到正式生产标准：
 
 - 微信登录、运营账号密码登录和微信支付 JSAPI 已完成代码接入；正式使用仍依赖有效微信凭证、HTTPS 域名和微信平台配置。
-- 尚未接入退款、关单、账单下载和自动对账。
+- 退款、关单、交易账单下载和自动对账代码已接入；正式上线前必须用真实商户号完成小额支付、退款回调与账单联调。
 - 尚未接入微信订阅消息或短信通知。
 - 运营后台打印小票目前为模拟操作。
 - 已提供同小程序骑手模式、云端 Compose、健康检查和 CI；真实云资源、HTTPS、监控和备份仍需使用甲方云账号创建。
@@ -334,7 +366,7 @@ npm run test:live
 ## 下一阶段建议
 
 1. 配置正式微信凭证，部署测试环境 HTTPS API 并完成真机登录与支付联调。
-2. 接入退款、关单、账单下载和自动对账。
+2. 使用真实微信商户环境完成支付、关单、退款和自动对账联调。
 3. 增加微信订阅消息，通知报价、接单、配送和完成状态。
 4. 完善价格规则、服务范围和城市配置的可视化后台。
 5. 安装并接入 WebSocket/Redis Outbox 发布器，将轮询降级为断线兜底。

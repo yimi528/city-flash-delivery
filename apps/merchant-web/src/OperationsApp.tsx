@@ -12,6 +12,38 @@ import type { Order, RiderApplication, Stats, Store } from './types'
 import { PricingWorkspace, ServiceAreasWorkspace, SystemSettingsWorkspace } from './ConfigWorkspaces'
 
 const orderFilters = ['全部', '待商家报价', '待确认报价', '待支付', '待接单', '已接单', '进行中', '已完成', '已取消']
+const PAGE_SIZE = 5
+
+function dateValue(value?: string) {
+  if (!value) return ''
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+  const pad = (item: number) => String(item).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
+}
+
+function inDateRange(value: string | undefined, start: string, end: string) {
+  const date = dateValue(value)
+  return (!start || date >= start) && (!end || date <= end)
+}
+
+function Pagination({ page, total, pageSize = PAGE_SIZE, onPage }: { page: number; total: number; pageSize?: number; onPage: (page: number) => void }) {
+  const pages = Math.max(1, Math.ceil(total / pageSize))
+  if (total <= pageSize) return null
+  return (
+    <nav className="pagination" aria-label="分页">
+      <span>共 {total} 条 · 第 {page}/{pages} 页</span>
+      <div>
+        <button type="button" disabled={page <= 1} onClick={() => onPage(page - 1)}>上一页</button>
+        <button type="button" disabled={page >= pages} onClick={() => onPage(page + 1)}>下一页</button>
+      </div>
+    </nav>
+  )
+}
+
+function ResultState({ kind, message }: { kind: 'loading' | 'error' | 'permission' | 'empty'; message: string }) {
+  return <div className={`result-state ${kind}`} role={kind === 'error' ? 'alert' : 'status'}><strong>{kind === 'loading' ? '正在加载' : kind === 'error' ? '加载失败' : kind === 'permission' ? '暂无权限' : '没有找到结果'}</strong><span>{message}</span></div>
+}
 
 function getInitialApiBase() {
   const saved = localStorage.getItem('merchantApiBase')
@@ -76,7 +108,7 @@ function LoginDialog({
   )
 }
 
-function Sidebar({ activeView, onNavigate }: { activeView: string; onNavigate: (view: string) => void }) {
+function Sidebar({ activeView, pendingRiderCount, onNavigate }: { activeView: string; pendingRiderCount: number; onNavigate: (view: string) => void }) {
   return (
     <aside className="sidebar">
       <div className="brand-lockup">
@@ -90,7 +122,7 @@ function Sidebar({ activeView, onNavigate }: { activeView: string; onNavigate: (
         <button className={`nav-item ${activeView === 'orders' ? 'active' : ''}`} type="button" onClick={() => onNavigate('orders')}><span>01</span>订单调度</button>
         <button className={`nav-item ${activeView === 'pricing' ? 'active' : ''}`} type="button" onClick={() => onNavigate('pricing')}><span>02</span>价格规则</button>
         <button className={`nav-item ${activeView === 'service-areas' ? 'active' : ''}`} type="button" onClick={() => onNavigate('service-areas')}><span>03</span>服务范围</button>
-        <button className={`nav-item ${activeView === 'rider-applications' ? 'active' : ''}`} type="button" onClick={() => onNavigate('rider-applications')}><span>04</span>骑手申请</button>
+        <button className={`nav-item ${activeView === 'rider-applications' ? 'active' : ''}`} type="button" onClick={() => onNavigate('rider-applications')}><span>04</span><span className="nav-label">骑手申请{pendingRiderCount > 0 ? <b className="nav-badge" key={pendingRiderCount} aria-label={`${pendingRiderCount} 条待审核申请`}>{pendingRiderCount > 99 ? '99+' : pendingRiderCount}</b> : null}</span></button>
         <button className={`nav-item ${activeView === 'riders' ? 'active' : ''}`} type="button" onClick={() => onNavigate('riders')}><span>05</span>骑手管理</button>
         <button className={`nav-item ${activeView === 'settings' ? 'active' : ''}`} type="button" onClick={() => onNavigate('settings')}><span>06</span>系统设置</button>
       </nav>
@@ -159,24 +191,6 @@ function riderRequestedVehicles(rider: RiderApplication) {
   return rider.application?.requestedVehicleTypes?.map((type) => RIDER_VEHICLE_LABELS[type] || type).join('、') || rider.application?.requestedVehicleName || rider.application?.requestedVehicleType || '未选择车型'
 }
 
-function RiderReviewPanel({ riders, onReview }: { riders: RiderApplication[]; onReview: (rider: RiderApplication, approved: boolean) => void }) {
-  if (!riders.length) return null
-  return (
-    <section className="rider-review-panel">
-      <div className="rider-review-head"><div><h2>骑手审核</h2><p className="muted">审核车型、搬运资格和服务范围后，骑手才能上线抢单。</p></div><span>{riders.length} 人待处理</span></div>
-      <div className="rider-review-grid">
-        {riders.map((rider) => (
-          <article className="rider-review-card" key={rider.id}>
-            <div><strong>{rider.name}</strong><p>{rider.phone || '未填写手机号'}</p></div>
-            <div className="rider-request">{riderRequestedVehicles(rider)} · {rider.application?.requestsHandling ? '申请搬运资格' : '普通履约'}</div>
-            <div className="rider-actions"><button type="button" onClick={() => onReview(rider, false)}>拒绝</button><button className="approve" type="button" onClick={() => onReview(rider, true)}>审核通过</button></div>
-          </article>
-        ))}
-      </div>
-    </section>
-  )
-}
-
 function RiderApplicationsWorkspace({ riders, onReview }: { riders: RiderApplication[]; onReview: (rider: RiderApplication, approved: boolean) => void }) {
   const [filter, setFilter] = useState('ALL')
   const filtered = riders.filter((item) => filter === 'ALL' || (item.application?.applicationStatus || item.status) === filter)
@@ -200,28 +214,64 @@ function RiderApplicationsWorkspace({ riders, onReview }: { riders: RiderApplica
   )
 }
 
-function RidersWorkspace({ riders, onChangeStatus }: { riders: RiderApplication[]; onChangeStatus: (rider: RiderApplication, action: 'suspend' | 'restore' | 'resign') => void }) {
+function RidersWorkspace({ riders, loading, error, authorized, onChangeStatus }: { riders: RiderApplication[]; loading: boolean; error: string; authorized: boolean; onChangeStatus: (rider: RiderApplication, action: 'suspend' | 'restore' | 'resign') => void }) {
+  const [draftQuery, setDraftQuery] = useState('')
+  const [query, setQuery] = useState('')
   const [roleFilter, setRoleFilter] = useState('ALL')
   const [workFilter, setWorkFilter] = useState('ALL')
+  const [regionFilter, setRegionFilter] = useState('ALL')
+  const [registeredStart, setRegisteredStart] = useState('')
+  const [registeredEnd, setRegisteredEnd] = useState('')
+  const [page, setPage] = useState(1)
+  const regions = useMemo(() => Array.from(new Set(riders.map((rider) => rider.serviceCity).filter(Boolean) as string[])), [riders])
   const filtered = riders.filter((rider) => {
     const work = rider.workStatus || (rider.online ? 'ONLINE' : 'OFFLINE')
-    return (roleFilter === 'ALL' || rider.roleStatus === roleFilter) && (workFilter === 'ALL' || work === workFilter)
+    const haystack = [rider.name, rider.phone, rider.id, rider.riderId].filter(Boolean).join(' ').toLowerCase()
+    return (!query || haystack.includes(query.toLowerCase()))
+      && (roleFilter === 'ALL' || rider.roleStatus === roleFilter)
+      && (workFilter === 'ALL' || work === workFilter)
+      && (regionFilter === 'ALL' || (rider.serviceCity || '未设置区域') === regionFilter)
+      && inDateRange(rider.createdAt, registeredStart, registeredEnd)
   })
+  const pagedRiders = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+  const hasFilters = Boolean(query || roleFilter !== 'ALL' || workFilter !== 'ALL' || regionFilter !== 'ALL' || registeredStart || registeredEnd)
+  const applySearch = () => { setQuery(draftQuery.trim()); setPage(1) }
+  const clearSearch = () => {
+    setDraftQuery(''); setQuery(''); setRoleFilter('ALL'); setWorkFilter('ALL'); setRegionFilter('ALL'); setRegisteredStart(''); setRegisteredEnd(''); setPage(1)
+  }
+  useEffect(() => setPage(1), [roleFilter, workFilter, regionFilter, registeredStart, registeredEnd])
   return (
     <section className="workspace rider-workspace">
-      <div className="toolbar"><div><h2>骑手管理</h2><p className="muted">查看在线状态、当前配送和历史完成量。暂停、离职不会删除用户账号或历史订单。</p></div><div className="rider-toolbar"><div className="rider-filters">{[['ALL', '全部'], ['ACTIVE', '在职'], ['SUSPENDED', '已暂停'], ['RESIGNED', '已离职']].map(([value, label]) => <button key={value} className={roleFilter === value ? 'active' : ''} type="button" onClick={() => setRoleFilter(value)}>{label}</button>)}</div><select className="rider-select" value={workFilter} onChange={(event) => setWorkFilter(event.target.value)}><option value="ALL">全部工作状态</option><option value="ONLINE">在线</option><option value="DELIVERING">配送中</option><option value="OFFLINE">离线</option></select></div></div>
+      <div className="workspace-heading"><div><h2>骑手管理</h2><p className="muted">按姓名、手机号或骑手编号检索，查看状态与当前配送。</p></div><span className="result-count">{filtered.length} 名骑手</span></div>
+      <div className="search-panel">
+        <form className="search-row" onSubmit={(event) => { event.preventDefault(); applySearch() }}>
+          <label className="search-input"><span aria-hidden="true">⌕</span><input value={draftQuery} onChange={(event) => { const value = event.target.value; setDraftQuery(value); setQuery(value.trim()); setPage(1) }} onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); applySearch() } }} placeholder="搜索骑手姓名、手机号或骑手编号" aria-label="搜索骑手" />{draftQuery ? <button type="button" aria-label="清除搜索词" onClick={() => { setDraftQuery(''); setQuery(''); setPage(1) }}>×</button> : null}</label>
+          <button className="search-submit" type="submit">搜索</button>
+          {hasFilters ? <button className="clear-filters" type="button" onClick={clearSearch}>清空条件</button> : null}
+        </form>
+        <div className="advanced-filters">
+          <label><span>骑手状态</span><select value={roleFilter} onChange={(event) => setRoleFilter(event.target.value)}><option value="ALL">全部状态</option><option value="ACTIVE">在职</option><option value="SUSPENDED">已暂停</option><option value="RESIGNED">已离职</option></select></label>
+          <label><span>工作状态</span><select value={workFilter} onChange={(event) => setWorkFilter(event.target.value)}><option value="ALL">全部工作状态</option><option value="ONLINE">在线</option><option value="DELIVERING">配送中</option><option value="OFFLINE">离线</option></select></label>
+          <label><span>所属区域</span><select value={regionFilter} onChange={(event) => setRegionFilter(event.target.value)}><option value="ALL">全部区域</option>{regions.map((region) => <option value={region} key={region}>{region}</option>)}<option value="未设置区域">未设置区域</option></select></label>
+          <label className="date-filter"><span>注册时间</span><div><input type="date" value={registeredStart} max={registeredEnd || undefined} onChange={(event) => setRegisteredStart(event.target.value)} aria-label="注册开始日期" /><b>至</b><input type="date" value={registeredEnd} min={registeredStart || undefined} onChange={(event) => setRegisteredEnd(event.target.value)} aria-label="注册结束日期" /></div></label>
+        </div>
+        {hasFilters ? <div className="filter-feedback" aria-live="polite"><span>当前筛选</span>{query ? <b>关键词：{query}</b> : null}{roleFilter !== 'ALL' ? <b>身份状态已筛选</b> : null}{workFilter !== 'ALL' ? <b>工作状态已筛选</b> : null}{regionFilter !== 'ALL' ? <b>区域：{regionFilter}</b> : null}{registeredStart || registeredEnd ? <b>注册时间：{registeredStart || '不限'} 至 {registeredEnd || '不限'}</b> : null}</div> : null}
+        {loading && riders.length ? <div className="data-notice" role="status">正在更新骑手数据…</div> : error && riders.length ? <div className="data-notice error" role="alert">骑手数据更新失败：{error}，当前显示上次成功加载的结果。</div> : null}
+      </div>
       <div className="rider-management-grid">
-        {filtered.length ? filtered.map((rider) => {
+        {!authorized ? <ResultState kind="permission" message="请先登录运营账号后查看骑手档案。" /> : loading && !riders.length ? <ResultState kind="loading" message="正在读取骑手档案，请稍候。" /> : error && !riders.length ? <ResultState kind="error" message={error} /> : pagedRiders.length ? pagedRiders.map((rider) => {
           const status = rider.roleStatus || 'SUSPENDED'
           const work = rider.workStatus || (rider.online ? 'ONLINE' : 'OFFLINE')
           return <article className="rider-management-card" key={rider.id}>
-            <div className="rider-card-top"><div><strong>{rider.name}</strong><p>{rider.phone || '未填写手机号'}</p></div><span className={`rider-status ${String(status).toLowerCase()}`}>{status === 'ACTIVE' ? '在职' : status === 'SUSPENDED' ? '已暂停' : status === 'RESIGNED' ? '已离职' : status}</span></div>
+            <div className="rider-card-top"><div><strong>{rider.name}</strong><p>{rider.phone || '未填写手机号'} · 编号 {rider.id}</p></div><span className={`rider-status ${String(status).toLowerCase()}`}>{status === 'ACTIVE' ? '在职' : status === 'SUSPENDED' ? '已暂停' : status === 'RESIGNED' ? '已离职' : status}</span></div>
+            <div className="rider-card-detail"><span>{rider.serviceCity || '未设置区域'}</span><span>注册于 {rider.createdAt ? new Date(rider.createdAt).toLocaleDateString() : '历史档案'}</span></div>
             <div className="rider-metrics"><span><b>{work === 'ONLINE' ? '在线' : work === 'DELIVERING' ? '配送中' : work === 'PAUSED' ? '主动暂停' : '离线'}</b><small>工作状态</small></span><span><b>{rider.deliveryCount || 0}</b><small>已完成配送</small></span><span><b>{(rider.currentOrders || []).length}</b><small>当前订单</small></span></div>
             {(rider.currentOrders || []).length ? <div className="rider-current-order">当前配送：{rider.currentOrders?.map((order) => order.orderNo || order.id).join('、')}</div> : null}
             <div className="rider-actions">{status === 'ACTIVE' ? <><button type="button" onClick={() => onChangeStatus(rider, 'suspend')}>暂停接单</button><button type="button" onClick={() => onChangeStatus(rider, 'resign')}>标记离职</button></> : <button className="approve" type="button" onClick={() => onChangeStatus(rider, 'restore')}>恢复接单</button>}</div>
           </article>
-        }) : <div className="empty">暂无有效骑手档案。</div>}
+        }) : <ResultState kind="empty" message={hasFilters ? '没有符合当前搜索和筛选条件的骑手，可清空条件后重试。' : '暂无有效骑手档案。'} />}
       </div>
+      <Pagination page={page} total={filtered.length} onPage={setPage} />
     </section>
   )
 }
@@ -358,6 +408,9 @@ function OrderCard({
 function OrdersWorkspace({
   filter,
   orders,
+  loading,
+  error,
+  authorized,
   onFilter,
   onAdvance,
   onQuote,
@@ -365,24 +418,54 @@ function OrdersWorkspace({
 }: {
   filter: string
   orders: Order[]
+  loading: boolean
+  error: string
+  authorized: boolean
   onFilter: (filter: string) => void
   onAdvance: (id: string) => void
   onQuote: (id: string, quotedFee: number, quoteNote: string) => Promise<void>
   onTicket: () => void
 }) {
+  const [draftQuery, setDraftQuery] = useState('')
+  const [query, setQuery] = useState('')
+  const [deliveryFilter, setDeliveryFilter] = useState('ALL')
+  const [createdStart, setCreatedStart] = useState('')
+  const [createdEnd, setCreatedEnd] = useState('')
+  const [page, setPage] = useState(1)
   const filteredOrders = orders.filter((order) => {
-    if (filter === '全部') return true
-    if (filter === '进行中') return order.status === '取货中' || order.status === '配送中'
-    return order.displayStatus === filter
+    const statusMatches = filter === '全部' || (filter === '进行中' ? order.status === '取货中' || order.status === '配送中' : order.displayStatus === filter)
+    const haystack = [order.id, order.orderNo, order.userId, order.customerName, order.customerPhone, order.pickupContact, order.pickupPhone, order.dropoffContact, order.dropoffPhone, order.riderId, order.riderName, order.riderPhone, order.pickupName, order.pickupDetail, order.dropoffName, order.dropoffDetail].filter(Boolean).join(' ').toLowerCase()
+    const deliveryMatches = deliveryFilter === 'ALL'
+      || (deliveryFilter === 'UNASSIGNED' && !order.riderId && order.status !== '已完成' && order.status !== '已取消')
+      || (deliveryFilter === 'ASSIGNED' && Boolean(order.riderId) && order.status !== '已完成' && order.status !== '已取消')
+      || (deliveryFilter === 'IN_TRANSIT' && (order.status === '取货中' || order.status === '配送中'))
+      || (deliveryFilter === 'FINISHED' && (order.status === '已完成' || order.status === '已取消'))
+    return statusMatches && (!query || haystack.includes(query.toLowerCase())) && deliveryMatches && inDateRange(order.createdAt || order.createTime, createdStart, createdEnd)
   })
+  const pagedOrders = filteredOrders.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+  const hasFilters = Boolean(query || filter !== '全部' || deliveryFilter !== 'ALL' || createdStart || createdEnd)
+  const applySearch = () => { setQuery(draftQuery.trim()); setPage(1) }
+  const clearSearch = () => {
+    setDraftQuery(''); setQuery(''); onFilter('全部'); setDeliveryFilter('ALL'); setCreatedStart(''); setCreatedEnd(''); setPage(1)
+  }
+  useEffect(() => setPage(1), [filter, deliveryFilter, createdStart, createdEnd])
   return (
     <section className="workspace">
-      <div className="toolbar">
-        <div>
-          <h2>实时订单</h2>
-          <p className="muted">按状态筛选订单，处理报价与履约进度。</p>
+      <div className="workspace-heading">
+        <div><h2>全部订单</h2><p className="muted">检索当前与历史订单，处理报价与履约进度。</p></div>
+        <span className="result-count">{filteredOrders.length} 条结果</span>
+      </div>
+      <div className="search-panel order-search-panel">
+        <form className="search-row" onSubmit={(event) => { event.preventDefault(); applySearch() }}>
+          <label className="search-input"><span aria-hidden="true">⌕</span><input value={draftQuery} onChange={(event) => { const value = event.target.value; setDraftQuery(value); setQuery(value.trim()); setPage(1) }} onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); applySearch() } }} placeholder="搜索订单号、用户、骑手、手机号或配送地址" aria-label="搜索订单" />{draftQuery ? <button type="button" aria-label="清除搜索词" onClick={() => { setDraftQuery(''); setQuery(''); setPage(1) }}>×</button> : null}</label>
+          <button className="search-submit" type="submit">搜索</button>
+          {hasFilters ? <button className="clear-filters" type="button" onClick={clearSearch}>清空条件</button> : null}
+        </form>
+        <div className="advanced-filters order-advanced-filters">
+          <label><span>配送状态</span><select value={deliveryFilter} onChange={(event) => setDeliveryFilter(event.target.value)}><option value="ALL">全部配送状态</option><option value="UNASSIGNED">待分配骑手</option><option value="ASSIGNED">已分配骑手</option><option value="IN_TRANSIT">配送进行中</option><option value="FINISHED">配送已结束</option></select></label>
+          <label className="date-filter"><span>下单时间</span><div><input type="date" value={createdStart} max={createdEnd || undefined} onChange={(event) => setCreatedStart(event.target.value)} aria-label="下单开始日期" /><b>至</b><input type="date" value={createdEnd} min={createdStart || undefined} onChange={(event) => setCreatedEnd(event.target.value)} aria-label="下单结束日期" /></div></label>
         </div>
-        <div className="toolbar-actions">
+        <div className="toolbar-actions status-filter-row">
           <div className="filters">
             {orderFilters.map((item) => (
               <button key={item} className={`filter-btn ${filter === item ? 'active' : ''}`} type="button" onClick={() => onFilter(item)}>
@@ -391,12 +474,15 @@ function OrdersWorkspace({
             ))}
           </div>
         </div>
+        {hasFilters ? <div className="filter-feedback" aria-live="polite"><span>当前筛选</span>{query ? <b>关键词：{query}</b> : null}{filter !== '全部' ? <b>订单状态：{filter}</b> : null}{deliveryFilter !== 'ALL' ? <b>配送状态已筛选</b> : null}{createdStart || createdEnd ? <b>下单时间：{createdStart || '不限'} 至 {createdEnd || '不限'}</b> : null}</div> : null}
+        {loading && orders.length ? <div className="data-notice" role="status">正在更新订单数据…</div> : error && orders.length ? <div className="data-notice error" role="alert">订单数据更新失败：{error}，当前显示上次成功加载的结果。</div> : null}
       </div>
       <div className="orders">
-        {filteredOrders.length ? filteredOrders.map((order) => (
+        {!authorized ? <ResultState kind="permission" message="请先登录运营账号后查看订单。" /> : loading && !orders.length ? <ResultState kind="loading" message="正在读取全部订单，请稍候。" /> : error && !orders.length ? <ResultState kind="error" message={`${error}，请检查服务连接后重试。`} /> : pagedOrders.length ? pagedOrders.map((order) => (
           <OrderCard key={order.id} order={order} onAdvance={onAdvance} onQuote={onQuote} onTicket={onTicket} />
-        )) : <div className="empty">当前筛选下暂无订单。用户端下单后会同步到这里。</div>}
+        )) : <ResultState kind="empty" message={hasFilters ? '没有符合当前搜索和筛选条件的订单，可清空条件后重试。' : '暂无订单，用户端下单后会同步到这里。'} />}
       </div>
+      <Pagination page={page} total={filteredOrders.length} onPage={setPage} />
     </section>
   )
 }
@@ -418,6 +504,7 @@ export function OperationsApp() {
   const [store, setStore] = useState<Store | null>(null)
   const [connected, setConnected] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
+  const [dataError, setDataError] = useState('')
   const [toast, setToast] = useState('')
   const [healthText, setHealthText] = useState('请先启动 NestJS 后端：cd server/api && npm run start:dev')
   const toastTimer = useRef(0)
@@ -425,6 +512,7 @@ export function OperationsApp() {
 
   const api = useMemo(() => new OperationsApi(apiBase.replace(/\/$/, ''), token), [apiBase, token])
   const stats = useMemo(() => calcStats(orders), [orders])
+  const pendingRiderCount = useMemo(() => riders.filter((item) => (item.application?.applicationStatus || item.status) === 'PENDING').length, [riders])
 
   const navigate = useCallback((nextView: string) => {
     setView(nextView)
@@ -449,10 +537,12 @@ export function OperationsApp() {
       setRiders(riderApplications)
       setManagedRiders(riderList)
       setConnected(true)
+      setDataError('')
       setHealthText('已连接 NestJS 后端，订单状态会和用户端同步')
       if (!silent) showToast('订单已刷新')
     } catch (error) {
       setConnected(false)
+      setDataError(error instanceof Error ? error.message : '后端连接失败')
       setHealthText(error instanceof Error ? error.message : '后端连接失败')
       if (error instanceof Error && error.message.includes('登录')) setShowLogin(true)
       if (!silent) showToast(`刷新失败：${error instanceof Error ? error.message : '未知错误'}`)
@@ -490,10 +580,12 @@ export function OperationsApp() {
       setRiders(riderApplications)
       setManagedRiders(riderList)
       setConnected(true)
+      setDataError('')
       setHealthText('已连接 NestJS 后端，订单状态会和用户端同步')
     } catch (error) {
       setConnected(false)
       const message = error instanceof Error ? error.message : '未知错误'
+      setDataError(message)
       setHealthText(message)
       showToast(`登录失败：${message}`)
     } finally {
@@ -509,6 +601,7 @@ export function OperationsApp() {
     setManagedRiders([])
     setStore(null)
     setConnected(false)
+    setDataError('')
     localStorage.removeItem('merchantToken')
     localStorage.removeItem('merchantId')
     localStorage.removeItem('merchantName')
@@ -549,6 +642,10 @@ export function OperationsApp() {
     }
     try {
       await api.reviewRider(rider, approved, reason)
+      setRiders((current) => current.map((item) => {
+        const sameApplication = (item.application?.applicationId || item.id) === (rider.application?.applicationId || rider.id)
+        return sameApplication ? { ...item, status: approved ? 'APPROVED' : 'REJECTED', application: { ...item.application, applicationStatus: approved ? 'APPROVED' : 'REJECTED', rejectionReason: reason, reviewedAt: new Date().toISOString() } } : item
+      }))
       showToast(approved ? '骑手已审核通过' : '骑手申请已拒绝')
       await loadDashboard(true)
     } catch (error) {
@@ -591,7 +688,7 @@ export function OperationsApp() {
 
   return (
     <div className="shell">
-      <Sidebar activeView={view} onNavigate={navigate} />
+      <Sidebar activeView={view} pendingRiderCount={pendingRiderCount} onNavigate={navigate} />
       <main className="main">
         <header className="topbar">
           <div>
@@ -614,16 +711,18 @@ export function OperationsApp() {
         {view === 'orders' ? <>
           <StorePanel store={store} connected={connected} healthText={healthText} />
           <StatsGrid stats={stats} />
-          <RiderReviewPanel riders={riders} onReview={reviewRider} />
           <OrdersWorkspace
             filter={filter}
             orders={orders}
+            loading={refreshing}
+            error={dataError}
+            authorized={Boolean(token)}
             onFilter={setFilter}
             onAdvance={advanceOrder}
             onQuote={quoteOrder}
             onTicket={() => showToast('已模拟打印小票')}
           />
-        </> : view === 'rider-applications' ? <RiderApplicationsWorkspace riders={riders} onReview={reviewRider} /> : view === 'riders' ? <RidersWorkspace riders={managedRiders} onChangeStatus={changeRiderStatus} /> : view === 'pricing' ? <PricingWorkspace api={api} onToast={showToast} /> : view === 'service-areas' ? <ServiceAreasWorkspace api={api} onToast={showToast} /> : <SystemSettingsWorkspace api={api} onToast={showToast} />}
+        </> : view === 'rider-applications' ? <RiderApplicationsWorkspace riders={riders} onReview={reviewRider} /> : view === 'riders' ? <RidersWorkspace riders={managedRiders} loading={refreshing} error={dataError} authorized={Boolean(token)} onChangeStatus={changeRiderStatus} /> : view === 'pricing' ? <PricingWorkspace api={api} onToast={showToast} /> : view === 'service-areas' ? <ServiceAreasWorkspace api={api} onToast={showToast} /> : <SystemSettingsWorkspace api={api} onToast={showToast} />}
       </main>
       <Toast message={toast} />
       <LoginDialog

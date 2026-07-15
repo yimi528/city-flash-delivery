@@ -1,0 +1,14 @@
+{
+  "name": "city-flash-delivery",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "bash scripts/dev.sh",
+    "dev:stop": "bash scripts/stop-dev.sh",
+    "test:start-stop": "bash scripts/check-start-stop.sh",
+    "test:mvp": "bash scripts/check-mvp.sh",
+    "test:security": "npm --prefix server/api audit --omit=dev && npm --prefix apps/merchant-web audit --omit=dev",
+    "test:containers": "bash scripts/check-containers.sh",
+    "release:check": "bash scripts/validate-production.sh"
+  }
+}

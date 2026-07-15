@@ -52,12 +52,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: >-
-          node --test
-          apps/customer-mp/tests/service-flow.test.js
-          apps/customer-mp/tests/map-backend.test.js
-          apps/customer-mp/tests/auth-payment.test.js
-          apps/customer-mp/tests/rider-mode.test.js
+      - run: node --test apps/customer-mp/tests/*.test.js
 
   rider-mini-program:
     runs-on: ubuntu-latest

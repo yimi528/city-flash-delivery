@@ -1,4 +1,4 @@
-# NestJS API Skeleton
+# NestJS API
 
 This is the current MVP backend for the city flash delivery project. The older Python/SQLite server remains only as a legacy compatibility demo; all current customer, rider, operations, pricing, and configuration flows use this NestJS + PostgreSQL/PostGIS + Redis service.
 
@@ -45,16 +45,18 @@ If startup reports `EADDRINUSE` for port `3000`, another API instance is already
 
 ## Current Scope
 
-This skeleton includes route/module placeholders for:
+The production API includes:
 
-- `auth`: WeChat/customer login and operator login placeholders.
-- `users`: user profile placeholder.
-- `addresses`: address list placeholder.
+- `auth`: WeChat/customer login, operator login, and role switching.
+- `users`: customer profile and account roles.
+- `addresses`: persisted customer address book.
 - `orders`: create/list/detail/status APIs persisted with Prisma/PostgreSQL.
 - `operations`: operator order list, quote, and status update endpoints.
 - `pricing`: delivery price estimate using fixed vehicle rules.
 - `maps`: server-side Tencent address search, reverse geocoding, route distance, and automatic bad-weather risk endpoints.
-- `health`: health check.
+- `payments`: WeChat Pay API v3, callbacks, close, refund, bills, and reconciliation.
+- `riders`: applications, review, availability, dispatch, lifecycle, and history.
+- `health`: liveness and readiness checks.
 
 ## Unified customer and rider identity
 
@@ -76,13 +78,9 @@ Apply the Prisma migration before using the new flow:
 npm run prisma:deploy
 ```
 
-## Migration Plan
+## Legacy server
 
-1. Keep `server/app.py` running as the stable MVP backend.
-2. Use this NestJS API to model the final modules and database schema.
-3. Continue replacing remaining demo placeholders with Prisma-backed modules.
-4. Point customer mini program and operations web to `http://127.0.0.1:3000/api` after endpoint parity.
-5. Remove the Python backend only after NestJS covers the complete user order + operations workflow.
+`server/app.py` is retained only as historical reference. All current customer, rider, operations, pricing, payment, and configuration flows use this NestJS API; do not run the Python server for local or production service.
 
 ## Database Notes
 

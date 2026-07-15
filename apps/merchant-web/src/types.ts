@@ -25,6 +25,9 @@ export type RiderApplication = {
   online?: boolean
   currentOrders?: Array<{ id: string; orderNo?: string; status: string; serviceName?: string }>
   deliveryCount?: number
+  serviceCity?: string
+  createdAt?: string
+  updatedAt?: string
   vehicles?: Array<{ vehicleType: string; vehicleName: string; enabled: boolean; verified: boolean }>
   application?: {
     requestedVehicleType?: 'EBIKE' | 'ETRIKE' | 'VAN' | 'MANUAL'
@@ -46,6 +49,11 @@ export type ApiOrder = {
   id: string
   orderNo?: string
   userId?: string
+  riderId?: string
+  customerName?: string
+  customerPhone?: string
+  riderName?: string
+  riderPhone?: string
   serviceType?: BackendService | string
   serviceName?: string
   service?: string

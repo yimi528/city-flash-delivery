@@ -237,7 +237,8 @@ export class RidersService {
     })
     return riders.map((rider) => ({
       ...rider,
-      phone: this.maskPhone(rider.phone),
+      // 该接口受运营权限保护，完整号码用于后台精确检索。
+      phone: rider.phone,
       currentOrders: rider.orders,
       deliveryCount: rider._count.orders,
     }))

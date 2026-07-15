@@ -44,3 +44,4 @@ server/data/*.sqlite-*
 # Codex/projectless scratch folders
 work/
 outputs/
+.runtime/

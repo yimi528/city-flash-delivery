@@ -1,3 +1,8 @@
+let runtimeConfig = { resolveApiBaseUrl: () => 'http://127.0.0.1:3000/api' }
+try {
+  if (typeof require === 'function') runtimeConfig = require('./config/runtime')
+} catch (error) {}
+
 App({
   onLaunch() {
     const systemInfo = wx.getSystemInfoSync ? wx.getSystemInfoSync() : {}
@@ -173,7 +178,7 @@ App({
     businessOpen: true,
     announcement: null,
     pricingVersion: 0,
-    apiBaseUrl: 'http://127.0.0.1:3000/api',
+    apiBaseUrl: runtimeConfig.resolveApiBaseUrl(wx),
     city: '宁德市',
     currentLocation: null,
     mapConfig: {

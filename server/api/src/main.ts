@@ -2,11 +2,15 @@ import { ValidationPipe } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import { NestFactory } from '@nestjs/core'
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger'
+import helmet from 'helmet'
 import { AppModule } from './app.module'
+import { validateProductionConfig } from './config/production-config'
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { rawBody: true })
+  app.use(helmet({ contentSecurityPolicy: false }))
   const config = app.get(ConfigService)
+  validateProductionConfig(config)
   const apiPrefix = config.get<string>('API_PREFIX') || 'api'
   const nodeEnv = config.get<string>('NODE_ENV') || 'development'
   const corsOrigins = (config.get<string>('CORS_ORIGINS') || '')

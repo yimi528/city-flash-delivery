@@ -63,7 +63,11 @@ export class OrdersService {
   async list(userId?: string) {
     const orders = await this.prisma.order.findMany({
       where: userId ? { userId } : undefined,
-      include: { vehicle: true },
+      include: {
+        vehicle: true,
+        user: { select: { nickname: true, phone: true } },
+        rider: { select: { name: true, phone: true } },
+      },
       orderBy: { createdAt: 'desc' },
     })
     return orders.map((order) => this.toApiOrder(order))
@@ -463,6 +467,10 @@ export class OrdersService {
   }
 
   private toApiOrder(order: PersistedOrder) {
+    const searchableOrder = order as PersistedOrder & {
+      user?: { nickname: string; phone: string | null }
+      rider?: { name: string; phone: string }
+    }
     const totalFee = this.toNumber(order.totalFee) || 0
     const quotedFee = this.toNumber(order.quotedFee)
     const statusIndex = ORDER_STATUS_FLOW.indexOf(order.status as OrderStatus)
@@ -476,6 +484,8 @@ export class OrdersService {
       id: order.id,
       orderNo: order.orderNo,
       userId: order.userId,
+      customerName: searchableOrder.user?.nickname || order.pickupContact || '',
+      customerPhone: searchableOrder.user?.phone || order.pickupPhone || '',
       serviceType: order.serviceType,
       serviceName,
       service: serviceName,
@@ -490,6 +500,8 @@ export class OrdersService {
       pricingRuleVersion: order.pricingRuleVersion,
       requiresDelivery: order.requiresDelivery,
       riderId: order.riderId,
+      riderName: searchableOrder.rider?.name || '',
+      riderPhone: searchableOrder.rider?.phone || '',
       acceptedAt: order.acceptedAt?.toISOString() || null,
       arrivedAt: order.arrivedAt?.toISOString() || null,
       status: order.status,

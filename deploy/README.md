@@ -56,6 +56,14 @@ chmod 700 certs secrets
 
 Edit `env.production` with the private TencentDB address, domains, image tags, WeChat credentials, and a new Tencent Map key. Never copy the local development `.env` to the server.
 
+Before deployment, update `trial` and `release` in `apps/customer-mp/config/runtime.js` to the备案后的 API HTTPS 地址, then run the production gate from the repository root:
+
+```bash
+npm run release:check -- deploy/env.production
+```
+
+The gate rejects placeholders, mocks, insecure origins/callbacks, missing TLS/payment files, a mismatched Mini Program API domain, and invalid Compose configuration. The API repeats critical checks at startup and refuses to serve with an incomplete production configuration.
+
 Install the certificate and payment files with restrictive permissions:
 
 ```bash
@@ -99,9 +107,9 @@ Configure `https://api.example.com` as the WeChat Mini Program request domain an
 https://api.example.com/api/payments/wechat/notify
 ```
 
-Before uploading the trial or release Mini Program, replace `api.example.com` in `apps/customer-mp/app.js` with the备案后的正式域名. The user and rider modes share this one Mini Program AppID and customer login credentials.
+Before uploading the trial or release Mini Program, verify that `apps/customer-mp/config/runtime.js` matches the备案后的正式域名. The user and rider modes share this one Mini Program AppID and customer login credentials.
 
-Before a production release, test real-device login, a small real payment, callback verification, cancellation, refund, and reconciliation. The current project does not yet implement the real WeChat refund API, so paid-order cancellation must remain disabled in production until that integration is complete.
+Before a production release, test real-device login, a small real payment, callback verification, cancellation, refund, and reconciliation. These integrations are implemented, but they cannot be accepted against WeChat's real environment without the production AppID, merchant credentials, certificates, approved domains, and a real device.
 
 ## 6. Update and rollback
 
