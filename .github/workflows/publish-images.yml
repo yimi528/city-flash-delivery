@@ -4,6 +4,11 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      merchant_api_base_url:
+        description: '运营后台使用的 API 地址，例如 https://api.example.cn/api'
+        required: true
+        default: 'https://pvuhgoctjaup.sealosbja.site/api'
 
 permissions:
   contents: read
@@ -15,6 +20,7 @@ jobs:
     env:
       IMAGE_ROOT: ghcr.io/${{ github.repository_owner }}
       VERSION: ${{ github.sha }}
+      MERCHANT_API_BASE_URL: ${{ github.event.inputs.merchant_api_base_url || 'https://pvuhgoctjaup.sealosbja.site/api' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -49,7 +55,7 @@ jobs:
           context: ./apps/merchant-web
           push: true
           build-args: |
-            VITE_API_BASE_URL=https://pvuhgoctjaup.sealosbja.site/api
+            VITE_API_BASE_URL=${{ env.MERCHANT_API_BASE_URL }}
           tags: |
             ${{ env.IMAGE_ROOT }}/city-flash-merchant:${{ env.VERSION }}
             ${{ env.IMAGE_ROOT }}/city-flash-merchant:latest
