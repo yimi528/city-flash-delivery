@@ -150,6 +150,8 @@ model Operator {
   passwordHash String    @default("")
   role         UserRole  @default(OPERATOR)
   enabled      Boolean   @default(true)
+  failedLoginCount Int    @default(0)
+  lockedUntil  DateTime?
   lastLoginAt  DateTime?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
@@ -708,4 +710,22 @@ model ConfigRevision {
   @@unique([category, version])
   @@index([category, publishedAt])
   @@map("config_revisions")
+}
+
+model AuditLog {
+  id           String   @id @default(cuid())
+  actorId      String?
+  actorRole    String?
+  action       String
+  resourceType String
+  resourceId   String?
+  metadata     Json?
+  ipAddress    String?
+  userAgent    String?
+  createdAt    DateTime @default(now())
+
+  @@index([actorId, createdAt])
+  @@index([action, createdAt])
+  @@index([resourceType, resourceId, createdAt])
+  @@map("audit_logs")
 }

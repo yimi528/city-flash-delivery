@@ -4,7 +4,8 @@ import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto'
 import { PrismaService } from '../common/prisma/prisma.service'
 import { UserRole, RoleStatus } from '@prisma/client'
 import { AuthTokenService } from './auth-token.service'
-import { OperatorLoginDto, WechatLoginDto } from './auth.dto'
+import { ChangePasswordDto, OperatorLoginDto, WechatLoginDto } from './auth.dto'
+import { AuditService } from '../audit/audit.service'
 
 type CodeSessionResponse = {
   openid?: string
@@ -20,6 +21,7 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
     private readonly tokens: AuthTokenService,
+    private readonly audit: AuditService,
   ) {}
 
   async wechatLogin(dto: WechatLoginDto) {
@@ -85,10 +87,23 @@ export class AuthService {
 
   async operatorLogin(dto: OperatorLoginDto) {
     const operator = await this.findOrBootstrapOperator(dto.username, dto.password)
+    if (operator?.lockedUntil && operator.lockedUntil > new Date()) {
+      await this.audit.record({ action: 'operator.login.locked', resourceType: 'operator', resourceId: operator.id, metadata: { username: dto.username } })
+      throw new UnauthorizedException('账号暂时锁定，请稍后再试')
+    }
     if (!operator || !operator.enabled || !this.verifyPassword(dto.password, operator.passwordHash)) {
+      if (operator) {
+        const failedLoginCount = operator.failedLoginCount + 1
+        await this.prisma.operator.update({
+          where: { id: operator.id },
+          data: { failedLoginCount, lockedUntil: failedLoginCount >= 5 ? new Date(Date.now() + 15 * 60 * 1000) : null },
+        })
+      }
+      await this.audit.record({ action: 'operator.login.failed', resourceType: 'operator', resourceId: operator?.id, metadata: { username: dto.username } })
       throw new UnauthorizedException('账号或密码错误')
     }
-    await this.prisma.operator.update({ where: { id: operator.id }, data: { lastLoginAt: new Date() } })
+    await this.prisma.operator.update({ where: { id: operator.id }, data: { lastLoginAt: new Date(), failedLoginCount: 0, lockedUntil: null } })
+    await this.audit.record({ action: 'operator.login.succeeded', actorId: operator.id, actorRole: 'operator', resourceType: 'operator', resourceId: operator.id })
     return {
       token: this.tokens.sign(operator.id, 'operator'),
       role: 'operator',
@@ -99,6 +114,18 @@ export class AuthService {
         role: operator.role,
       },
     }
+  }
+
+  async changeOperatorPassword(operatorId: string, dto: ChangePasswordDto) {
+    const operator = await this.prisma.operator.findUnique({ where: { id: operatorId } })
+    if (!operator || !this.verifyPassword(dto.currentPassword, operator.passwordHash)) {
+      await this.audit.record({ action: 'operator.password.change.failed', actorId: operatorId, actorRole: 'operator', resourceType: 'operator', resourceId: operatorId })
+      throw new UnauthorizedException('当前密码错误')
+    }
+    if (dto.currentPassword === dto.newPassword) throw new UnauthorizedException('新密码不能与当前密码相同')
+    await this.prisma.operator.update({ where: { id: operatorId }, data: { passwordHash: this.hashPassword(dto.newPassword), failedLoginCount: 0, lockedUntil: null } })
+    await this.audit.record({ action: 'operator.password.changed', actorId: operatorId, actorRole: 'operator', resourceType: 'operator', resourceId: operatorId })
+    return { success: true }
   }
 
   async accountRoles(userId: string) {

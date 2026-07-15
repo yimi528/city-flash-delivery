@@ -5,9 +5,11 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger'
 import helmet from 'helmet'
 import { AppModule } from './app.module'
 import { validateProductionConfig } from './config/production-config'
+import { requestIdMiddleware } from './observability/request-id.middleware'
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { rawBody: true })
+  app.use(requestIdMiddleware)
   app.use(helmet({ contentSecurityPolicy: false }))
   const config = app.get(ConfigService)
   validateProductionConfig(config)

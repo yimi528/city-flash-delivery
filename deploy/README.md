@@ -28,7 +28,7 @@ Replace the registry and Git SHA before running these commands:
 
 ```bash
 export REGISTRY=ccr.ccs.tencentyun.com/your-namespace
-export VERSION=$(git rev-parse --short HEAD)
+export VERSION=$(git rev-parse HEAD)
 
 docker build --target runtime \
   -t "$REGISTRY/city-flash-api:$VERSION" server/api
@@ -113,10 +113,14 @@ Before a production release, test real-device login, a small real payment, callb
 
 ## 6. Update and rollback
 
-For an update, push immutable image tags and run the migration once. Drain and update one CLB backend at a time, verify `/api/health/ready`, restore it to the CLB, and then update the second CVM:
+For an update, push immutable image tags and run the migration once. Production must use the full Git SHA in `API_IMAGE`, `API_MIGRATION_IMAGE`, and `MERCHANT_IMAGE`; never use `latest`. Drain and update one CLB backend at a time, verify `/api/health/ready`, restore it to the CLB, and then update the second CVM:
 
 ```bash
 docker compose --env-file env.production -f docker-compose.cloud.yml up -d
 ```
 
-To roll back application code, restore the previous API and merchant image tags. Database migrations must remain backward compatible; do not attempt destructive schema rollback during an incident.
+To roll back application code, restore the previous full Git SHA in `env.production`, run `docker compose ... up -d`, and verify readiness and payment callbacks before restoring traffic. Database migrations must remain backward compatible; do not attempt destructive schema rollback during an incident. Keep the previous SHA and migration version in the release record.
+
+## 7. Backups and monitoring
+
+Install the daily PostgreSQL job from [`backup/backup-postgres.sh`](backup/backup-postgres.sh), retain at least seven days, and rehearse a restore into an isolated database. Configure provider alerts using [`monitoring/README.md`](monitoring/README.md). The test resources (`xian-test-*`) remain separate from production resources and databases.

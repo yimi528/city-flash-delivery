@@ -23,7 +23,8 @@ export class AuthTokenService {
 
   sign(subjectId: string, role: AuthRole) {
     const issuedAt = Math.floor(Date.now() / 1000)
-    const ttl = Number(this.config.get<string>('AUTH_TOKEN_TTL_SECONDS') || 604800)
+    const roleKey = `${role.toUpperCase()}_AUTH_TOKEN_TTL_SECONDS`
+    const ttl = Number(this.config.get<string>(roleKey) || this.config.get<string>('AUTH_TOKEN_TTL_SECONDS') || 604800)
     const header = this.encode({ alg: 'HS256', typ: 'JWT' })
     const payload = this.encode({ sub: subjectId, role, iat: issuedAt, exp: issuedAt + ttl })
     const signature = this.signature(`${header}.${payload}`)

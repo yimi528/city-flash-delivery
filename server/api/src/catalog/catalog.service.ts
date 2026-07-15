@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { BadRequestException, Injectable, OnModuleInit, Optional, ServiceUnavailableException } from '@nestjs/common'
+import { ConfigService } from '@nestjs/config'
 import { Prisma, VehicleType } from '@prisma/client'
 import { PrismaService } from '../common/prisma/prisma.service'
 import { TencentMapService } from '../maps/tencent-map.service'
@@ -22,6 +23,7 @@ export class CatalogService implements OnModuleInit {
   constructor(
     private readonly prisma: PrismaService,
     private readonly maps: TencentMapService,
+    @Optional() private readonly config?: ConfigService,
     @Optional() private readonly configCenter?: ConfigCenterService,
   ) {}
 
@@ -63,6 +65,7 @@ export class CatalogService implements OnModuleInit {
         }),
       ])
     } catch (error) {
+      if (this.config?.get<string>('NODE_ENV') === 'production') throw error
       console.warn('Catalog bootstrap skipped; database schema/data needs reconciliation.', error)
     }
   }

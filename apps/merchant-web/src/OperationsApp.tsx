@@ -52,9 +52,9 @@ function getInitialApiBase() {
 }
 
 function getInitialToken() {
-  const saved = localStorage.getItem('merchantToken') || ''
+  const saved = sessionStorage.getItem('merchantToken') || ''
   if (saved.startsWith('mock-token:')) {
-    localStorage.removeItem('merchantToken')
+    sessionStorage.removeItem('merchantToken')
     return ''
   }
   return saved
@@ -565,7 +565,7 @@ export function OperationsApp() {
       setToken(nextToken)
       setOperatorId(nextOperatorId)
       setOperatorName(nextOperatorName)
-      localStorage.setItem('merchantToken', nextToken)
+      sessionStorage.setItem('merchantToken', nextToken)
       localStorage.setItem('merchantId', nextOperatorId)
       localStorage.setItem('merchantName', nextOperatorName)
       localStorage.setItem('merchantUsername', username.trim())
@@ -602,7 +602,7 @@ export function OperationsApp() {
     setStore(null)
     setConnected(false)
     setDataError('')
-    localStorage.removeItem('merchantToken')
+    sessionStorage.removeItem('merchantToken')
     localStorage.removeItem('merchantId')
     localStorage.removeItem('merchantName')
     setHealthText('请登录运营账号')

@@ -235,6 +235,13 @@ export class OperationsApi {
     })
   }
 
+  changePassword(currentPassword: string, newPassword: string) {
+    return this.request<{ success: boolean }>('/auth/operator/change-password', {
+      method: 'POST',
+      body: JSON.stringify({ currentPassword, newPassword })
+    })
+  }
+
   listOrders() {
     return this.request<DashboardPayload>('/operations/orders')
   }

@@ -28,6 +28,16 @@ export class OperatorLoginDto {
   password!: string
 }
 
+export class ChangePasswordDto {
+  @IsString()
+  @MinLength(6)
+  currentPassword!: string
+
+  @IsString()
+  @MinLength(12)
+  newPassword!: string
+}
+
 export class SwitchRoleDto {
   @IsString()
   @IsNotEmpty()

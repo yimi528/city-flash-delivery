@@ -5,6 +5,7 @@ import { CustomerAuthGuard, OperatorAuthGuard } from '../auth/auth.guard'
 import { AuthPrincipal } from '../auth/auth-token.service'
 import { ConfigCenterService } from './config-center.service'
 import { PricingQuoteDto, PublishConfigDto, SaveConfigDraftDto, ServiceAreaCheckDto } from './config-center.dto'
+import { AuditService } from '../audit/audit.service'
 
 @ApiTags('config-center')
 @Controller('v1')
@@ -33,7 +34,7 @@ export class ConfigCenterController {
 @Controller('v1/admin')
 @UseGuards(OperatorAuthGuard)
 export class AdminConfigCenterController {
-  constructor(private readonly configs: ConfigCenterService) {}
+  constructor(private readonly configs: ConfigCenterService, private readonly audit: AuditService) {}
 
   @Get('pricing')
   pricing() {
@@ -52,12 +53,18 @@ export class AdminConfigCenterController {
 
   @Put('config-drafts')
   saveDraft(@CurrentAuth() auth: AuthPrincipal, @Body() dto: SaveConfigDraftDto) {
-    return this.configs.saveDraft(auth.subjectId, dto)
+    return this.configs.saveDraft(auth.subjectId, dto).then((result) => {
+      void this.audit.record({ actorId: auth.subjectId, actorRole: auth.role, action: 'config.draft.saved', resourceType: 'config', resourceId: dto.category })
+      return result
+    })
   }
 
   @Post('config-publish')
   publish(@CurrentAuth() auth: AuthPrincipal, @Body() dto: PublishConfigDto) {
-    return this.configs.publish(auth.subjectId, dto.category)
+    return this.configs.publish(auth.subjectId, dto.category).then((result) => {
+      void this.audit.record({ actorId: auth.subjectId, actorRole: auth.role, action: 'config.published', resourceType: 'config', resourceId: dto.category })
+      return result
+    })
   }
 
   @Get('config-revisions')

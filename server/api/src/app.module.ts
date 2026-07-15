@@ -13,10 +13,16 @@ import { UsersModule } from './users/users.module'
 import { CatalogModule } from './catalog/catalog.module'
 import { RidersModule } from './riders/riders.module'
 import { ConfigCenterModule } from './config-center/config-center.module'
+import { AuditModule } from './audit/audit.module'
+import { SecurityModule } from './security/security.module'
+import { NotificationsModule } from './notifications/notifications.module'
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true, envFilePath: ['.env.local', '.env'] }),
+    AuditModule,
+    SecurityModule,
+    NotificationsModule,
     PrismaModule,
     HealthModule,
     AuthModule,

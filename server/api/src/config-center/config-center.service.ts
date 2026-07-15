@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { BadRequestException, ConflictException, Injectable, OnModuleInit, ServiceUnavailableException } from '@nestjs/common'
+import { ConfigService } from '@nestjs/config'
 import { ConfigCategory, Prisma, RoutePriceUnit, VehicleType } from '@prisma/client'
 import { PrismaService } from '../common/prisma/prisma.service'
 import { TencentMapService } from '../maps/tencent-map.service'
@@ -35,6 +36,7 @@ export class ConfigCenterService implements OnModuleInit {
     private readonly prisma: PrismaService,
     private readonly maps: TencentMapService,
     private readonly weather: WeatherRiskService,
+    private readonly config: ConfigService,
   ) {}
 
   async onModuleInit() {
@@ -50,6 +52,7 @@ export class ConfigCenterService implements OnModuleInit {
         create: { serviceId },
       })))
     } catch (error) {
+      if (this.config.get<string>('NODE_ENV') === 'production') throw error
       console.warn('Config bootstrap skipped; database schema/data needs reconciliation.', error)
     }
   }

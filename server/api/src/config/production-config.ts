@@ -67,6 +67,20 @@ export function validateProductionConfig(config: ConfigReader) {
   if (value(config, 'ENABLE_SWAGGER') === 'true') {
     errors.push('ENABLE_SWAGGER must not be true in production')
   }
+  if (value(config, 'OPERATOR_BOOTSTRAP_ENABLED') === 'true') {
+    errors.push('OPERATOR_BOOTSTRAP_ENABLED must be false in production after the first operator is created')
+  }
+
+  for (const [key, minimum] of [
+    ['CUSTOMER_AUTH_TOKEN_TTL_SECONDS', 900],
+    ['RIDER_AUTH_TOKEN_TTL_SECONDS', 900],
+    ['OPERATOR_AUTH_TOKEN_TTL_SECONDS', 900],
+  ] as const) {
+    const ttl = Number(value(config, key) || value(config, 'AUTH_TOKEN_TTL_SECONDS') || '604800')
+    if (!Number.isInteger(ttl) || ttl < minimum || ttl > 604800) {
+      errors.push(`${key} must be an integer between ${minimum} and 604800`)
+    }
+  }
 
   const privateKey = value(config, 'WECHAT_PAY_PRIVATE_KEY')
   const privateKeyPath = value(config, 'WECHAT_PAY_PRIVATE_KEY_PATH')

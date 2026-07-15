@@ -1,4 +1,5 @@
 const app = getApp()
+const api = require('../../utils/api')
 
 Page({
   data: {
@@ -8,6 +9,13 @@ Page({
 
   onShow() {
     this.setData({ statusBarHeight: app.globalData.statusBarHeight })
+    if (!app.globalData.authToken) {
+      this.setData({ messages: [] })
+      return
+    }
+    api.getNotifications().then((messages) => this.setData({ messages })).catch(() => {
+      wx.showToast({ title: '消息加载失败', icon: 'none' })
+    })
   },
 
   goBack() {
@@ -20,21 +28,19 @@ Page({
   },
 
   openMenu() {
-    wx.showToast({ title: '消息设置开发中', icon: 'none' })
+    api.markAllNotificationsRead().then(() => {
+      this.setData({ messages: this.data.messages.map((item) => ({ ...item, unread: false })) })
+      wx.showToast({ title: '已全部读', icon: 'none' })
+    }).catch(() => wx.showToast({ title: '操作失败', icon: 'none' }))
   },
 
   openMessage(event) {
     const index = event.currentTarget.dataset.index
-    const messages = this.data.messages.map((item, itemIndex) => {
-      return {
-        icon: item.icon,
-        title: item.title,
-        body: item.body,
-        time: item.time,
-        unread: itemIndex === index ? false : item.unread
-      }
-    })
+    const message = this.data.messages[index]
+    if (!message) return
+    api.markNotificationRead(message.id).catch(() => null)
+    const messages = this.data.messages.map((item, itemIndex) => ({ ...item, unread: itemIndex === index ? false : item.unread }))
     this.setData({ messages })
-    wx.showToast({ title: messages[index].title, icon: 'none' })
+    wx.showToast({ title: message.title, icon: 'none' })
   }
 })

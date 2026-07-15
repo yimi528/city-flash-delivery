@@ -13,10 +13,11 @@ import { CurrentAuth } from '../auth/current-auth.decorator'
 import { CustomerAuthGuard, OperatorAuthGuard } from '../auth/auth.guard'
 import { AuthPrincipal } from '../auth/auth-token.service'
 import { PaymentsService } from './payments.service'
+import { AuditService } from '../audit/audit.service'
 
 @Controller('payments')
 export class PaymentsController {
-  constructor(private readonly paymentsService: PaymentsService) {}
+  constructor(private readonly paymentsService: PaymentsService, private readonly audit: AuditService) {}
 
   @Post('orders/:orderId/prepay')
   @UseGuards(CustomerAuthGuard)
@@ -38,8 +39,10 @@ export class PaymentsController {
 
   @Post('orders/:orderId/refund')
   @UseGuards(CustomerAuthGuard)
-  refund(@Param('orderId') orderId: string, @CurrentAuth() auth: AuthPrincipal) {
-    return this.paymentsService.refundForCancellation(orderId, auth.subjectId)
+  async refund(@Param('orderId') orderId: string, @CurrentAuth() auth: AuthPrincipal) {
+    const result = await this.paymentsService.refundForCancellation(orderId, auth.subjectId)
+    await this.audit.record({ action: 'payment.refund.requested', actorId: auth.subjectId, actorRole: 'customer', resourceType: 'order', resourceId: orderId })
+    return result
   }
 
   @Post('wechat/notify')
@@ -87,8 +90,10 @@ export class PaymentsController {
 
   @Post('admin/reconcile')
   @UseGuards(OperatorAuthGuard)
-  reconcileTradeBill(@Query('billDate') billDate?: string) {
-    return this.paymentsService.reconcileTradeBill(billDate)
+  async reconcileTradeBill(@Query('billDate') billDate?: string, @CurrentAuth() auth?: AuthPrincipal) {
+    const result = await this.paymentsService.reconcileTradeBill(billDate)
+    await this.audit.record({ action: 'payment.reconciliation.ran', actorId: auth?.subjectId, actorRole: 'operator', resourceType: 'payment_reconciliation', metadata: { billDate } })
+    return result
   }
 
   @Get('admin/reconciliation')

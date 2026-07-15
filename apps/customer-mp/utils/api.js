@@ -691,6 +691,28 @@ function updateMerchantOrderStatus(id, payload) {
   })
 }
 
+function getNotifications(limit) {
+  return request(`/v1/notifications?limit=${encodeURIComponent(limit || 50)}`).then((payload) => {
+    const items = Array.isArray(payload) ? payload : payload.items || []
+    return items.map((item) => ({
+      id: item.id,
+      icon: item.type === 'PAYMENT' ? '¥' : item.type === 'ORDER' ? '单' : '信',
+      title: item.title || '订单消息',
+      body: item.body || item.content || '',
+      time: formatTime(item.createdAt),
+      unread: !item.readAt
+    }))
+  })
+}
+
+function markNotificationRead(id) {
+  return request(`/v1/notifications/${encodeURIComponent(id)}/read`, { method: 'PATCH' })
+}
+
+function markAllNotificationsRead() {
+  return request('/v1/notifications/read-all', { method: 'POST' })
+}
+
 module.exports = {
   request,
   wechatLogin,
@@ -727,6 +749,9 @@ module.exports = {
   getMerchantDashboard,
   getMerchantOrders,
   updateMerchantOrderStatus,
+  getNotifications,
+  markNotificationRead,
+  markAllNotificationsRead,
   normalizeOrder,
   buildNestOrderPayload
 }
