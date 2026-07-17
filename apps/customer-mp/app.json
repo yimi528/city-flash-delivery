@@ -11,6 +11,7 @@
     "pages/orders/orders",
     "pages/message/message",
     "pages/profile/profile",
+    "pages/legal/legal",
     "pages/rider-apply/rider-apply",
     "pages/rider/order-hall/order-hall",
     "pages/rider/tasks/tasks",

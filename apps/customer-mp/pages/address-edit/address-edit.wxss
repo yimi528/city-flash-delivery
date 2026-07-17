@@ -179,6 +179,40 @@
   box-shadow: 0 14rpx 36rpx rgba(22, 30, 50, 0.06);
 }
 
+.manual-heading {
+  margin-bottom: 12rpx;
+  padding-bottom: 24rpx;
+  border-bottom: 2rpx solid #edf0f5;
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+}
+
+.manual-icon {
+  width: 52rpx;
+  height: 52rpx;
+  border-radius: 17rpx;
+  color: #fff;
+  background: linear-gradient(145deg, #d4472d, #b92f20);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22rpx;
+  font-weight: 900;
+}
+
+.manual-title { color: #111c34; font-size: 29rpx; font-weight: 900; }
+.manual-sub { margin-top: 4rpx; color: #8a93a5; font-size: 21rpx; }
+.scope-lock {
+  margin: 18rpx 0 4rpx;
+  padding: 16rpx 18rpx;
+  border-radius: 16rpx;
+  color: #25674f;
+  background: #eaf5ef;
+  font-size: 22rpx;
+  font-weight: 800;
+}
+
 .field {
   padding: 22rpx 0;
   border-bottom: 2rpx solid #f1f3f8;

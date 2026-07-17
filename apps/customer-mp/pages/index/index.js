@@ -48,20 +48,23 @@ function visibleTasks() {
   const remote = app.globalData.remoteServices || []
   if (!remote.length) return serviceConfig.ALL_TASKS
   const order = new Map(remote.map((item) => [item.id, item]))
+  const preferredOrder = new Map(serviceConfig.ALL_TASKS.map((item, index) => [item.id, index]))
   return serviceConfig.ALL_TASKS
     .filter((task) => order.has(task.id))
-    .sort((left, right) => Number(order.get(left.id).sortOrder || 0) - Number(order.get(right.id).sortOrder || 0))
+    .sort((left, right) => Number(preferredOrder.get(left.id)) - Number(preferredOrder.get(right.id)))
 }
 
 Page({
   data: {
     statusBarHeight: 24,
-    city: '宁德市',
+    city: '福鼎市',
+    serviceCount: serviceConfig.ALL_TASKS.length,
     draft: {},
     allTasks: serviceConfig.ALL_TASKS,
     coreTasks: serviceConfig.ALL_TASKS.slice(0, 4),
     moreTasks: serviceConfig.ALL_TASKS.slice(4),
     activeTask: serviceConfig.PRIMARY_TASKS[0],
+    carpoolRoutes: Object.keys(carpool.ROUTES).map((id) => carpool.ROUTES[id]),
     locationText: '定位附近'
   },
 
@@ -75,6 +78,7 @@ Page({
         city: app.globalData.city,
         draft,
         allTasks: tasks,
+        serviceCount: tasks.length,
         coreTasks: tasks.slice(0, 4),
         moreTasks: tasks.slice(4),
         activeTask: serviceConfig.getTask(draft.taskId)
@@ -95,10 +99,6 @@ Page({
       draft,
       activeTask: serviceConfig.getTask(draft.taskId)
     })
-  },
-
-  openCity() {
-    wx.showToast({ title: '城市切换开发中', icon: 'none' })
   },
 
   refreshLocation() {
@@ -123,8 +123,17 @@ Page({
 
   chooseAddress(event) {
     const type = event.currentTarget.dataset.type
-    const carpoolMode = this.data.draft.taskId === 'carpool_ride' ? '&mode=carpool' : ''
+    const routeId = this.data.draft.selectedLine && this.data.draft.selectedLine.id
+    const carpoolMode = this.data.draft.taskId === 'carpool_ride' ? `&mode=carpool&route=${routeId || 'cangnan'}` : ''
     wx.navigateTo({ url: `/pages/address/address?type=${type}${carpoolMode}` })
+  },
+
+  chooseCarpoolRoute(event) {
+    const routeId = event.currentTarget.dataset.route
+    const draft = app.globalData.draftOrder
+    if (!carpool.ROUTES[routeId] || (draft.selectedLine && draft.selectedLine.id === routeId)) return
+    carpool.applyRoute(draft, { routeId, clearAddress: true })
+    this.setData({ draft })
   },
 
   openPricing() {

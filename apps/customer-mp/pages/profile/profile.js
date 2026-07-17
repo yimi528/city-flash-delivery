@@ -2,16 +2,11 @@ const app = getApp()
 const api = require('../../utils/api')
 
 const services = [
+  { iconClass: 'bill', name: '我的订单', action: 'orders' },
   { iconClass: 'address', name: '地址簿', action: 'address' },
-  { iconClass: 'service', name: '联系客服', action: 'todo' },
-  { iconClass: 'shield', name: '售后理赔', action: 'todo' },
-  { iconClass: 'invoice', name: '发票管理', action: 'todo' },
-  { iconClass: 'feedback', name: '意见反馈', action: 'todo' },
-  { iconClass: 'invite', name: '填写邀请码', action: 'todo' },
-  { iconClass: 'license', name: '平台资质', action: 'todo' },
-  { iconClass: 'terms', name: '法律条款', action: 'todo' },
-  { iconClass: 'bill', name: '我的账单', action: 'todo' },
-  { iconClass: 'settings', name: '系统设置', action: 'todo' }
+  { iconClass: 'service', name: '联系客服', action: 'service' },
+  { iconClass: 'license', name: '平台资质', action: 'qualification' },
+  { iconClass: 'terms', name: '法律条款', action: 'legal' }
 ]
 
 function maskPhone(phone) {
@@ -33,8 +28,8 @@ Page({
     memberLevel: '登录领取权益',
     riderState: null,
     stats: [
-      { label: '账户余额', value: '0', badge: '' },
-      { label: '优惠券', value: '6', badge: '' }
+      { label: '我的订单', value: '0', action: 'orders' },
+      { label: '常用地址', value: '0', action: 'address' }
     ],
     services
   },
@@ -42,6 +37,7 @@ Page({
   onShow() {
     this.syncUserState()
     this.validateSession()
+    this.loadStats()
     if (app.globalData.isLoggedIn && app.globalData.useBackend) this.loadRiderState()
   },
 
@@ -59,9 +55,28 @@ Page({
         : '登录后管理订单、地址与支付',
       memberLevel: isLoggedIn ? (currentUser.memberLevel || '普通会员') : '安全、快捷地使用同城服务',
       stats: [
-        { label: '账户余额', value: '0', badge: '' },
-        { label: '优惠券', value: isLoggedIn ? '6' : '0', badge: '' }
+        { label: '我的订单', value: isLoggedIn ? String((app.globalData.orders || []).length) : '0', action: 'orders' },
+        { label: '常用地址', value: isLoggedIn ? String((app.globalData.addresses || []).length) : '0', action: 'address' }
       ]
+    })
+  },
+
+  loadStats() {
+    if (!app.globalData.isLoggedIn) return
+    const localOrders = app.globalData.orders || []
+    const localAddresses = app.globalData.addresses || []
+    const ordersRequest = app.globalData.useBackend ? api.getOrders(app.globalData.userId).catch(() => localOrders) : Promise.resolve(localOrders)
+    const addressesRequest = app.globalData.useBackend ? api.getAddresses(app.globalData.userId).catch(() => localAddresses) : Promise.resolve(localAddresses)
+    Promise.all([ordersRequest, addressesRequest]).then(([orders, addresses]) => {
+      if (!app.globalData.isLoggedIn || !this.data.isLoggedIn) return
+      app.globalData.orders = orders
+      app.globalData.addresses = addresses
+      this.setData({
+        stats: [
+          { label: '我的订单', value: String(orders.length), action: 'orders' },
+          { label: '常用地址', value: String(addresses.length), action: 'address' }
+        ]
+      })
     })
   },
 
@@ -171,25 +186,41 @@ Page({
     })
   },
 
-  openMember() {
-    if (!this.data.isLoggedIn) {
-      this.login()
-      return
-    }
-    wx.showToast({ title: '会员权益开发中', icon: 'none' })
+  openStat(event) {
+    this.openAction(event.currentTarget.dataset.action)
   },
 
-  openCoupons() {
-    wx.showToast({ title: '券包功能开发中', icon: 'none' })
+  openAction(action) {
+    if (action === 'orders') {
+      wx.switchTab({ url: '/pages/orders/orders' })
+      return true
+    }
+    if (action === 'address') {
+      wx.navigateTo({ url: '/pages/address/address?type=dropoff' })
+      return true
+    }
+    return false
   },
 
   openTool(event) {
     const action = event.currentTarget.dataset.action
-    const name = event.currentTarget.dataset.name
-    if (action === 'address') {
-      wx.navigateTo({ url: '/pages/address/address?type=dropoff' })
+    if (this.openAction(action)) return
+    if (action === 'service') {
+      const phone = String(app.globalData.customerServicePhone || '').trim()
+      if (phone) {
+        wx.makePhoneCall({ phoneNumber: phone })
+      } else {
+        wx.showModal({ title: '暂时无法联系', content: '客服电话尚未配置，请稍后再试。', showCancel: false })
+      }
       return
     }
-    wx.showToast({ title: `${name}开发中`, icon: 'none' })
+    if (action === 'qualification') {
+      wx.navigateTo({ url: '/pages/legal/legal?type=qualification' })
+      return
+    }
+    if (action === 'legal') {
+      wx.navigateTo({ url: '/pages/legal/legal?type=terms' })
+      return
+    }
   }
 })

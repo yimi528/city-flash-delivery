@@ -1,0 +1,34 @@
+<view class="legal-page">
+  <view style="height: {{statusBarHeight}}px"></view>
+  <view class="legal-nav">
+    <view class="back" bindtap="goBack">‹</view>
+    <view class="nav-title">{{title}}</view>
+    <view class="nav-space"></view>
+  </view>
+
+  <view class="hero">
+    <view class="hero-kicker">CITY FLASH · TRUST CENTER</view>
+    <view class="hero-title">{{title}}</view>
+    <view class="hero-copy">{{intro}}</view>
+  </view>
+
+  <view class="tabs" wx:if="{{tabs.length > 1}}">
+    <block wx:for="{{tabs}}" wx:key="key">
+      <view class="tab {{active === item.key ? 'active' : ''}}" data-key="{{item.key}}" bindtap="switchTab">{{item.label}}</view>
+    </block>
+  </view>
+
+  <view class="section-list">
+    <block wx:for="{{sections}}" wx:key="title">
+      <view class="section-card">
+        <view class="section-index">{{index + 1}}</view>
+        <view class="section-content">
+          <view class="section-title">{{item.title}}</view>
+          <view class="section-body">{{item.body}}</view>
+        </view>
+      </view>
+    </block>
+  </view>
+
+  <view class="legal-foot">正式发布前请由运营主体完成信息核验与法律审核</view>
+</view>

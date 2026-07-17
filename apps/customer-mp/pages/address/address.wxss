@@ -31,7 +31,7 @@
 
 .nav-action {
   color: #ff1d16;
-  font-size: 28rpx;
+  font-size: 25rpx;
   font-weight: 800;
 }
 
@@ -97,7 +97,7 @@
 }
 
 .hint-action {
-  min-width: 136rpx;
+  min-width: 148rpx;
   height: 56rpx;
   border-radius: 30rpx;
   background: rgba(255, 255, 255, 0.14);
@@ -139,6 +139,16 @@
 .address-list {
   margin-top: 8rpx;
 }
+
+.frequent-list { margin-top: 6rpx; }
+
+.frequent-item {
+  border: 2rpx solid rgba(40, 116, 92, 0.13);
+  background: linear-gradient(145deg, #ffffff, #f3f8f4);
+}
+
+.pin.frequent { color: #fff; background: #28745c; }
+.usage-copy { color: #28745c; font-size: 21rpx; }
 
 .address-item {
   margin: 18rpx 30rpx 0;

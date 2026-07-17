@@ -9,14 +9,14 @@
   <view class="map-card">
     <view class="map-head">
       <view>
-        <view class="map-title">{{isCarpool ? '苍南 / 温州地点' : '腾讯地图定位'}}</view>
-        <view class="map-sub">{{isCarpool ? '拼车仅可保存苍南或温州境内地址' : '搜索小区/门店，或一键填入当前位置'}}</view>
+        <view class="map-title">{{isCarpool ? routeName + '线地图选点' : '地图选点（可选）'}}</view>
+        <view class="map-sub">{{isCarpool ? '仅显示' + routeName + '境内地点' : '可搜索地图，也可直接在下方手动填写'}}</view>
       </view>
       <view class="locate-action" bindtap="useCurrentLocation">{{isLocating ? '定位中' : '当前位置'}}</view>
     </view>
     <view class="map-search">
       <text>⌕</text>
-      <input value="{{mapKeyword}}" placeholder="{{isCarpool ? '搜索苍南或温州地点' : '输入小区、写字楼、门店名称'}}" bindinput="inputMapKeyword" confirm-type="search" />
+      <input value="{{mapKeyword}}" placeholder="{{isCarpool ? '搜索' + routeName + '境内地点' : '输入小区、写字楼、门店名称'}}" bindinput="inputMapKeyword" confirm-type="search" />
     </view>
     <view class="map-loading" wx:if="{{isSearching}}">正在搜索腾讯地图...</view>
     <view class="map-results" wx:if="{{mapResults.length}}">
@@ -34,6 +34,8 @@
   </view>
 
   <view class="form-card">
+    <view class="manual-heading"><view class="manual-icon">写</view><view><view class="manual-title">手动填写</view><view class="manual-sub">地图找不到也没关系，请将楼栋门牌写清楚</view></view></view>
+    <view class="scope-lock" wx:if="{{isCarpool}}">已锁定 {{routeName}}线 · {{form.city}}{{form.district}}</view>
     <view class="field">
       <view class="label">地址名称</view>
       <input value="{{form.name}}" placeholder="如：恒生一品苑" data-field="name" bindinput="inputField" />

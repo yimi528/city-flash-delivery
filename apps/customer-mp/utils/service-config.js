@@ -169,9 +169,9 @@ const TASKS_BY_ID = PRIMARY_TASKS.concat(COMMON_TASKS).reduce((result, task) => 
 
 const ALL_TASKS = [
   'carpool_ride',
+  'send_parcel',
   'cargo_haul',
   'moving_handling',
-  'send_parcel',
   'urgent_delivery',
   'pickup',
   'buy_for_me',

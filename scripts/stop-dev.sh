@@ -23,6 +23,18 @@ kill_port() {
   done < <(lsof -tiTCP:"$port" -sTCP:LISTEN 2>/dev/null || true)
 }
 
+wait_for_port_to_close() {
+  local port="$1"
+  local attempt
+  for attempt in $(seq 1 20); do
+    if ! lsof -tiTCP:"$port" -sTCP:LISTEN >/dev/null 2>&1; then
+      return 0
+    fi
+    sleep 0.1
+  done
+  return 1
+}
+
 if [[ -f "$PID_FILE" ]]; then
   while IFS='=' read -r _ pid; do
     if [[ "$pid" =~ ^[0-9]+$ ]] && kill -0 "$pid" 2>/dev/null; then
@@ -30,11 +42,14 @@ if [[ -f "$PID_FILE" ]]; then
     fi
   done < "$PID_FILE"
   rm -f "$PID_FILE"
-  sleep 1
-  kill_port 5173
-  kill_port 3000
-  sleep 1
 fi
+
+# PID files can disappear when the launcher or control panel is interrupted.
+# Always clear the two ports reserved by this project so "stop" remains reliable.
+kill_port 5173
+kill_port 3000
+wait_for_port_to_close 5173 || true
+wait_for_port_to_close 3000 || true
 
 if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
   (cd "$API_DIR" && docker compose stop)

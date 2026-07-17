@@ -10,7 +10,7 @@ export class AddressesService {
   async list(userId: string) {
     const addresses = await this.prisma.address.findMany({
       where: { userId },
-      orderBy: [{ isDefault: 'desc' }, { updatedAt: 'desc' }],
+      orderBy: [{ usageCount: 'desc' }, { lastUsedAt: 'desc' }, { isDefault: 'desc' }, { updatedAt: 'desc' }],
     })
     return addresses.map((address) => this.toApiAddress(address))
   }
@@ -64,6 +64,15 @@ export class AddressesService {
     return { id, deleted: true }
   }
 
+  async recordUse(userId: string, id: string) {
+    await this.findOwnedAddress(userId, id)
+    const address = await this.prisma.address.update({
+      where: { id },
+      data: { usageCount: { increment: 1 }, lastUsedAt: new Date() },
+    })
+    return this.toApiAddress(address)
+  }
+
   private findOwnedAddress(userId: string, id: string) {
     return this.prisma.address.findFirst({ where: { id, userId } }).then((address) => {
       if (!address) throw new NotFoundException('地址不存在')
@@ -92,6 +101,9 @@ export class AddressesService {
     if (![dto.name, dto.detail, dto.contact, dto.phone].every((value) => value.trim())) {
       throw new BadRequestException('地址名称、详情、联系人和手机号不能为空')
     }
+    if (!/^1[3-9]\d{9}$/.test(dto.phone.trim())) {
+      throw new BadRequestException('请输入正确的11位手机号')
+    }
     if ((dto.latitude === undefined) !== (dto.longitude === undefined)) {
       throw new BadRequestException('地址经纬度必须同时填写')
     }
@@ -116,6 +128,8 @@ export class AddressesService {
       location: latitude !== '' && longitude !== '' ? { latitude, longitude } : null,
       mapPoiId: address.mapPoiId,
       isDefault: address.isDefault,
+      usageCount: address.usageCount,
+      lastUsedAt: address.lastUsedAt ? address.lastUsedAt.toISOString() : null,
       createdAt: address.createdAt.toISOString(),
       updatedAt: address.updatedAt.toISOString(),
     }

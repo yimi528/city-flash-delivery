@@ -9,10 +9,9 @@
         <view class="brand-caption">福鼎本地生活运力</view>
       </view>
     </view>
-    <view class="city-chip" bindtap="openCity">
+    <view class="city-chip">
       <view class="city-dot"></view>
       <text>{{city}}</text>
-      <text class="down">⌄</text>
     </view>
   </view>
 
@@ -23,7 +22,7 @@
       <view class="hero-meta">
         <view><text>1</text> 分钟响应</view>
         <view class="meta-divider"></view>
-        <view><text>9</text> 项服务</view>
+        <view><text>{{serviceCount}}</text> 项服务</view>
       </view>
     </view>
     <view class="route-art">
@@ -80,6 +79,26 @@
       <view class="price-arrow">›</view>
     </view>
 
+    <view class="carpool-flow" wx:if="{{draft.taskId === 'carpool_ride'}}">
+      <view class="flow-heading">
+        <view class="step-index">1</view>
+        <view><view class="flow-title">先选择要去的城市</view><view class="flow-sub">选定后，地址只显示该城市范围</view></view>
+      </view>
+      <view class="carpool-routes">
+        <block wx:for="{{carpoolRoutes}}" wx:key="id">
+          <view class="carpool-route {{draft.selectedLine.id === item.id ? 'active' : ''}}" data-route="{{item.id}}" bindtap="chooseCarpoolRoute">
+            <view class="route-city">{{item.name}}</view>
+            <view class="route-price">¥{{item.price}}/人</view>
+            <view class="route-selected">{{draft.selectedLine.id === item.id ? '✓' : ''}}</view>
+          </view>
+        </block>
+      </view>
+      <view class="flow-heading address-step">
+        <view class="step-index">2</view>
+        <view><view class="flow-title">填写{{draft.selectedLine.name}}境内地址</view><view class="flow-sub">可搜索地图，也可手动填写并保存</view></view>
+      </view>
+    </view>
+
     <view class="route-group">
       <view class="route-rail">
         <view class="rail-dot start"></view>
@@ -112,7 +131,7 @@
       <text>先预约上门服务</text>，下一步可选择是否需要送往别处
     </view>
     <button class="primary-btn order-btn" bindtap="goOrder">
-      <text class="order-btn-label">继续填写订单</text><text class="button-arrow">→</text>
+      <text class="order-btn-label">去下单</text><text class="button-arrow">→</text>
     </button>
     <view class="trust-row">
       <text>平台计价</text><text>·</text><text>骑手认证</text><text>·</text><text>全程可追踪</text>

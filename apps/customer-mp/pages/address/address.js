@@ -2,9 +2,10 @@ const app = getApp()
 const api = require('../../utils/api')
 const map = require('../../utils/map')
 const carpool = require('../../utils/carpool')
+const addressBook = require('../../utils/address-book.js')
 
-function addressMeta(type, isCarpool) {
-  if (isCarpool) return { title: '选择苍南/温州地址', pinLabel: '拼', pinClass: 'pickup', toast: '已匹配拼车线路' }
+function addressMeta(type, isCarpool, routeName) {
+  if (isCarpool) return { title: `填写${routeName || '拼车'}地址`, pinLabel: '拼', pinClass: 'pickup', toast: '已选择拼车地址' }
   if (type === 'pickup') return { title: '选择发货地址', pinLabel: '发', pinClass: 'pickup', toast: '已选发货地址' }
   if (type === 'purchase') return { title: '选择购买地址', pinLabel: '买', pinClass: 'purchase', toast: '已选购买地址' }
   return { title: '选择收货地址', pinLabel: '收', pinClass: 'dropoff', toast: '已选收货地址' }
@@ -22,8 +23,6 @@ function decorateAddress(item, origin, extra) {
     address.distanceKm = distanceKm
     address.distance = `${distanceKm}km`
   }
-  address.contact = address.contact || '微信用户'
-  address.phone = address.phone || '13800000000'
   return address
 }
 
@@ -42,11 +41,14 @@ Page({
     statusBarHeight: 24,
     type: 'dropoff',
     isCarpool: false,
+    routeId: '',
+    routeName: '',
     title: '选择收货地址',
     pinLabel: '收',
     pinClass: 'dropoff',
     keyword: '',
     addresses: [],
+    frequentAddresses: [],
     mapResults: [],
     currentAddress: null,
     isLocating: false,
@@ -56,21 +58,27 @@ Page({
   },
 
   onLoad(query) {
+    const globalData = app.globalData || {}
+    const draftOrder = globalData.draftOrder || {}
+    const savedAddresses = Array.isArray(globalData.addresses) ? globalData.addresses : []
     const type = query.type || 'dropoff'
     const isCarpool = query.mode === 'carpool'
-    const meta = addressMeta(type, isCarpool)
+    const route = carpool.getRoute(query.route || (draftOrder.selectedLine && draftOrder.selectedLine.id))
+    const meta = addressMeta(type, isCarpool, route.name)
     this.searchSeq = 0
     this.setData({
-      statusBarHeight: app.globalData.statusBarHeight,
+      statusBarHeight: globalData.statusBarHeight || 24,
       type,
       isCarpool,
+      routeId: isCarpool ? route.id : '',
+      routeName: isCarpool ? route.name : '',
       title: meta.title,
       pinLabel: meta.pinLabel,
       pinClass: meta.pinClass,
-      currentAddress: app.globalData.currentAddress || null,
-      addresses: app.globalData.addresses,
-      locationTip: isCarpool ? '仅显示苍南或温州境内地址' : '点击定位后，会按当前位置推荐附近地址',
-      scopeTip: isCarpool ? '选择后会自动匹配苍南线或温州线' : ''
+      currentAddress: globalData.currentAddress || null,
+      addresses: savedAddresses,
+      locationTip: isCarpool ? `仅显示${route.name}境内地址` : '点击定位后，会按当前位置推荐附近地址',
+      scopeTip: isCarpool ? `已选${route.name}线，如需切换请返回首页` : ''
     })
     if (isCarpool) this.loadCarpoolRecommendations()
   },
@@ -80,15 +88,16 @@ Page({
   },
 
   loadAddresses() {
+    const savedAddresses = Array.isArray(app.globalData.addresses) ? app.globalData.addresses : []
     if (!app.globalData.useBackend) {
-      this.applySearch(app.globalData.addresses)
+      this.applySearch(savedAddresses)
       return
     }
     api.getAddresses(app.globalData.userId).then((addresses) => {
       app.globalData.addresses = addresses
       this.applySearch(addresses)
     }).catch(() => {
-      this.applySearch(app.globalData.addresses)
+      this.applySearch(savedAddresses)
       wx.showToast({ title: '后端未启动，使用本地地址', icon: 'none' })
     })
   },
@@ -96,13 +105,17 @@ Page({
   applySearch(source) {
     const keyword = this.data.keyword.trim()
     const origin = app.globalData.currentLocation
-    const localAddresses = (source || []).filter((item) => {
-      if (this.data.isCarpool && !carpool.isAllowedAddress(item)) return false
+    const localAddresses = addressBook.rank(source || []).filter((item) => {
+      if (this.data.isCarpool && !carpool.isSelectedCityAddress(item, this.data.routeId)) return false
       return !keyword || item.name.indexOf(keyword) > -1 || item.detail.indexOf(keyword) > -1 || (item.tag || '').indexOf(keyword) > -1
     }).map((item) => decorateAddress(item, origin, { isMapResult: false, sourceLabel: item.tag || '常用' }))
 
     const mapResults = keyword || this.data.isCarpool ? this.data.mapResults : []
-    this.setData({ addresses: mergeUnique(localAddresses.concat(mapResults)) })
+    const frequentAddresses = keyword ? [] : localAddresses.filter((item) => Number(item.usageCount || 0) > 0 || item.isDefault).slice(0, 3)
+      .map((item) => Object.assign({}, item, { sourceLabel: '你常去的' }))
+    const frequentIds = new Set(frequentAddresses.map((item) => item.id))
+    const addresses = mergeUnique(localAddresses.filter((item) => !frequentIds.has(item.id)).concat(mapResults))
+    this.setData({ frequentAddresses, addresses })
   },
 
   onSearch(event) {
@@ -120,11 +133,11 @@ Page({
     this.searchSeq = searchSeq
     this.setData({ isSearching: true })
     map.searchAddress(keyword, {
-      region: this.data.isCarpool ? '温州市' : app.globalData.city,
+      region: this.data.isCarpool ? (this.data.routeId === 'cangnan' ? '苍南县' : '温州市') : app.globalData.city,
       location: app.globalData.currentLocation
     }).then((results) => {
       if (this.searchSeq !== searchSeq || this.data.keyword !== keyword) return
-      const scopedResults = this.data.isCarpool ? results.filter(carpool.isAllowedAddress) : results
+      const scopedResults = this.data.isCarpool ? results.filter((item) => carpool.isSelectedCityAddress(item, this.data.routeId)) : results
       const mapResults = scopedResults.map((item) => decorateAddress(item, app.globalData.currentLocation, {
         isMapResult: true,
         sourceLabel: item.source === 'tencent' ? '腾讯地图' : '地图建议'
@@ -139,12 +152,10 @@ Page({
     const searchSeq = (this.searchSeq || 0) + 1
     this.searchSeq = searchSeq
     this.setData({ isSearching: true })
-    Promise.all([
-      map.searchAddress('苍南', { region: '温州市' }),
-      map.searchAddress('温州', { region: '温州市' })
-    ]).then((groups) => {
+    const keyword = this.data.routeId === 'cangnan' ? '苍南' : '温州'
+    map.searchAddress(keyword, { region: this.data.routeId === 'cangnan' ? '苍南县' : '温州市' }).then((results) => {
       if (this.searchSeq !== searchSeq || this.data.keyword) return
-      const mapResults = mergeUnique([].concat.apply([], groups).filter(carpool.isAllowedAddress)).map((item) => decorateAddress(item, app.globalData.currentLocation, {
+      const mapResults = mergeUnique(results.filter((item) => carpool.isSelectedCityAddress(item, this.data.routeId))).map((item) => decorateAddress(item, app.globalData.currentLocation, {
         isMapResult: true,
         sourceLabel: item.source === 'tencent' ? '腾讯地图推荐' : '拼车地点推荐'
       }))
@@ -180,25 +191,36 @@ Page({
       this.locateCurrent()
       return
     }
-    this.selectAddress(this.data.currentAddress)
+    this.openMapAddress(this.data.currentAddress)
   },
 
   chooseAddress(event) {
     const id = event.currentTarget.dataset.id
-    const selected = this.data.addresses.find((item) => item.id === id) || app.globalData.addresses.find((item) => item.id === id)
+    const selected = this.data.frequentAddresses.find((item) => item.id === id) || this.data.addresses.find((item) => item.id === id) || app.globalData.addresses.find((item) => item.id === id)
     if (!selected) return
+    if (selected.isMapResult) {
+      this.openMapAddress(selected)
+      return
+    }
     this.selectAddress(selected)
+  },
+
+  openMapAddress(address) {
+    app.globalData.pendingMapAddress = Object.assign({}, address, { id: '', isDefault: false })
+    const mode = this.data.isCarpool ? `&mode=carpool&route=${this.data.routeId}` : ''
+    wx.navigateTo({ url: `/pages/address-edit/address-edit?type=${this.data.type}&from=map${mode}` })
   },
 
   selectAddress(address) {
     const selected = Object.assign({}, address)
     if (this.data.isCarpool) {
-      const route = carpool.applySelectedAddress(app.globalData.draftOrder, selected, this.data.type)
+      const route = carpool.applySelectedAddress(app.globalData.draftOrder, selected, this.data.type, this.data.routeId)
       if (!route) {
-        wx.showToast({ title: '拼车仅支持苍南或温州境内地址', icon: 'none' })
+        wx.showToast({ title: `请选择${this.data.routeName}境内地址`, icon: 'none' })
         return
       }
-      wx.showToast({ title: `已自动匹配${route.name}线`, icon: 'success' })
+      this.recordUse(address)
+      wx.showToast({ title: `已选择${route.name}线地址`, icon: 'success' })
       setTimeout(() => wx.navigateBack(), 350)
       return
     }
@@ -207,19 +229,28 @@ Page({
     app.globalData.draftOrder.routeDistanceKm = 0
     app.globalData.draftOrder.routeDistanceSource = ''
     app.globalData.draftOrder.routeDuration = ''
+    this.recordUse(address)
     wx.showToast({ title: addressMeta(this.data.type, false).toast, icon: 'success' })
     setTimeout(() => wx.navigateBack(), 350)
   },
 
   addAddress() {
-    const mode = this.data.isCarpool ? '&mode=carpool' : ''
+    const mode = this.data.isCarpool ? `&mode=carpool&route=${this.data.routeId}` : ''
     wx.navigateTo({ url: `/pages/address-edit/address-edit?type=${this.data.type}${mode}` })
   },
 
   editAddress(event) {
     const id = event.currentTarget.dataset.id
-    const mode = this.data.isCarpool ? '&mode=carpool' : ''
+    const mode = this.data.isCarpool ? `&mode=carpool&route=${this.data.routeId}` : ''
     wx.navigateTo({ url: `/pages/address-edit/address-edit?type=${this.data.type}&id=${id}${mode}` })
+  },
+
+  recordUse(address) {
+    if (!address || address.isMapResult) return
+    const used = addressBook.recordUse(address)
+    const index = app.globalData.addresses.findIndex((item) => item.id === address.id)
+    if (index > -1) app.globalData.addresses.splice(index, 1, Object.assign({}, app.globalData.addresses[index], used))
+    if (app.globalData.useBackend) api.recordAddressUse(address.id).catch(() => {})
   },
 
   deleteAddress(event) {
@@ -229,17 +260,25 @@ Page({
       this.applySearch(app.globalData.addresses)
     }
 
-    if (!app.globalData.useBackend) {
-      removeLocal()
-      wx.showToast({ title: '已删除地址', icon: 'none' })
-      return
-    }
-
-    api.deleteAddress(id).then(() => {
-      removeLocal()
-      wx.showToast({ title: '已删除地址', icon: 'none' })
-    }).catch(() => {
-      wx.showToast({ title: '删除失败，请稍后重试', icon: 'none' })
+    wx.showModal({
+      title: '删除地址',
+      content: '删除后无法恢复，确认删除这个地址吗？',
+      confirmText: '删除',
+      confirmColor: '#d93025',
+      success: (result) => {
+        if (!result.confirm) return
+        if (!app.globalData.useBackend) {
+          removeLocal()
+          wx.showToast({ title: '已删除地址', icon: 'none' })
+          return
+        }
+        api.deleteAddress(id).then(() => {
+          removeLocal()
+          wx.showToast({ title: '已删除地址', icon: 'none' })
+        }).catch(() => {
+          wx.showToast({ title: '删除失败，请稍后重试', icon: 'none' })
+        })
+      }
     })
   },
 

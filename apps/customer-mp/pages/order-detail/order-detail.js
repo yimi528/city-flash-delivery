@@ -442,7 +442,18 @@ Page({
   },
 
   callRider() {
-    wx.showToast({ title: '演示版暂未接入配送员电话', icon: 'none' })
+    const phone = String(this.data.order && this.data.order.riderPhone || '').trim()
+    if (!phone) {
+      wx.showToast({ title: this.data.order && this.data.order.riderName ? '配送员暂未提供联系电话' : '订单暂未分配配送员', icon: 'none' })
+      return
+    }
+    wx.makePhoneCall({
+      phoneNumber: phone,
+      fail: (error) => {
+        if (error && String(error.errMsg || '').includes('cancel')) return
+        wx.showToast({ title: '无法拨打，请稍后重试', icon: 'none' })
+      }
+    })
   },
 
   goBack() {

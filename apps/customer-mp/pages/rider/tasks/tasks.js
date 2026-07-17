@@ -7,6 +7,24 @@ const RIDER_PAGES = {
   profile: '/pages/rider/profile/profile'
 }
 
+function decorateTask(task) {
+  const isPickingUp = task.status === 'PICKING_UP'
+  const isArrived = Boolean(task.arrivedAt)
+  const statusText = isPickingUp ? (isArrived ? '已到达' : '前往取货') : '服务进行中'
+  const statusHint = isPickingUp
+    ? (isArrived ? '已到达履约地点，可开始服务' : '请先前往取货或上门地址')
+    : '请按订单要求完成配送或服务'
+  return Object.assign({}, task, {
+    statusText,
+    statusHint,
+    nextActionText: isPickingUp ? (isArrived ? '开始服务/配送' : '确认到达') : '确认完成',
+    navigateLabel: isPickingUp ? '导航去取货' : '导航去送达',
+    navigateLat: isPickingUp ? task.pickupLat : (task.dropoffLat || task.pickupLat),
+    navigateLng: isPickingUp ? task.pickupLng : (task.dropoffLng || task.pickupLng),
+    contactPhone: isPickingUp ? task.pickupPhone : (task.dropoffPhone || task.pickupPhone)
+  })
+}
+
 Page({
   data: { tasks: [], loading: false },
 
@@ -24,7 +42,7 @@ Page({
 
   load() {
     this.setData({ loading: true })
-    return api.currentTasks().then((tasks) => this.setData({ tasks }))
+    return api.currentTasks().then((tasks) => this.setData({ tasks: tasks.map(decorateTask) }))
       .catch((error) => {
         this.setData({ tasks: [] })
         wx.showToast({ title: error.message || '任务读取失败', icon: 'none' })

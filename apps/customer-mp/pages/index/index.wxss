@@ -442,6 +442,74 @@
   transition: transform 140ms var(--ease-out), border-color 140ms ease;
 }
 
+.carpool-flow {
+  margin-top: 22rpx;
+  padding: 24rpx;
+  border: 2rpx solid rgba(40, 116, 92, 0.14);
+  border-radius: 26rpx;
+  background: linear-gradient(145deg, #f3f8f4, #fffdf8);
+}
+
+.flow-heading {
+  display: flex;
+  align-items: center;
+  gap: 15rpx;
+}
+
+.step-index {
+  width: 38rpx;
+  height: 38rpx;
+  flex: 0 0 auto;
+  border-radius: 13rpx;
+  color: #fff;
+  background: var(--jade);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20rpx;
+  font-weight: 900;
+}
+
+.flow-title {
+  color: var(--ink);
+  font-size: 25rpx;
+  font-weight: 900;
+}
+
+.flow-sub {
+  margin-top: 3rpx;
+  color: #8b8c84;
+  font-size: 19rpx;
+}
+
+.carpool-routes {
+  margin-top: 18rpx;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14rpx;
+}
+
+.carpool-route {
+  min-height: 82rpx;
+  padding: 14rpx 42rpx 14rpx 18rpx;
+  position: relative;
+  border: 2rpx solid rgba(24, 32, 29, 0.09);
+  border-radius: 20rpx;
+  background: #fffdf8;
+  transition: border-color 120ms ease, background-color 120ms ease;
+}
+
+.carpool-route.active {
+  border-color: rgba(40, 116, 92, 0.48);
+  background: #e9f3ed;
+}
+
+.carpool-route:active { opacity: 0.92; }
+.route-city { color: #27332d; font-size: 25rpx; font-weight: 900; }
+.route-price { margin-top: 4rpx; color: #777e78; font-size: 19rpx; }
+.route-selected { position: absolute; right: 16rpx; top: 25rpx; color: var(--jade); font-size: 23rpx; font-weight: 900; }
+.address-step { margin-top: 22rpx; }
+
 .price-tag {
   width: 48rpx;
   height: 48rpx;

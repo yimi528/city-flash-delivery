@@ -6,13 +6,12 @@
     <view class="menu-pill"><text>•••</text><view class="pill-dot"></view></view>
   </view>
 
-  <view class="member-card" bindtap="openMember">
+  <view class="member-card">
     <view class="member-main">
       <view class="member-phone">{{displayName}}</view>
       <view class="member-level">{{memberLevel}}</view>
       <view class="member-desc" wx:if="{{isLoggedIn}}">{{accountCaption}}</view>
     </view>
-    <view class="member-more" wx:if="{{isLoggedIn}}">账户信息 ›</view>
     <view class="diamond">
       <view class="diamond-top"></view>
       <view class="diamond-core"></view>
@@ -33,7 +32,7 @@
 
   <view class="balance-card">
     <block wx:for="{{stats}}" wx:key="label">
-      <view class="balance-item" bindtap="openCoupons">
+      <view class="balance-item" data-action="{{item.action}}" bindtap="openStat">
         <view class="badge" wx:if="{{item.badge}}">{{item.badge}}</view>
         <view class="balance-value">{{item.value}}</view>
         <view class="balance-label">{{item.label}}</view>

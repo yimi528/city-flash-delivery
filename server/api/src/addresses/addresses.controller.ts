@@ -27,6 +27,11 @@ export class AddressesController {
     return this.addresses.update(auth.subjectId, id, dto)
   }
 
+  @Post(':id/use')
+  recordUse(@Param('id') id: string, @CurrentAuth() auth: AuthPrincipal) {
+    return this.addresses.recordUse(auth.subjectId, id)
+  }
+
   @Delete(':id')
   delete(@Param('id') id: string, @CurrentAuth() auth: AuthPrincipal) {
     return this.addresses.delete(auth.subjectId, id)

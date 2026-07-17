@@ -1,9 +1,9 @@
 const QQ_MAP_HOST = 'https://apis.map.qq.com'
-const DEFAULT_REGION = '宁德市'
+const DEFAULT_REGION = '福鼎市'
 const DEFAULT_LOCATION = {
-  latitude: 26.6657,
-  longitude: 119.5482,
-  name: '宁德市中心'
+  latitude: 27.3245,
+  longitude: 120.216,
+  name: '福鼎市中心'
 }
 
 const MOCK_POIS = [
@@ -284,8 +284,8 @@ function normalizeSuggestion(item, options) {
     userId: getGlobalData().userId || 'demo-user',
     name: title,
     detail,
-    contact: item.contact || '微信用户',
-    phone: item.phone || '13800000000',
+    contact: item.contact || '',
+    phone: item.phone || '',
     tag: item.tag || item.category || '地图',
     distance: `${roundDistance(distanceKm)}km`,
     distanceKm: roundDistance(distanceKm),

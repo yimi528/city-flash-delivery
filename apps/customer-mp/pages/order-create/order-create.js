@@ -743,7 +743,8 @@ Page({
     const draft = app.globalData.draftOrder
     if (draft.taskId !== 'carpool_ride') return
     const type = event.currentTarget.dataset.type
-    wx.navigateTo({ url: `/pages/address/address?type=${type}&mode=carpool` })
+    const routeId = draft.selectedLine && draft.selectedLine.id || 'cangnan'
+    wx.navigateTo({ url: `/pages/address/address?type=${type}&mode=carpool&route=${routeId}` })
   },
 
   toggleHandlingDelivery() {
@@ -783,6 +784,12 @@ Page({
 
   submitOrder() {
     const draft = app.globalData.draftOrder
+    const contactError = (address, label) => {
+      if (!address || !String(address.contact || '').trim() || !/^1[3-9]\d{9}$/.test(String(address.phone || '').trim())) {
+        return `${label}地址缺少有效联系人或手机号，请返回修改`
+      }
+      return ''
+    }
     if (draft.taskId === 'carpool_ride') {
       const validation = carpool.validateDraft(draft)
       if (!validation.valid) {
@@ -796,6 +803,16 @@ Page({
     }
     if (draft.taskId !== 'moving_handling' && !draft.dropoff) {
       wx.showToast({ title: '请先选择收货地址', icon: 'none' })
+      return
+    }
+    const pickupContactError = contactError(draft.pickup, draft.taskId === 'moving_handling' ? '上门服务' : '出发')
+    const dropoffContactError = draft.dropoff ? contactError(draft.dropoff, '目的地') : ''
+    if (draft.taskId === 'carpool_ride' && pickupContactError && dropoffContactError) {
+      wx.showToast({ title: '乘车地址缺少有效联系人或手机号，请返回修改', icon: 'none', duration: 2600 })
+      return
+    }
+    if (draft.taskId !== 'carpool_ride' && (pickupContactError || dropoffContactError)) {
+      wx.showToast({ title: pickupContactError || dropoffContactError, icon: 'none', duration: 2600 })
       return
     }
     if (draft.service === '帮买' && !String(draft.buyItems || '').trim()) {

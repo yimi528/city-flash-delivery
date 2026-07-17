@@ -28,10 +28,10 @@ function normalizeAddress(form) {
   return {
     id: form.id,
     userId: app.globalData.userId,
-    name: form.name || '临时地址',
-    detail: form.detail || '未填写详细地址',
-    contact: form.contact || '微信用户',
-    phone: form.phone || '13800000000',
+    name: String(form.name || '').trim(),
+    detail: String(form.detail || '').trim(),
+    contact: String(form.contact || '').trim(),
+    phone: String(form.phone || '').trim(),
     tag: form.tag || '',
     distanceKm: Number(form.distanceKm || 1),
     latitude,
@@ -66,6 +66,8 @@ Page({
     title: '新增地址',
     type: 'dropoff',
     isCarpool: false,
+    routeId: '',
+    routeName: '',
     form: emptyForm(),
     tags: ['家', '公司', '门店', '学校', '商场', '药店'],
     mapKeyword: '',
@@ -76,15 +78,25 @@ Page({
 
   onLoad(query) {
     const id = query.id || ''
-    const source = id ? app.globalData.addresses.find((item) => item.id === id) : null
+    const savedAddresses = Array.isArray(app.globalData.addresses) ? app.globalData.addresses : []
+    const pendingMapAddress = query.from === 'map' ? app.globalData.pendingMapAddress : null
+    const source = id ? savedAddresses.find((item) => item.id === id) : pendingMapAddress
+    const isCarpool = query.mode === 'carpool'
+    const route = carpool.getRoute(query.route || (app.globalData.draftOrder.selectedLine && app.globalData.draftOrder.selectedLine.id))
+    const initialForm = source
+      ? Object.assign(emptyForm(), source, { distanceKm: source.distanceKm || Number(String(source.distance || '1').replace('km', '')) || 1 })
+      : Object.assign(emptyForm(), isCarpool ? carpool.addressDefaults(route.id) : {})
     this.searchSeq = 0
     this.setData({
       statusBarHeight: app.globalData.statusBarHeight,
-      title: id ? '编辑地址' : '新增地址',
+      title: id ? '编辑地址' : (pendingMapAddress ? '补全地址信息' : '手动填写地址'),
       type: query.type || 'dropoff',
-      isCarpool: query.mode === 'carpool',
-      form: source ? Object.assign(emptyForm(), source, { distanceKm: source.distanceKm || Number(String(source.distance || '1').replace('km', '')) || 1 }) : emptyForm()
+      isCarpool,
+      routeId: isCarpool ? route.id : '',
+      routeName: isCarpool ? route.name : '',
+      form: initialForm
     })
+    if (pendingMapAddress) app.globalData.pendingMapAddress = null
   },
 
   inputField(event) {
@@ -107,11 +119,11 @@ Page({
     this.searchSeq = searchSeq
     this.setData({ isSearching: true })
     map.searchAddress(keyword, {
-      region: this.data.isCarpool ? '温州市' : app.globalData.city,
+      region: this.data.isCarpool ? (this.data.routeId === 'cangnan' ? '苍南县' : '温州市') : app.globalData.city,
       location: app.globalData.currentLocation
     }).then((results) => {
       if (this.searchSeq !== searchSeq || this.data.mapKeyword !== keyword) return
-      const scopedResults = this.data.isCarpool ? results.filter(carpool.isAllowedAddress) : results
+      const scopedResults = this.data.isCarpool ? results.filter((item) => carpool.isSelectedCityAddress(item, this.data.routeId)) : results
       this.setData({ mapResults: scopedResults.slice(0, 6), isSearching: false })
     }).catch(() => {
       if (this.searchSeq === searchSeq) this.setData({ mapResults: [], isSearching: false })
@@ -132,6 +144,11 @@ Page({
       app.globalData.currentLocation = location
       return map.reverseGeocode(location)
     }).then((address) => {
+      if (this.data.isCarpool && !carpool.isSelectedCityAddress(address, this.data.routeId)) {
+        this.setData({ isLocating: false })
+        wx.showToast({ title: `当前位置不在${this.data.routeName}境内`, icon: 'none' })
+        return
+      }
       app.globalData.currentAddress = address
       if (address.city) app.globalData.city = address.city
       this.setData({ form: fillFromMapAddress(this.data.form, address), isLocating: false, mapKeyword: address.name })
@@ -169,12 +186,16 @@ Page({
 
   submit() {
     const payload = normalizeAddress(this.data.form)
-    if (!payload.name || !payload.detail) {
-      wx.showToast({ title: '请填写地址名称和详情', icon: 'none' })
+    if (!payload.name || !payload.detail || !payload.contact || !payload.phone) {
+      wx.showToast({ title: '请完整填写地址和联系人信息', icon: 'none' })
       return
     }
-    if (this.data.isCarpool && !carpool.isAllowedAddress(payload)) {
-      wx.showToast({ title: '拼车地址仅支持苍南或温州境内', icon: 'none' })
+    if (!/^1[3-9]\d{9}$/.test(payload.phone)) {
+      wx.showToast({ title: '请输入正确的11位手机号', icon: 'none' })
+      return
+    }
+    if (this.data.isCarpool && !carpool.isSelectedCityAddress(payload, this.data.routeId)) {
+      wx.showToast({ title: `请填写${this.data.routeName}境内地址`, icon: 'none' })
       return
     }
 

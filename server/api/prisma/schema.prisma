@@ -190,11 +190,14 @@ model Address {
   location  Unsupported("geography(Point, 4326)")?
   mapPoiId  String                                 @default("")
   isDefault Boolean                                @default(false)
+  usageCount Int                                   @default(0)
+  lastUsedAt DateTime?
   createdAt DateTime                               @default(now())
   updatedAt DateTime                               @updatedAt
 
   @@index([userId])
   @@index([userId, isDefault])
+  @@index([userId, usageCount, lastUsedAt])
   @@map("addresses")
 }
 

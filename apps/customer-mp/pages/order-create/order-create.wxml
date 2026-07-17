@@ -183,7 +183,7 @@
       <view class="check {{guarantee ? 'checked' : ''}}">✓</view>
       <view>
         <view class="guarantee-title">购买保价服务</view>
-        <view class="guarantee-sub">演示版默认展示，可接入真实保价规则。</view>
+        <view class="guarantee-sub">保障范围及赔付标准以平台公示规则为准。</view>
       </view>
     </view>
   </view>

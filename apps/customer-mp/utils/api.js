@@ -521,6 +521,10 @@ function updateAddress(id, payload) {
   })
 }
 
+function recordAddressUse(id) {
+  return request(`/addresses/${encodeURIComponent(id)}/use`, { method: 'POST' })
+}
+
 function deleteAddress(id) {
   return request(`/addresses/${encodeURIComponent(id)}`, {
     method: 'DELETE'
@@ -725,6 +729,7 @@ module.exports = {
   getCurrentUser,
   createAddress,
   updateAddress,
+  recordAddressUse,
   deleteAddress,
   getVehicleTypes,
   getWeatherRisk,

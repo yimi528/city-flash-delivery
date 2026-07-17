@@ -15,6 +15,7 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 mkdir -p "$ROOT_DIR/.runtime"
+"$ROOT_DIR/scripts/stop-dev.sh" >/dev/null 2>&1 || true
 OPEN_BROWSER=0 "$ROOT_DIR/scripts/dev.sh" >"$LOG_FILE" 2>&1 &
 LAUNCHER_PID=$!
 

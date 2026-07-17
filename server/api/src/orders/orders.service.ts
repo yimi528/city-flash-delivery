@@ -132,6 +132,7 @@ export class OrdersService {
   }
 
   async create(dto: CreateOrderDto) {
+    this.validateContacts(dto)
     if (dto.quoteId) return this.createFromQuote(dto)
     const taskId = this.normalizeTaskId(dto.taskId || this.taskIdForService(dto.serviceName || ''))
     if (taskId === 'carpool_ride' || taskId === 'moving_handling') {
@@ -229,6 +230,22 @@ export class OrdersService {
     })
 
     return this.findById(order.id)
+  }
+
+  private validateContacts(dto: CreateOrderDto) {
+    const validMobile = (value?: string) => /^1[3-9]\d{9}$/.test(String(value || '').trim())
+    const pickupValid = Boolean(String(dto.pickupContact || '').trim()) && validMobile(dto.pickupPhone)
+    const dropoffValid = Boolean(String(dto.dropoffContact || '').trim()) && validMobile(dto.dropoffPhone)
+    if (dto.taskId === 'carpool_ride') {
+      if (!pickupValid && !dropoffValid) throw new BadRequestException('乘车地址必须填写联系人和正确的11位手机号')
+      return
+    }
+    if (!pickupValid) {
+      throw new BadRequestException('出发地址必须填写联系人和正确的11位手机号')
+    }
+    if ((dto.dropoffName || dto.dropoffDetail) && !dropoffValid) {
+      throw new BadRequestException('目的地必须填写联系人和正确的11位手机号')
+    }
   }
 
   private async createFromQuote(dto: CreateOrderDto) {

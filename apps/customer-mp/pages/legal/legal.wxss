@@ -1,0 +1,140 @@
+page {
+  min-height: 100%;
+  background: #f5f4ef;
+  color: #172033;
+}
+
+.legal-page {
+  min-height: 100vh;
+  padding-bottom: calc(54rpx + env(safe-area-inset-bottom));
+}
+
+.legal-nav {
+  height: 92rpx;
+  padding: 0 28rpx;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.back,
+.nav-space {
+  width: 76rpx;
+}
+
+.back {
+  font-size: 54rpx;
+  line-height: 1;
+}
+
+.nav-title {
+  font-size: 34rpx;
+  font-weight: 900;
+}
+
+.hero {
+  margin: 10rpx 28rpx 0;
+  padding: 40rpx 38rpx;
+  border-radius: 30rpx;
+  background: linear-gradient(128deg, #112b27, #16463d 62%, #8b6739);
+  color: #fff;
+  box-shadow: 0 18rpx 46rpx rgba(18, 51, 45, .17);
+}
+
+.hero-kicker {
+  color: #f0c47d;
+  font-size: 20rpx;
+  font-weight: 800;
+  letter-spacing: 3rpx;
+}
+
+.hero-title {
+  margin-top: 20rpx;
+  font-size: 52rpx;
+  font-weight: 950;
+}
+
+.hero-copy {
+  margin-top: 20rpx;
+  color: rgba(255, 255, 255, .76);
+  font-size: 26rpx;
+  line-height: 1.65;
+}
+
+.tabs {
+  margin: 24rpx 28rpx 0;
+  padding: 8rpx;
+  border-radius: 22rpx;
+  background: #e8e6df;
+  display: flex;
+}
+
+.tab {
+  flex: 1;
+  padding: 20rpx 12rpx;
+  border-radius: 17rpx;
+  color: #7c8190;
+  text-align: center;
+  font-size: 27rpx;
+  font-weight: 800;
+}
+
+.tab.active {
+  background: #fff;
+  color: #152033;
+  box-shadow: 0 8rpx 20rpx rgba(22, 31, 48, .08);
+}
+
+.section-list {
+  margin: 24rpx 28rpx 0;
+}
+
+.section-card {
+  margin-bottom: 18rpx;
+  padding: 30rpx;
+  border: 2rpx solid #ebe9e2;
+  border-radius: 26rpx;
+  background: #fff;
+  display: flex;
+  gap: 22rpx;
+}
+
+.section-index {
+  width: 44rpx;
+  height: 44rpx;
+  border-radius: 14rpx;
+  background: #e8f3ef;
+  color: #147260;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  font-size: 22rpx;
+  font-weight: 900;
+}
+
+.section-content {
+  min-width: 0;
+  flex: 1;
+}
+
+.section-title {
+  color: #172033;
+  font-size: 30rpx;
+  font-weight: 900;
+}
+
+.section-body {
+  margin-top: 14rpx;
+  color: #687185;
+  font-size: 26rpx;
+  line-height: 1.72;
+}
+
+.legal-foot {
+  padding: 18rpx 42rpx 0;
+  color: #9a9ea8;
+  text-align: center;
+  font-size: 22rpx;
+  line-height: 1.5;
+}

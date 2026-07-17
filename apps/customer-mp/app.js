@@ -5,7 +5,7 @@ try {
 
 App({
   onLaunch() {
-    const systemInfo = wx.getSystemInfoSync ? wx.getSystemInfoSync() : {}
+    const systemInfo = wx.getWindowInfo ? wx.getWindowInfo() : (wx.getSystemInfoSync ? wx.getSystemInfoSync() : {})
     this.globalData.statusBarHeight = systemInfo.statusBarHeight || 24
     this.globalData.windowWidth = systemInfo.windowWidth || 375
     try {
@@ -46,6 +46,7 @@ App({
           this.globalData.businessOpen = Boolean(config.operating && config.operating.openNow)
           this.globalData.announcement = config.announcement || null
           this.globalData.remoteServices = config.services || []
+          this.globalData.customerServicePhone = String(config.customerService && config.customerService.phone || '').trim()
           resolve(config)
         },
         fail: () => resolve(null)
@@ -175,21 +176,22 @@ App({
     useBackend: true,
     appConfig: null,
     remoteServices: [],
+    customerServicePhone: '',
     businessOpen: true,
     announcement: null,
     pricingVersion: 0,
     apiBaseUrl: runtimeConfig.resolveApiBaseUrl(wx),
-    city: '宁德市',
+    city: '福鼎市',
     currentLocation: null,
     mapConfig: {
       // Key 默认由 NestJS 后端托管；此处仅用于无后端时的腾讯地图直连回退。
       tencentKey: '',
-      defaultRegion: '宁德市',
+      defaultRegion: '福鼎市',
       distanceMode: 'bicycling',
       fallbackLocation: {
-        latitude: 26.6657,
-        longitude: 119.5482,
-        name: '宁德市中心'
+        latitude: 27.3245,
+        longitude: 120.2160,
+        name: '福鼎市中心'
       }
     },
     orderFilter: '',

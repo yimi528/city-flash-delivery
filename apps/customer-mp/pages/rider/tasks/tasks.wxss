@@ -1,14 +1,37 @@
 @import "../../../styles/rider-common.wxss";
 
-.section-head { margin: 10rpx 0 28rpx; display: flex; align-items: flex-end; justify-content: space-between; }
-.section-kicker { margin-bottom: 8rpx; color: var(--cinnabar); font-size: 17rpx; font-weight: 900; letter-spacing: 3rpx; }
-.section-title { font-family: "Songti SC", serif; font-size: 46rpx; font-weight: 900; }
-.task-count { padding: 10rpx 18rpx; border-radius: 999rpx; color: #7b5938; background: #eadac6; font-size: 21rpx; font-weight: 800; }
-.task-title { font-size: 31rpx; font-weight: 900; }
-.address { margin-top: 20rpx; color: #555d5a; font-size: 25rpx; line-height: 1.6; display: flex; align-items: flex-start; gap: 10rpx; }
-.route-label { width: 38rpx; height: 38rpx; flex: 0 0 auto; border-radius: 12rpx; color: #fff; display: inline-flex; align-items: center; justify-content: center; font-size: 19rpx; font-weight: 900; }
-.route-label.pickup { background: var(--cinnabar); }
-.route-label.dropoff { background: var(--jade); }
-.actions { margin-top: 24rpx; display: flex; gap: 18rpx; }
-.actions button { flex: 1; min-height: 76rpx; margin: 0; border: 2rpx solid rgba(24,32,29,.08); border-radius: 38rpx; background: #f4efe6; font-size: 24rpx; }
-.actions .rider-primary { border: 0; background: linear-gradient(110deg, var(--cinnabar), var(--cinnabar-strong)); }
+.tasks-page { padding-top: 22rpx; }
+.task-hero { margin-bottom: 26rpx; padding: 29rpx; border-radius: 31rpx; color: #fff8e8; background: radial-gradient(circle at 90% 4%, rgba(226,160,77,.35), transparent 180rpx), linear-gradient(132deg, #17221d, #2b4035 68%, #513e2c); box-shadow: 0 20rpx 46rpx rgba(25,31,27,.16); display: flex; align-items: center; justify-content: space-between; gap: 24rpx; }
+.hero-kicker { color: #e7ad62; font-size: 16rpx; font-weight: 900; letter-spacing: 3rpx; }
+.hero-title { margin-top: 7rpx; font-family: "Songti SC", serif; font-size: 43rpx; font-weight: 900; }
+.hero-sub { max-width: 440rpx; margin-top: 8rpx; color: rgba(255,248,232,.56); font-size: 18rpx; line-height: 1.5; }
+.task-count { width: 112rpx; height: 112rpx; flex: 0 0 auto; border: 2rpx solid rgba(255,255,255,.11); border-radius: 35rpx; background: rgba(8,14,11,.2); display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.task-count text { color: #f0ba70; font-family: "DIN Alternate", sans-serif; font-size: 39rpx; font-weight: 950; }
+.task-count view { margin-top: 3rpx; color: rgba(255,248,232,.5); font-size: 16rpx; }
+
+.task-card { padding: 27rpx; }
+.task-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 18rpx; }
+.order-number { margin-bottom: 6rpx; color: #9d9a92; font-size: 17rpx; }
+.task-title { color: #222b26; font-family: "Songti SC", serif; font-size: 33rpx; font-weight: 900; }
+.status-pill { padding: 9rpx 14rpx; border-radius: 999rpx; color: #a6402c; background: #fae8e1; font-size: 19rpx; font-weight: 900; }
+.status-pill.arrived { color: #25624e; background: #e2f1e9; }
+.status-note { margin-top: 20rpx; padding: 15rpx 17rpx; border-radius: 17rpx; color: #636b66; background: #f4f1eb; display: flex; align-items: center; gap: 12rpx; font-size: 20rpx; }
+.pulse { width: 12rpx; height: 12rpx; flex: 0 0 auto; border-radius: 50%; background: #d4472d; box-shadow: 0 0 0 6rpx rgba(212,71,45,.08); }
+.route-card { margin-top: 20rpx; padding: 8rpx 20rpx; border: 2rpx solid #ede7dc; border-radius: 22rpx; background: #fbf8f2; }
+.address-row { min-height: 88rpx; display: flex; align-items: center; gap: 15rpx; }
+.route-label { width: 40rpx; height: 40rpx; flex: 0 0 auto; border-radius: 13rpx; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 18rpx; font-weight: 900; }
+.route-label.pickup { background: #d4472d; }.route-label.dropoff { background: #28745c; }.route-label.service { background: #9b7044; }
+.address-row > view { min-width: 0; flex: 1; }
+.address-row text { display: block; overflow: hidden; color: #333b37; font-size: 23rpx; font-weight: 850; text-overflow: ellipsis; white-space: nowrap; }
+.address-row text + text { margin-top: 5rpx; color: #99978f; font-size: 18rpx; font-weight: 550; }
+.route-divider { height: 2rpx; margin-left: 55rpx; background: #ede7dd; }
+.quick-actions { margin-top: 19rpx; display: grid; grid-template-columns: repeat(3, 1fr); gap: 10rpx; }
+.quick-actions button { min-width: 0; height: 78rpx; border: 2rpx solid #ebe5da; border-radius: 20rpx; color: #616762; background: #f8f4ed; display: flex; align-items: center; justify-content: center; gap: 8rpx; font-size: 19rpx; font-weight: 800; }
+.action-icon { width: 31rpx; height: 31rpx; border-radius: 10rpx; display: flex; align-items: center; justify-content: center; font-size: 17rpx; font-weight: 900; }
+.action-icon.nav { color: #27644f; background: #dfeee7; }.action-icon.phone { color: #885c28; background: #f1e5d3; }.action-icon.warn { color: #a5412d; background: #f7e3dd; }
+.advance-btn { height: 80rpx; margin-top: 18rpx; padding: 0 25rpx; border-radius: 999rpx; color: #fff; background: linear-gradient(105deg, #d4472d, #b92f20); box-shadow: 0 12rpx 26rpx rgba(185,47,32,.18); display: flex; align-items: center; justify-content: space-between; font-size: 24rpx; font-weight: 900; }
+.empty-icon { width: 80rpx; height: 80rpx; margin: 0 auto 18rpx; border: 2rpx solid rgba(40,116,92,.16); border-radius: 27rpx; background: #edf4f0; display: flex; align-items: center; justify-content: center; }
+.empty-icon view { width: 33rpx; height: 25rpx; border: 3rpx solid #28745c; border-top: 0; border-radius: 0 0 12rpx 12rpx; }
+.empty-title { margin-bottom: 5rpx; color: #3b433f; font-size: 25rpx; font-weight: 900; }
+
+@media (prefers-reduced-motion: reduce) { .quick-actions button, .advance-btn { transition: opacity 120ms ease; } }

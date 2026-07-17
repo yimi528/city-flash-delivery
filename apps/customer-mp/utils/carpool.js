@@ -37,6 +37,10 @@ function getRouteForAddress(address) {
   return ROUTES[getRouteIdForAddress(address)] || null
 }
 
+function getRoute(routeId) {
+  return ROUTES[routeId] || ROUTES.cangnan
+}
+
 function isAllowedAddress(address) {
   return Boolean(getRouteIdForAddress(address))
 }
@@ -58,6 +62,15 @@ function placeholder(route) {
   }
 }
 
+function addressDefaults(routeId) {
+  const route = getRoute(routeId)
+  return {
+    city: '温州市',
+    district: route.id === 'cangnan' ? '苍南县' : '',
+    adcode: route.id === 'cangnan' ? '330327' : ''
+  }
+}
+
 function getCitySideAddress(draft) {
   if (!draft) return null
   return draft.direction === 'RETURN' ? draft.pickup : draft.dropoff
@@ -65,13 +78,14 @@ function getCitySideAddress(draft) {
 
 function applyRoute(draft, options) {
   const selectedLine = (draft && draft.selectedLine) || ROUTES.cangnan
-  const route = ROUTES[selectedLine.id] || ROUTES.cangnan
+  const requestedRouteId = options && options.routeId
+  const route = getRoute(requestedRouteId || selectedLine.id)
   const outbound = (draft.direction || 'OUTBOUND') === 'OUTBOUND'
   const previous = options && options.clearAddress
     ? null
     : ((options && options.address) || getCitySideAddress(draft))
   const cityAddress = isSelectedCityAddress(previous, route.id) ? previous : placeholder(route)
-  draft.selectedLine = Object.assign({}, route, selectedLine)
+  draft.selectedLine = Object.assign({}, route)
   draft.pickup = outbound ? Object.assign({}, FUDING_STOP) : cityAddress
   draft.dropoff = outbound ? cityAddress : Object.assign({}, FUDING_STOP)
   draft.quoteId = ''
@@ -81,14 +95,15 @@ function applyRoute(draft, options) {
   return draft
 }
 
-function applySelectedAddress(draft, address, type) {
-  const route = getRouteForAddress(address)
-  if (!route) return null
+function applySelectedAddress(draft, address, type, routeId) {
+  const selectedRoute = getRoute(routeId || (draft.selectedLine && draft.selectedLine.id))
+  const addressRoute = getRouteForAddress(address)
+  if (!addressRoute || addressRoute.id !== selectedRoute.id) return null
   const selected = Object.assign({}, address, {
-    carpoolRouteId: route.id,
+    carpoolRouteId: selectedRoute.id,
     needsAddressSelection: false
   })
-  draft.selectedLine = Object.assign({}, route)
+  draft.selectedLine = Object.assign({}, selectedRoute)
   draft.direction = type === 'pickup' ? 'RETURN' : 'OUTBOUND'
   draft.pickup = draft.direction === 'RETURN' ? selected : Object.assign({}, FUDING_STOP)
   draft.dropoff = draft.direction === 'OUTBOUND' ? selected : Object.assign({}, FUDING_STOP)
@@ -96,7 +111,7 @@ function applySelectedAddress(draft, address, type) {
   draft.routeDistanceKm = 0
   draft.routeDistanceSource = ''
   draft.routeDuration = ''
-  return route
+  return selectedRoute
 }
 
 function validateDraft(draft) {
@@ -110,10 +125,12 @@ function validateDraft(draft) {
 module.exports = {
   ROUTES,
   FUDING_STOP,
+  getRoute,
   getRouteIdForAddress,
   getRouteForAddress,
   isAllowedAddress,
   isSelectedCityAddress,
+  addressDefaults,
   getCitySideAddress,
   applyRoute,
   applySelectedAddress,

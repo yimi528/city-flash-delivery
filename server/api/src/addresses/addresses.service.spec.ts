@@ -19,12 +19,15 @@ describe('AddressesService', () => {
     location: null,
     mapPoiId: 'poi-cangnan-station',
     isDefault: true,
+    usageCount: 3,
+    lastUsedAt: now,
     createdAt: now,
     updatedAt: now,
   }
   const addressApi = {
     findMany: jest.fn(),
     findFirst: jest.fn(),
+    update: jest.fn(),
   }
   const txAddressApi = {
     count: jest.fn(),
@@ -63,13 +66,15 @@ describe('AddressesService', () => {
 
     expect(addressApi.findMany).toHaveBeenCalledWith({
       where: { userId: 'user-1' },
-      orderBy: [{ isDefault: 'desc' }, { updatedAt: 'desc' }],
+      orderBy: [{ usageCount: 'desc' }, { lastUsedAt: 'desc' }, { isDefault: 'desc' }, { updatedAt: 'desc' }],
     })
     expect(result[0]).toEqual(expect.objectContaining({
       id: 'address-1',
       latitude: 27.5364,
       longitude: 120.4164,
       location: { latitude: 27.5364, longitude: 120.4164 },
+      usageCount: 3,
+      lastUsedAt: now.toISOString(),
     }))
   })
 
@@ -114,11 +119,25 @@ describe('AddressesService', () => {
     expect(txAddressApi.update).toHaveBeenCalledWith({ where: { id: 'address-2' }, data: { isDefault: true } })
   })
 
+  it('records address usage for frequent recommendations', async () => {
+    addressApi.findFirst.mockResolvedValue(savedAddress)
+    addressApi.update.mockResolvedValue({ ...savedAddress, usageCount: 4 })
+
+    const result = await service.recordUse('user-1', 'address-1')
+
+    expect(addressApi.update).toHaveBeenCalledWith({
+      where: { id: 'address-1' },
+      data: { usageCount: { increment: 1 }, lastUsedAt: expect.any(Date) },
+    })
+    expect(result.usageCount).toBe(4)
+  })
+
   it('rejects unowned addresses and incomplete coordinate pairs', async () => {
     addressApi.findFirst.mockResolvedValue(null)
 
     await expect(service.update('user-1', 'address-other', dto)).rejects.toBeInstanceOf(NotFoundException)
     await expect(service.create('user-1', { ...dto, longitude: undefined })).rejects.toBeInstanceOf(BadRequestException)
     await expect(service.create('user-1', { ...dto, contact: '   ' })).rejects.toBeInstanceOf(BadRequestException)
+    await expect(service.create('user-1', { ...dto, phone: '12345' })).rejects.toThrow('请输入正确的11位手机号')
   })
 })

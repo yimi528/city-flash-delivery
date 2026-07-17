@@ -15,7 +15,9 @@ const CANGNAN_ADDRESS = {
   district: '苍南县',
   adcode: '330327',
   latitude: 27.5364,
-  longitude: 120.4164
+  longitude: 120.4164,
+  contact: '测试乘客',
+  phone: '13800000001'
 }
 
 const WENZHOU_ADDRESS = {
@@ -26,7 +28,9 @@ const WENZHOU_ADDRESS = {
   district: '瓯海区',
   adcode: '330304',
   latitude: 27.9727,
-  longitude: 120.5856
+  longitude: 120.5856,
+  contact: '测试乘客',
+  phone: '13800000002'
 }
 
 function clone(value) {
@@ -109,9 +113,9 @@ test('all services create an order with their fixed vehicle', () => {
 
   const cases = [
     { id: 'carpool_ride', service: '拼车', vehicle: 'business_van', alternate: 'ebike' },
+    { id: 'send_parcel', service: '寄货', vehicle: 'small_car', alternate: 'ebike' },
     { id: 'cargo_haul', service: '运货', vehicle: 'cargo_tricycle', alternate: 'small_car' },
     { id: 'moving_handling', service: '搬运装卸', vehicle: 'manual_labor', alternate: 'small_car' },
-    { id: 'send_parcel', service: '寄货', vehicle: 'small_car', alternate: 'ebike' },
     { id: 'urgent_delivery', service: '急送', vehicle: 'ebike', alternate: 'small_car' },
     { id: 'pickup', service: '帮取', vehicle: 'ebike', alternate: 'small_car' },
     { id: 'buy_for_me', service: '帮买', vehicle: 'ebike', alternate: 'small_car' },
@@ -269,7 +273,8 @@ test('carpool fare follows passenger count and return always ends in Fuding', ()
   const index = loadPage('pages/index/index.js')
   index.onShow()
   index.chooseTask(event({ task: 'carpool_ride' }))
-  carpool.applySelectedAddress(app.globalData.draftOrder, WENZHOU_ADDRESS, 'dropoff')
+  index.chooseCarpoolRoute(event({ route: 'wenzhou' }))
+  carpool.applySelectedAddress(app.globalData.draftOrder, WENZHOU_ADDRESS, 'dropoff', 'wenzhou')
   const page = loadPage('pages/order-create/order-create.js')
   page.onShow()
   page.selectLine(event({ id: 'wenzhou' }))
@@ -288,13 +293,14 @@ test('carpool address selection only accepts Cangnan or Wenzhou and matches the 
   const index = loadPage('pages/index/index.js')
   index.onShow()
   index.chooseTask(event({ task: 'carpool_ride' }))
+  index.chooseCarpoolRoute(event({ route: 'wenzhou' }))
 
   const addressPage = loadPage('pages/address/address.js')
-  addressPage.onLoad({ type: 'dropoff', mode: 'carpool' })
+  addressPage.onLoad({ type: 'dropoff', mode: 'carpool', route: 'wenzhou' })
   await new Promise((resolve) => setTimeout(resolve, 20))
 
   assert.ok(addressPage.data.addresses.length >= 2)
-  assert.ok(addressPage.data.addresses.every((item) => carpool.isAllowedAddress(item)))
+  assert.ok(addressPage.data.addresses.every((item) => carpool.isSelectedCityAddress(item, 'wenzhou')))
 
   addressPage.selectAddress(WENZHOU_ADDRESS)
   assert.equal(app.globalData.draftOrder.selectedLine.id, 'wenzhou')
@@ -302,8 +308,8 @@ test('carpool address selection only accepts Cangnan or Wenzhou and matches the 
   assert.equal(app.globalData.draftOrder.dropoff.name, '温州南站')
 
   const before = calls.length
-  addressPage.selectAddress(app.globalData.addresses[0])
-  assert.equal(calls[before].options.title, '拼车仅支持苍南或温州境内地址')
+  addressPage.selectAddress(CANGNAN_ADDRESS)
+  assert.equal(calls[before].options.title, '请选择温州境内地址')
 })
 
 test('handling-only order charges a fixed fee without a destination', () => {
