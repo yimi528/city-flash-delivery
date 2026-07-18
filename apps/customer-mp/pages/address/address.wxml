@@ -3,21 +3,21 @@
   <view class="page-nav">
     <view class="back" bindtap="goBack">‹</view>
     <view class="nav-title">{{title}}</view>
-    <view class="nav-action" bindtap="addAddress">手动填写</view>
+    <view class="nav-add" role="button" aria-label="手动填写地址" bindtap="addAddress">+</view>
   </view>
 
   <view class="search-card">
     <text class="search-icon">⌕</text>
     <input placeholder="{{isCarpool ? '搜索' + routeName + '境内地点' : '搜索小区、写字楼、门店'}}" value="{{keyword}}" bindinput="onSearch" confirm-type="search" />
-    <view class="locate-btn" bindtap="locateCurrent">{{isLocating ? '定位中' : '定位'}}</view>
   </view>
 
-  <view class="hint-card">
-    <view>
-      <view class="hint-title">{{isCarpool ? routeName + '线地址范围' : '地图定位与搜索'}}</view>
-      <view class="hint-sub">{{locationTip}}。{{scopeTip || '地图选点后请补全联系人，再保存使用。'}}</view>
+  <view class="location-card" role="button" aria-label="定位当前位置" bindtap="locateCurrent">
+    <view class="location-glyph">⌖</view>
+    <view class="location-copy">
+      <view class="location-title">定位</view>
+      <view class="location-sub">{{scopeTip || locationTip}}</view>
     </view>
-    <view class="hint-action" bindtap="addAddress">手动填写</view>
+    <view class="location-action">{{isLocating ? '定位中' : (currentAddress ? '重新定位' : '定位')}}</view>
   </view>
 
   <view class="current-card" wx:if="{{currentAddress && !isCarpool}}" bindtap="chooseCurrent">
@@ -76,8 +76,5 @@
     </block>
   </view>
 
-  <view class="empty-card" wx:if="{{!addresses.length && !frequentAddresses.length && !isSearching}}">
-    <view class="empty-title">没有找到地址</view>
-    <view class="empty-sub">换个关键词搜索，或点击“手动填写”保存一个常用地址。</view>
-  </view>
+  <view class="empty-card" wx:if="{{!addresses.length && !frequentAddresses.length && !isSearching}}" role="button" aria-label="手动填写地址" bindtap="addAddress">+</view>
 </view>

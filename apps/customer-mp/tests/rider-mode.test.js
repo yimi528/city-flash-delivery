@@ -47,6 +47,17 @@ test('an expired rider token clears only the rider session', async () => {
   assert.equal(clearedRiderSession, true)
 })
 
+test('offline writes carry an explicit rider confirmation intent', async () => {
+  requestHandler = (options) => {
+    assert.match(options.url, /\/v1\/rider\/online$/)
+    assert.deepEqual(options.data, { online: false, intent: 'manual_offline' })
+    options.success({ statusCode: 200, data: { id: 'rider-1', online: false } })
+  }
+
+  const rider = await riderApi.setOnline(false)
+  assert.equal(rider.online, false)
+})
+
 test('one mini program keeps customer and rider sessions isolated while switching modes', () => {
   const storage = {}
   let app = null
@@ -78,7 +89,8 @@ test('one mini program keeps customer and rider sessions isolated while switchin
 
   app.setCustomerRoleSession({ token: 'new-customer-token' })
   assert.equal(app.globalData.authToken, 'new-customer-token')
-  assert.equal(app.globalData.riderAuthToken, '')
+  assert.equal(app.globalData.currentRole, 'customer')
+  assert.equal(app.globalData.riderAuthToken, 'rider-token')
   assert.equal(storage.customerAuthToken, 'new-customer-token')
-  assert.equal(storage.riderAuthToken, undefined)
+  assert.equal(storage.riderAuthToken, 'rider-token')
 })

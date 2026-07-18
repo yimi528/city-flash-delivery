@@ -67,29 +67,40 @@ Page({
     })
   },
 
-  toggleOnline() {
-    const online = !this.data.online
-    if (online) {
-      wx.getLocation({
-        type: 'gcj02',
-        success: (location) => api.setOnline(true)
-          .then(() => api.updateLocation(location.latitude, location.longitude))
-          .then((rider) => {
-            app.updateRider(rider)
-            this.setData({ rider, online: true })
-            app.startRiderPresence()
-            this.loadOrders(true)
-          })
-          .catch((error) => wx.showToast({ title: error.message, icon: 'none' })),
-        fail: () => wx.showToast({ title: '上线需要位置权限', icon: 'none' })
-      })
-      return
-    }
-    api.setOnline(false).then((rider) => {
-      app.stopRiderPresence()
-      app.updateRider(rider)
-      this.setData({ rider, online: false, orders: [] })
-    }).catch((error) => wx.showToast({ title: error.message, icon: 'none' }))
+  goOnline() {
+    if (this.data.online) return
+    wx.getLocation({
+      type: 'gcj02',
+      success: (location) => api.setOnline(true)
+        .then(() => api.updateLocation(location.latitude, location.longitude))
+        .then((rider) => {
+          app.updateRider(rider)
+          this.setData({ rider, online: true })
+          app.startRiderPresence()
+          this.loadOrders(true)
+          if (wx.vibrateShort) wx.vibrateShort({ type: 'light' })
+        })
+        .catch((error) => wx.showToast({ title: error.message, icon: 'none' })),
+      fail: () => wx.showToast({ title: '上线需要位置权限', icon: 'none' })
+    })
+  },
+
+  confirmOffline() {
+    if (!this.data.online) return
+    wx.showModal({
+      title: '确认收工？',
+      content: '下线后将暂停接收新订单，当前任务不受影响。',
+      confirmText: '确认下线',
+      confirmColor: '#d4493f',
+      success: (result) => {
+        if (!result.confirm) return
+        api.setOnline(false).then((rider) => {
+          app.stopRiderPresence()
+          app.updateRider(rider)
+          this.setData({ rider, online: false, orders: [] })
+        }).catch((error) => wx.showToast({ title: error.message, icon: 'none' }))
+      }
+    })
   },
 
   loadOrders(showLoading) {

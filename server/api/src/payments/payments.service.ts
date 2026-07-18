@@ -76,7 +76,7 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
   ) {}
 
   onModuleInit() {
-    if (this.config.get<string>('WECHAT_PAY_AUTO_RECONCILIATION_ENABLED') === 'true') {
+    if (this.paymentMode() === 'wechat' && this.config.get<string>('WECHAT_PAY_AUTO_RECONCILIATION_ENABLED') === 'true') {
       this.scheduleReconciliation()
     }
   }
@@ -97,7 +97,11 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
 
     const amountFen = order.totalFeeFen || Math.round(Number(order.totalFee) * 100)
     if (amountFen <= 0) throw new ConflictException('订单支付金额无效')
-    const mockEnabled = this.isDevelopmentMockEnabled()
+    const paymentMode = this.paymentMode()
+    if (paymentMode === 'disabled') {
+      throw new ServiceUnavailableException('暂未开通在线支付，请联系商家确认付款方式')
+    }
+    const mockEnabled = this.isMockPaymentEnabled()
     if (!mockEnabled && !order.user.openid)
       throw new ConflictException('当前用户缺少微信 openid，请重新登录')
 
@@ -172,8 +176,8 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
   }
 
   async confirmMockPayment(orderId: string, userId: string) {
-    if (!this.isDevelopmentMockEnabled())
-      throw new ForbiddenException('模拟支付只允许在开发环境使用')
+    if (!this.isMockPaymentEnabled())
+      throw new ForbiddenException('模拟支付只允许在测试阶段使用')
     const order = await this.findOrder(orderId, userId)
     if (order.status === OrderStatus.CANCELLED) throw new ConflictException('已取消订单不能支付')
     if (!order.payment) throw new ConflictException('请先创建预支付订单')
@@ -353,7 +357,7 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
     if (
       payment.outTradeNo &&
       !payment.transactionId.startsWith('MOCK-') &&
-      !this.isDevelopmentMockEnabled()
+      !this.isMockPaymentEnabled()
     ) {
       const path = `/v3/pay/transactions/out-trade-no/${encodeURIComponent(payment.outTradeNo)}/close`
       await this.requestWechatApi('POST', path, { mchid: this.required('WECHAT_PAY_MCH_ID') }, true)
@@ -813,10 +817,15 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
     ])
   }
 
-  private isDevelopmentMockEnabled() {
-    return (
-      this.config.get<string>('NODE_ENV') !== 'production' &&
-      this.config.get<string>('WECHAT_PAY_MOCK_ENABLED') === 'true'
-    )
+  private paymentMode() {
+    const configured = this.config.get<string>('WECHAT_PAY_MODE')
+    if (configured) return configured
+    return this.config.get<string>('WECHAT_PAY_MOCK_ENABLED') === 'true' ? 'mock' : 'wechat'
+  }
+
+  private isMockPaymentEnabled() {
+    if (this.paymentMode() !== 'mock' || this.config.get<string>('WECHAT_PAY_MOCK_ENABLED') !== 'true') return false
+    if (this.config.get<string>('NODE_ENV') !== 'production') return true
+    return (this.config.get<string>('APP_RELEASE_STAGE') || 'testing') === 'testing'
   }
 }

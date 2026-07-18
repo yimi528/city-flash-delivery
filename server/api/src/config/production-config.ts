@@ -24,31 +24,14 @@ export function validateProductionConfig(config: ConfigReader) {
     'DATABASE_URL',
     'REDIS_URL',
     'JWT_SECRET',
-    'CORS_ORIGINS',
     'WECHAT_MINI_APP_ID',
     'WECHAT_MINI_APP_SECRET',
-    'WECHAT_PAY_MCH_ID',
-    'WECHAT_PAY_CERT_SERIAL',
-    'WECHAT_PAY_API_V3_KEY',
-    'WECHAT_PAY_PLATFORM_CERT_SERIAL',
-    'WECHAT_PAY_NOTIFY_URL',
-    'WECHAT_PAY_REFUND_NOTIFY_URL',
     'TENCENT_MAP_KEY',
   ]
   required.forEach((key) => requireValue(config, key, errors))
 
   const jwtSecret = value(config, 'JWT_SECRET')
   if (jwtSecret && jwtSecret.length < 32) errors.push('JWT_SECRET must contain at least 32 characters')
-
-  const apiV3Key = value(config, 'WECHAT_PAY_API_V3_KEY')
-  if (apiV3Key && Buffer.byteLength(apiV3Key, 'utf8') !== 32) {
-    errors.push('WECHAT_PAY_API_V3_KEY must contain exactly 32 bytes')
-  }
-
-  for (const key of ['WECHAT_PAY_NOTIFY_URL', 'WECHAT_PAY_REFUND_NOTIFY_URL']) {
-    const current = value(config, key)
-    if (current && !current.startsWith('https://')) errors.push(`${key} must use HTTPS`)
-  }
 
   const origins = value(config, 'CORS_ORIGINS')
     .split(',')
@@ -61,8 +44,26 @@ export function validateProductionConfig(config: ConfigReader) {
   if (value(config, 'WECHAT_LOGIN_MOCK_ENABLED') !== 'false') {
     errors.push('WECHAT_LOGIN_MOCK_ENABLED must be false in production')
   }
-  if (value(config, 'WECHAT_PAY_MOCK_ENABLED') !== 'false') {
-    errors.push('WECHAT_PAY_MOCK_ENABLED must be false in production')
+  const releaseStage = value(config, 'APP_RELEASE_STAGE') || 'testing'
+  if (!['testing', 'production'].includes(releaseStage)) {
+    errors.push('APP_RELEASE_STAGE must be testing or production')
+  }
+
+  const paymentMode = value(config, 'WECHAT_PAY_MODE') || 'mock'
+  if (!['mock', 'wechat', 'disabled'].includes(paymentMode)) {
+    errors.push('WECHAT_PAY_MODE must be mock, wechat or disabled')
+  }
+  if (paymentMode === 'mock') {
+    if (releaseStage !== 'testing') errors.push('mock payments are only allowed when APP_RELEASE_STAGE=testing')
+    if (value(config, 'WECHAT_PAY_MOCK_ENABLED') !== 'true') {
+      errors.push('WECHAT_PAY_MOCK_ENABLED must be true when WECHAT_PAY_MODE=mock')
+    }
+    if (value(config, 'WECHAT_PAY_AUTO_RECONCILIATION_ENABLED') === 'true') {
+      errors.push('automatic reconciliation must be disabled for mock payments')
+    }
+  }
+  if (paymentMode === 'disabled' && value(config, 'WECHAT_PAY_MOCK_ENABLED') === 'true') {
+    errors.push('WECHAT_PAY_MOCK_ENABLED must be false when WECHAT_PAY_MODE=disabled')
   }
   if (value(config, 'ENABLE_SWAGGER') === 'true') {
     errors.push('ENABLE_SWAGGER must not be true in production')
@@ -82,16 +83,39 @@ export function validateProductionConfig(config: ConfigReader) {
     }
   }
 
-  const privateKey = value(config, 'WECHAT_PAY_PRIVATE_KEY')
-  const privateKeyPath = value(config, 'WECHAT_PAY_PRIVATE_KEY_PATH')
-  if (!privateKey && !privateKeyPath) {
-    errors.push('WECHAT_PAY_PRIVATE_KEY or WECHAT_PAY_PRIVATE_KEY_PATH must be configured')
-  }
+  if (paymentMode === 'wechat') {
+    for (const key of [
+      'WECHAT_PAY_MCH_ID',
+      'WECHAT_PAY_CERT_SERIAL',
+      'WECHAT_PAY_API_V3_KEY',
+      'WECHAT_PAY_PLATFORM_CERT_SERIAL',
+      'WECHAT_PAY_NOTIFY_URL',
+      'WECHAT_PAY_REFUND_NOTIFY_URL',
+    ]) requireValue(config, key, errors)
 
-  const platformCert = value(config, 'WECHAT_PAY_PLATFORM_CERT')
-  const platformCertPath = value(config, 'WECHAT_PAY_PLATFORM_CERT_PATH')
-  if (!platformCert && !platformCertPath) {
-    errors.push('WECHAT_PAY_PLATFORM_CERT or WECHAT_PAY_PLATFORM_CERT_PATH must be configured')
+    const apiV3Key = value(config, 'WECHAT_PAY_API_V3_KEY')
+    if (apiV3Key && Buffer.byteLength(apiV3Key, 'utf8') !== 32) {
+      errors.push('WECHAT_PAY_API_V3_KEY must contain exactly 32 bytes')
+    }
+    for (const key of ['WECHAT_PAY_NOTIFY_URL', 'WECHAT_PAY_REFUND_NOTIFY_URL']) {
+      const current = value(config, key)
+      if (current && !current.startsWith('https://')) errors.push(`${key} must use HTTPS`)
+    }
+    if (value(config, 'WECHAT_PAY_MOCK_ENABLED') !== 'false') {
+      errors.push('WECHAT_PAY_MOCK_ENABLED must be false when WECHAT_PAY_MODE=wechat')
+    }
+
+    const privateKey = value(config, 'WECHAT_PAY_PRIVATE_KEY')
+    const privateKeyPath = value(config, 'WECHAT_PAY_PRIVATE_KEY_PATH')
+    if (!privateKey && !privateKeyPath) {
+      errors.push('WECHAT_PAY_PRIVATE_KEY or WECHAT_PAY_PRIVATE_KEY_PATH must be configured')
+    }
+
+    const platformCert = value(config, 'WECHAT_PAY_PLATFORM_CERT')
+    const platformCertPath = value(config, 'WECHAT_PAY_PLATFORM_CERT_PATH')
+    if (!platformCert && !platformCertPath) {
+      errors.push('WECHAT_PAY_PLATFORM_CERT or WECHAT_PAY_PLATFORM_CERT_PATH must be configured')
+    }
   }
 
   if (errors.length > 0) {

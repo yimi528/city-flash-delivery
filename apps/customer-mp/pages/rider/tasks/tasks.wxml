@@ -1,6 +1,6 @@
 <view class="rider-page tasks-page">
   <view class="task-hero">
-    <view><view class="hero-kicker">ACTIVE TASKS</view><view class="hero-title">当前任务</view><view class="hero-sub">一次专注完成一单，路线和联系方式都在卡片里</view></view>
+    <view><view class="hero-kicker">配送任务</view><view class="hero-title">当前任务</view><view class="hero-sub">路线、联系人和下一步操作都在这里</view></view>
     <view class="task-count"><text>{{tasks.length}}</text><view>进行中</view></view>
   </view>
 

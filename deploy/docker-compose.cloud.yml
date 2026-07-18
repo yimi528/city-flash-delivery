@@ -8,9 +8,6 @@ services:
     restart: unless-stopped
     expose:
       - "3000"
-    volumes:
-      - ./secrets/apiclient_key.pem:/run/secrets/apiclient_key.pem:ro
-      - ./secrets/wechatpay_platform.pem:/run/secrets/wechatpay_platform.pem:ro
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
       interval: 30s
@@ -44,7 +41,7 @@ services:
         condition: service_healthy
     environment:
       API_DOMAIN: ${API_DOMAIN}
-      OPS_DOMAIN: ${OPS_DOMAIN}
+      OPS_DOMAIN: ${OPS_DOMAIN:-_}
       NGINX_ENVSUBST_FILTER: ^(API_DOMAIN|OPS_DOMAIN)$
     ports:
       - "80:80"

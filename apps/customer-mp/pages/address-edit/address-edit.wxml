@@ -3,83 +3,71 @@
   <view class="page-nav">
     <view class="back" bindtap="goBack">‹</view>
     <view class="nav-title">{{title}}</view>
-    <view class="nav-action" bindtap="submit">保存</view>
+    <view class="nav-placeholder"></view>
   </view>
 
-  <view class="map-card">
-    <view class="map-head">
-      <view>
-        <view class="map-title">{{isCarpool ? routeName + '线地图选点' : '地图选点（可选）'}}</view>
-        <view class="map-sub">{{isCarpool ? '仅显示' + routeName + '境内地点' : '可搜索地图，也可直接在下方手动填写'}}</view>
-      </view>
-      <view class="locate-action" bindtap="useCurrentLocation">{{isLocating ? '定位中' : '当前位置'}}</view>
+  <view class="smart-card">
+    <textarea class="smart-input" value="{{smartPasteText}}" bindinput="inputSmartPaste" maxlength="300" auto-height placeholder="粘贴姓名、手机号和完整地址" />
+    <button class="recognize-btn" bindtap="pasteAndRecognize" loading="{{recognizing}}" disabled="{{recognizing}}">{{recognizing ? '识别中' : '粘贴并识别'}}</button>
+  </view>
+
+  <view class="form-card">
+    <view class="scope-lock" wx:if="{{isCarpool}}">已锁定 {{routeName}}线 · {{form.city}}{{form.district}}</view>
+
+    <view class="field-row address-row">
+      <view class="label">地址</view>
+      <input class="field-input" value="{{mapKeyword}}" placeholder="{{isCarpool ? '搜索' + routeName + '境内地址（必填）' : '搜索小区、写字楼或门店（必填）'}}" bindinput="inputMapKeyword" confirm-type="search" />
+      <view class="locate-inline" bindtap="useCurrentLocation">{{isLocating ? '定位中' : '定位'}}</view>
     </view>
-    <view class="map-search">
-      <text>⌕</text>
-      <input value="{{mapKeyword}}" placeholder="{{isCarpool ? '搜索' + routeName + '境内地点' : '输入小区、写字楼、门店名称'}}" bindinput="inputMapKeyword" confirm-type="search" />
-    </view>
-    <view class="map-loading" wx:if="{{isSearching}}">正在搜索腾讯地图...</view>
+
+    <view class="map-loading" wx:if="{{isSearching}}">正在搜索地址...</view>
     <view class="map-results" wx:if="{{mapResults.length}}">
       <block wx:for="{{mapResults}}" wx:key="id">
         <view class="map-result" data-id="{{item.id}}" bindtap="chooseMapResult">
-          <view class="map-pin">图</view>
+          <view class="map-pin">⌖</view>
           <view class="map-info">
             <view class="map-name">{{item.name}} <text>{{item.distance}}</text></view>
             <view class="map-detail">{{item.detail}}</view>
           </view>
-          <view class="map-use">填入</view>
+          <view class="map-use">选择</view>
         </view>
       </block>
     </view>
-  </view>
 
-  <view class="form-card">
-    <view class="manual-heading"><view class="manual-icon">写</view><view><view class="manual-title">手动填写</view><view class="manual-sub">地图找不到也没关系，请将楼栋门牌写清楚</view></view></view>
-    <view class="scope-lock" wx:if="{{isCarpool}}">已锁定 {{routeName}}线 · {{form.city}}{{form.district}}</view>
-    <view class="field">
-      <view class="label">地址名称</view>
-      <input value="{{form.name}}" placeholder="如：恒生一品苑" data-field="name" bindinput="inputField" />
-    </view>
-    <view class="field">
-      <view class="label">详细地址</view>
-      <input value="{{form.detail}}" placeholder="楼栋、门牌号、附近地标" data-field="detail" bindinput="inputField" />
-    </view>
-    <view class="field two-col">
-      <view class="col">
-        <view class="label">联系人</view>
-        <input value="{{form.contact}}" placeholder="联系人" data-field="contact" bindinput="inputField" />
-      </view>
-      <view class="col">
-        <view class="label">手机号</view>
-        <input value="{{form.phone}}" placeholder="手机号" type="number" data-field="phone" bindinput="inputField" />
-      </view>
-    </view>
-    <view class="field two-col">
-      <view class="col">
-        <view class="label">预估距离(km)</view>
-        <input value="{{form.distanceKm}}" placeholder="1.5" type="digit" data-field="distanceKm" bindinput="inputField" />
-      </view>
-      <view class="col">
-        <view class="label">标签</view>
-        <input value="{{form.tag}}" placeholder="家/公司/门店" data-field="tag" bindinput="inputField" />
-      </view>
-    </view>
-    <view class="coordinate-row" wx:if="{{form.latitude && form.longitude}}">坐标 {{form.latitude}}，{{form.longitude}}</view>
-
-    <view class="tags">
-      <block wx:for="{{tags}}" wx:key="*this">
-        <view class="tag {{form.tag === item ? 'active' : ''}}" data-tag="{{item}}" bindtap="selectTag">{{item}}</view>
-      </block>
+    <view class="field-row">
+      <view class="label">门牌号</view>
+      <input class="field-input" value="{{form.detail}}" placeholder="楼栋、单元、门牌号（必填）" data-field="detail" bindinput="inputField" />
     </view>
 
-    <view class="default-row" bindtap="toggleDefault">
-      <view>
+    <view class="field-row">
+      <view class="label">电话</view>
+      <input class="field-input" value="{{form.phone}}" placeholder="11位手机号（必填）" type="number" maxlength="11" data-field="phone" bindinput="inputField" />
+    </view>
+
+    <view class="field-row">
+      <view class="label">联系人</view>
+      <input class="field-input" value="{{form.contact}}" placeholder="姓名（必填）" data-field="contact" bindinput="inputField" />
+    </view>
+
+    <view class="tag-section">
+      <view class="tag-label">地址标签</view>
+      <view class="tags">
+        <block wx:for="{{tags}}" wx:key="*this">
+          <view class="tag {{form.tag === item ? 'active' : ''}}" data-tag="{{item}}" bindtap="selectTag">{{item}}</view>
+        </block>
+      </view>
+    </view>
+
+    <view class="default-row" role="checkbox" aria-checked="{{form.isDefault}}" bindtap="toggleDefault">
+      <view class="check {{form.isDefault ? 'on' : ''}}">{{form.isDefault ? '✓' : ''}}</view>
+      <view class="default-copy">
         <view class="default-title">设为默认地址</view>
-        <view class="default-sub">下次下单优先展示这个地址</view>
+        <view class="default-sub">下次填写时优先使用</view>
       </view>
-      <view class="switch {{form.isDefault ? 'on' : ''}}"><view></view></view>
     </view>
+
+    <view class="coordinate-row" wx:if="{{form.latitude && form.longitude}}">已关联地图位置</view>
   </view>
 
-  <button class="save-btn" bindtap="submit">保存地址</button>
+  <button class="save-btn" bindtap="submit">确认</button>
 </view>

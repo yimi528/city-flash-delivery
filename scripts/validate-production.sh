@@ -41,12 +41,20 @@ required_value() {
 printf '\n[生产验收] 环境与凭证\n'
 [[ "$(value NODE_ENV)" == "production" ]] || fail 'NODE_ENV 必须为 production'
 [[ "$(value WECHAT_LOGIN_MOCK_ENABLED)" == "false" ]] || fail '正式环境必须关闭登录 Mock'
-[[ "$(value WECHAT_PAY_MOCK_ENABLED)" == "false" ]] || fail '正式环境必须关闭支付 Mock'
 [[ "$(value ENABLE_SWAGGER)" == "false" ]] || fail '正式环境应关闭 Swagger'
 
-for key in API_IMAGE API_MIGRATION_IMAGE MERCHANT_IMAGE API_DOMAIN OPS_DOMAIN DATABASE_URL REDIS_URL WECHAT_MINI_APP_ID WECHAT_MINI_APP_SECRET WECHAT_PAY_MCH_ID WECHAT_PAY_CERT_SERIAL WECHAT_PAY_API_V3_KEY WECHAT_PAY_PLATFORM_CERT_SERIAL TENCENT_MAP_KEY; do
+for key in API_IMAGE API_MIGRATION_IMAGE MERCHANT_IMAGE API_DOMAIN DATABASE_URL REDIS_URL WECHAT_MINI_APP_ID WECHAT_MINI_APP_SECRET TENCENT_MAP_KEY; do
   required_value "$key"
 done
+
+ops_domain="$(value OPS_DOMAIN)"
+if [[ -z "$ops_domain" || "$ops_domain" == "_" ]]; then
+  pass 'OPS_DOMAIN 未配置，将使用平台分配的商家后台 HTTPS 地址'
+elif [[ "$ops_domain" =~ example\.com|replace|your- ]]; then
+  fail 'OPS_DOMAIN 不能使用占位值'
+else
+  pass 'OPS_DOMAIN 已配置'
+fi
 
 jwt_secret="$(value JWT_SECRET)"
 if (( ${#jwt_secret} < 32 )) || [[ "$jwt_secret" =~ replace|change-me ]]; then
@@ -56,14 +64,47 @@ else
 fi
 
 cors="$(value CORS_ORIGINS)"
-[[ "$cors" == https://* && "$cors" != *'*'* ]] || fail 'CORS_ORIGINS 必须是明确的 HTTPS 运营后台域名'
+if [[ -z "$cors" ]]; then
+  pass 'CORS_ORIGINS 未配置，浏览器跨域访问默认关闭'
+elif [[ "$cors" == https://* && "$cors" != *'*'* ]]; then
+  pass 'CORS_ORIGINS 使用明确的 HTTPS 来源'
+else
+  fail 'CORS_ORIGINS 必须为空或使用明确的 HTTPS 来源'
+fi
 
-for key in WECHAT_PAY_NOTIFY_URL WECHAT_PAY_REFUND_NOTIFY_URL; do
-  current="$(value "$key")"
-  [[ "$current" == https://* && "$current" != *example.com* ]] || fail "$key 必须使用正式 HTTPS 地址"
-done
+release_stage="$(value APP_RELEASE_STAGE)"
+[[ "$release_stage" == "testing" || "$release_stage" == "production" ]] || fail 'APP_RELEASE_STAGE 必须是 testing 或 production'
 
-for file in "$ROOT_DIR/deploy/certs/fullchain.pem" "$ROOT_DIR/deploy/certs/privkey.pem" "$ROOT_DIR/deploy/secrets/apiclient_key.pem" "$ROOT_DIR/deploy/secrets/wechatpay_platform.pem"; do
+payment_mode="$(value WECHAT_PAY_MODE)"
+payment_mode="${payment_mode:-mock}"
+case "$payment_mode" in
+  mock)
+    [[ "$release_stage" == "testing" ]] || fail '模拟支付仅允许 APP_RELEASE_STAGE=testing'
+    [[ "$(value WECHAT_PAY_MOCK_ENABLED)" == "true" ]] || fail '模拟支付模式必须启用 WECHAT_PAY_MOCK_ENABLED'
+    [[ "$(value WECHAT_PAY_AUTO_RECONCILIATION_ENABLED)" != "true" ]] || fail '模拟支付不能启用微信自动对账'
+    pass '当前使用测试阶段模拟支付，不要求微信商户号'
+    ;;
+  disabled)
+    [[ "$(value WECHAT_PAY_MOCK_ENABLED)" == "false" ]] || fail '关闭在线支付时必须关闭支付 Mock'
+    pass '在线支付已关闭，不要求微信商户号'
+    ;;
+  wechat)
+    [[ "$(value WECHAT_PAY_MOCK_ENABLED)" == "false" ]] || fail '微信支付模式必须关闭支付 Mock'
+    for key in WECHAT_PAY_MCH_ID WECHAT_PAY_CERT_SERIAL WECHAT_PAY_API_V3_KEY WECHAT_PAY_PLATFORM_CERT_SERIAL; do
+      required_value "$key"
+    done
+    for key in WECHAT_PAY_NOTIFY_URL WECHAT_PAY_REFUND_NOTIFY_URL; do
+      current="$(value "$key")"
+      [[ "$current" == https://* && "$current" != *example.com* ]] || fail "$key 必须使用正式 HTTPS 地址"
+    done
+    for file in "$ROOT_DIR/deploy/secrets/apiclient_key.pem" "$ROOT_DIR/deploy/secrets/wechatpay_platform.pem"; do
+      [[ -s "$file" ]] || fail "缺少证书或密钥文件：${file#$ROOT_DIR/}"
+    done
+    ;;
+  *) fail 'WECHAT_PAY_MODE 必须是 mock、disabled 或 wechat' ;;
+esac
+
+for file in "$ROOT_DIR/deploy/certs/fullchain.pem" "$ROOT_DIR/deploy/certs/privkey.pem"; do
   [[ -s "$file" ]] || fail "缺少证书或密钥文件：${file#$ROOT_DIR/}"
 done
 
@@ -77,7 +118,11 @@ else
 fi
 
 printf '\n[生产验收] Compose 配置\n'
-if API_ENV_FILE="$ENV_FILE" docker compose --env-file "$ENV_FILE" -f "$ROOT_DIR/deploy/docker-compose.cloud.yml" config --quiet; then
+compose_files=(-f "$ROOT_DIR/deploy/docker-compose.cloud.yml")
+if [[ "$payment_mode" == "wechat" ]]; then
+  compose_files+=(-f "$ROOT_DIR/deploy/docker-compose.wechat-pay.yml")
+fi
+if API_ENV_FILE="$ENV_FILE" docker compose --env-file "$ENV_FILE" "${compose_files[@]}" config --quiet; then
   pass '生产 Compose 配置有效'
 else
   fail '生产 Compose 配置无效'

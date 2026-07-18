@@ -94,6 +94,41 @@ describe('PaymentsService development flow', () => {
     expect(prisma.$transaction).toHaveBeenCalled()
   })
 
+  it('allows mock payments in a production runtime only during the testing release stage', async () => {
+    const testingConfig = {
+      get: jest.fn((key: string) => ({
+        NODE_ENV: 'production',
+        APP_RELEASE_STAGE: 'testing',
+        WECHAT_PAY_MODE: 'mock',
+        WECHAT_PAY_MOCK_ENABLED: 'true',
+      })[key]),
+    }
+    orderApi.findFirst.mockResolvedValue(order())
+    paymentApi.upsert.mockResolvedValue({ id: 'payment-1', status: PaymentRecordStatus.PENDING })
+    const testingService = new PaymentsService(prisma as never, testingConfig as never)
+
+    await expect(testingService.createPrepay('order-1', 'user-1')).resolves.toEqual(
+      expect.objectContaining({ mode: 'mock' }),
+    )
+  })
+
+  it('blocks online payment when payment mode is disabled', async () => {
+    const disabledConfig = {
+      get: jest.fn((key: string) => ({
+        NODE_ENV: 'production',
+        APP_RELEASE_STAGE: 'production',
+        WECHAT_PAY_MODE: 'disabled',
+        WECHAT_PAY_MOCK_ENABLED: 'false',
+      })[key]),
+    }
+    orderApi.findFirst.mockResolvedValue(order())
+    const disabledService = new PaymentsService(prisma as never, disabledConfig as never)
+
+    await expect(disabledService.createPrepay('order-1', 'user-1')).rejects.toThrow(
+      '暂未开通在线支付',
+    )
+  })
+
   it('requires quote acceptance before manual service payment', async () => {
     orderApi.findFirst.mockResolvedValue(
       order({ isManualQuote: true, quoteStatus: QuoteStatus.QUOTED }),
@@ -115,7 +150,7 @@ describe('PaymentsService development flow', () => {
   it('starts one real refund and leaves processing refunds idempotent', async () => {
     const realConfig = {
       get: jest.fn(
-        (key: string) => ({ NODE_ENV: 'production', WECHAT_PAY_MOCK_ENABLED: 'false' })[key],
+        (key: string) => ({ NODE_ENV: 'production', WECHAT_PAY_MODE: 'wechat', WECHAT_PAY_MOCK_ENABLED: 'false' })[key],
       ),
     }
     const realOrder = order({

@@ -15,11 +15,7 @@ export class RidersService {
   ) {}
 
   async profile(riderId: string) {
-    const rider = await this.findRider(riderId)
-    if (rider.online && this.heartbeatExpired(rider.lastSeenAt)) {
-      return this.prisma.riderProfile.update({ where: { id: riderId }, data: { online: false }, include: { qualifications: true, vehicles: true } })
-    }
-    return rider
+    return this.findRider(riderId)
   }
 
   async apply(riderId: string, dto: RiderApplicationDto) {
@@ -296,11 +292,19 @@ export class RidersService {
     })
   }
 
-  async setOnline(riderId: string, online: boolean) {
+  async setOnline(riderId: string, online: boolean, intent?: 'manual_offline') {
     const rider = await this.findRider(riderId)
     const roleActive = rider.roleStatus ? rider.roleStatus === RoleStatus.ACTIVE : rider.status === RiderStatus.APPROVED
     if (online && (!roleActive || rider.status !== RiderStatus.APPROVED)) throw new ForbiddenException('骑手审核通过且身份有效后才能上线')
-    return this.prisma.riderProfile.update({ where: { id: riderId }, data: { online, workStatus: online ? RiderWorkStatus.ONLINE : RiderWorkStatus.OFFLINE } })
+    if (!online && intent !== 'manual_offline') throw new BadRequestException('下线必须由骑手本人确认')
+    return this.prisma.riderProfile.update({
+      where: { id: riderId },
+      data: {
+        online,
+        workStatus: online ? RiderWorkStatus.ONLINE : RiderWorkStatus.OFFLINE,
+        ...(online ? { lastSeenAt: new Date() } : {}),
+      },
+    })
   }
 
   async updateVehicles(riderId: string, dto: RiderVehicleUpdateDto) {
@@ -519,10 +523,6 @@ export class RidersService {
     const roleActive = rider.roleStatus ? rider.roleStatus === RoleStatus.ACTIVE : rider.status === RiderStatus.APPROVED
     if (!rider.enabled || rider.status !== RiderStatus.APPROVED || !roleActive) throw new ForbiddenException('骑手身份当前不可用')
     if (!rider.online) throw new ConflictException('请先上线')
-    if (this.heartbeatExpired(rider.lastSeenAt)) {
-      await this.prisma.riderProfile.update({ where: { id: riderId }, data: { online: false } })
-      throw new ConflictException('在线状态已过期，请重新上线')
-    }
     return rider
   }
 
@@ -550,12 +550,6 @@ export class RidersService {
       [VehicleType.MANUAL]: '人力服务',
     }
     return labels[vehicleType]
-  }
-
-  private heartbeatExpired(lastSeenAt: Date | null) {
-    if (!lastSeenAt) return false
-    const timeoutSeconds = Number(this.config.get<string>('RIDER_HEARTBEAT_TIMEOUT_SECONDS') || 90)
-    return Date.now() - lastSeenAt.getTime() > timeoutSeconds * 1000
   }
 
   private async findRider(riderId: string) {

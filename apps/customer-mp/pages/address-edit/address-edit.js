@@ -2,6 +2,7 @@ const app = getApp()
 const api = require('../../utils/api')
 const map = require('../../utils/map')
 const carpool = require('../../utils/carpool')
+const addressParser = require('../../utils/address-parser')
 
 function emptyForm() {
   return {
@@ -60,6 +61,12 @@ function fillFromMapAddress(form, address) {
   })
 }
 
+function formTitle(type, editing, isCarpool, routeName) {
+  if (isCarpool) return `${editing ? '编辑' : '填写'}${routeName || '拼车'}地址`
+  const labels = { pickup: '发货', purchase: '购买', dropoff: '收货' }
+  return `${editing ? '编辑' : '填写'}${labels[type] || '收货'}信息`
+}
+
 Page({
   data: {
     statusBarHeight: 24,
@@ -70,6 +77,8 @@ Page({
     routeName: '',
     form: emptyForm(),
     tags: ['家', '公司', '门店', '学校', '商场', '药店'],
+    smartPasteText: '',
+    recognizing: false,
     mapKeyword: '',
     mapResults: [],
     isLocating: false,
@@ -82,6 +91,7 @@ Page({
     const pendingMapAddress = query.from === 'map' ? app.globalData.pendingMapAddress : null
     const source = id ? savedAddresses.find((item) => item.id === id) : pendingMapAddress
     const isCarpool = query.mode === 'carpool'
+    const type = query.type || 'dropoff'
     const route = carpool.getRoute(query.route || (app.globalData.draftOrder.selectedLine && app.globalData.draftOrder.selectedLine.id))
     const initialForm = source
       ? Object.assign(emptyForm(), source, { distanceKm: source.distanceKm || Number(String(source.distance || '1').replace('km', '')) || 1 })
@@ -89,12 +99,13 @@ Page({
     this.searchSeq = 0
     this.setData({
       statusBarHeight: app.globalData.statusBarHeight,
-      title: id ? '编辑地址' : (pendingMapAddress ? '补全地址信息' : '手动填写地址'),
-      type: query.type || 'dropoff',
+      title: formTitle(type, Boolean(id), isCarpool, route.name),
+      type,
       isCarpool,
       routeId: isCarpool ? route.id : '',
       routeName: isCarpool ? route.name : '',
-      form: initialForm
+      form: initialForm,
+      mapKeyword: initialForm.name || ''
     })
     if (pendingMapAddress) app.globalData.pendingMapAddress = null
   },
@@ -106,12 +117,82 @@ Page({
 
   inputMapKeyword(event) {
     const keyword = event.detail.value.trim()
-    this.setData({ mapKeyword: keyword })
+    this.setData({ mapKeyword: keyword, 'form.name': keyword })
     if (!keyword) {
       this.setData({ mapResults: [], isSearching: false })
       return
     }
     this.searchMap(keyword)
+  },
+
+  inputSmartPaste(event) {
+    this.setData({ smartPasteText: event.detail.value })
+  },
+
+  pasteAndRecognize() {
+    if (this.data.recognizing) return
+    const recognize = (rawText) => {
+      const text = String(rawText || '').trim()
+      if (!text) {
+        wx.showToast({ title: '请先复制或粘贴收货信息', icon: 'none' })
+        return
+      }
+      const parsed = addressParser.parseAddressText(text)
+      if (!parsed.contact && !parsed.phone && !parsed.address) {
+        wx.showToast({ title: '暂未识别到有效信息', icon: 'none' })
+        return
+      }
+
+      const nextForm = Object.assign({}, this.data.form, {
+        contact: parsed.contact || this.data.form.contact,
+        phone: parsed.phone || this.data.form.phone,
+        name: parsed.name || this.data.form.name,
+        detail: parsed.address || this.data.form.detail
+      })
+      this.setData({
+        smartPasteText: text,
+        form: nextForm,
+        mapKeyword: parsed.address || parsed.name || this.data.mapKeyword,
+        recognizing: Boolean(parsed.address)
+      })
+
+      if (!parsed.address) {
+        wx.showToast({ title: '已识别联系人，请补充地址', icon: 'none' })
+        return
+      }
+
+      map.searchAddress(parsed.address, {
+        region: this.data.isCarpool ? (this.data.routeId === 'cangnan' ? '苍南县' : '温州市') : app.globalData.city,
+        location: app.globalData.currentLocation
+      }).then((results) => {
+        const selected = results && results[0]
+        const recognizedForm = selected ? fillFromMapAddress(nextForm, selected) : nextForm
+        recognizedForm.contact = parsed.contact || recognizedForm.contact
+        recognizedForm.phone = parsed.phone || recognizedForm.phone
+        recognizedForm.detail = parsed.address || recognizedForm.detail
+        this.setData({
+          form: recognizedForm,
+          mapKeyword: selected ? selected.name : (parsed.name || parsed.address),
+          mapResults: []
+        })
+        wx.showToast({ title: '已识别，请核对信息', icon: 'success' })
+      }).catch(() => {
+        wx.showToast({ title: '已识别文字，请核对地址', icon: 'none' })
+      }).finally(() => this.setData({ recognizing: false }))
+    }
+
+    if (String(this.data.smartPasteText || '').trim()) {
+      recognize(this.data.smartPasteText)
+      return
+    }
+    if (!wx.getClipboardData) {
+      wx.showToast({ title: '请先粘贴收货信息', icon: 'none' })
+      return
+    }
+    wx.getClipboardData({
+      success: (result) => recognize(result.data),
+      fail: () => wx.showToast({ title: '无法读取剪贴板，请手动粘贴', icon: 'none' })
+    })
   },
 
   searchMap(keyword) {

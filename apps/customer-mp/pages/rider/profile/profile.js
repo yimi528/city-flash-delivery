@@ -137,15 +137,11 @@ Page({
     if (this.data.switchingRole) return
     this.setData({ switchingRole: true })
     wx.showLoading({ title: '正在切换' })
-    const rider = this.data.rider
-    const stopOnline = rider && rider.online ? riderApi.setOnline(false).catch(() => null) : Promise.resolve()
-    stopOnline.then(() => customerApi.switchAccountRole('customer')).then((session) => {
+    customerApi.switchAccountRole('customer').then((session) => {
       app.setCustomerRoleSession(session)
       wx.switchTab({ url: '/pages/profile/profile' })
     }).catch((error) => {
-      app.clearRiderSession()
-      wx.switchTab({ url: '/pages/profile/profile' })
-      wx.showToast({ title: error.message || '已返回用户端', icon: 'none' })
+      wx.showToast({ title: error.message || '切换用户端失败', icon: 'none' })
     }).finally(() => {
       wx.hideLoading()
       this.setData({ switchingRole: false })

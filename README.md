@@ -278,19 +278,34 @@ BAD_WEATHER_MULTIPLIER=1.15
 开发环境可在 `server/api/.env` 中显式开启登录与支付 Mock：
 
 ```bash
+APP_RELEASE_STAGE=testing
 WECHAT_LOGIN_MOCK_ENABLED=true
+WECHAT_PAY_MODE=mock
 WECHAT_PAY_MOCK_ENABLED=true
 OPERATOR_BOOTSTRAP_ENABLED=true
 OPERATOR_BOOTSTRAP_USERNAME=operator-demo
 OPERATOR_BOOTSTRAP_PASSWORD=demo123456
 ```
 
-真实微信环境必须关闭 Mock，并配置小程序和微信支付 API v3 凭证：
+没有微信支付商户号时，测试部署默认使用 `APP_RELEASE_STAGE=testing` 和 `WECHAT_PAY_MODE=mock`。测试支付会明确显示“测试支付成功”，不会向微信发起扣款，也不会启用微信账单对账。模拟支付不能用于公开生产发布。
+
+如果暂时不需要在线支付，公开发布前应切换为：
 
 ```bash
+APP_RELEASE_STAGE=production
+WECHAT_PAY_MODE=disabled
+WECHAT_PAY_MOCK_ENABLED=false
+WECHAT_PAY_AUTO_RECONCILIATION_ENABLED=false
+```
+
+注册微信支付商户号后，再切换到真实支付并配置 API v3 凭证：
+
+```bash
+APP_RELEASE_STAGE=production
 WECHAT_MINI_APP_ID=小程序AppID
 WECHAT_MINI_APP_SECRET=小程序AppSecret
 WECHAT_LOGIN_MOCK_ENABLED=false
+WECHAT_PAY_MODE=wechat
 WECHAT_PAY_MOCK_ENABLED=false
 WECHAT_PAY_MCH_ID=微信支付商户号
 WECHAT_PAY_CERT_SERIAL=商户API证书序列号
@@ -307,6 +322,8 @@ JWT_SECRET=高强度随机密钥
 开启自动对账后，API 会在每天 UTC 03:30 下载前一日微信交易账单并将匹配、金额不一致、退款不一致和本地缺失订单写入对账表；也可以通过运营端接口手动补跑指定日期。
 
 首次升级数据库后执行 `npm run prisma:deploy`。微信支付回调必须使用公网可访问的 HTTPS 地址，不能填写 `127.0.0.1`。
+
+商家后台域名是可选项：只有小程序 API 必须配置稳定的 HTTPS 域名。商家后台可以使用 Sealos 分配的 HTTPS 地址；如果需要浏览器访问 API，将该完整来源填写到 `CORS_ORIGINS`。不提供商家后台时可将 `CORS_ORIGINS` 留空，服务端会默认关闭浏览器跨域访问。
 
 配置运营账号和密码后，可创建或重置商家账号：
 
@@ -390,7 +407,7 @@ npm run test:live
 
 以下能力尚未达到正式生产标准：
 
-- 微信登录、运营账号密码登录和微信支付 JSAPI 已完成代码接入；正式使用仍依赖有效微信凭证、HTTPS 域名和微信平台配置。
+- 微信登录、运营账号密码登录和微信支付 JSAPI 已完成代码接入；测试阶段默认使用安全模拟支付，公开发布时必须切换为关闭在线支付或真实微信支付。
 - 退款、关单、交易账单下载和自动对账代码已接入；正式上线前必须用真实商户号完成小额支付、退款回调与账单联调。
 - 尚未接入微信订阅消息或短信通知。
 - 运营后台打印小票目前为模拟操作。

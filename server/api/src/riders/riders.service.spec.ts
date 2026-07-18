@@ -82,7 +82,7 @@ describe('RidersService atomic claim', () => {
     }))
   })
 
-  it('marks a rider offline after the presence heartbeat expires', async () => {
+  it('keeps a rider online until the rider explicitly goes offline', async () => {
     const rider = {
       id: 'rider-1',
       online: true,
@@ -91,7 +91,7 @@ describe('RidersService atomic claim', () => {
       lastSeenAt: new Date(Date.now() - 120_000),
       qualifications: [],
     }
-    const update = jest.fn().mockResolvedValue({ ...rider, online: false, qualifications: [] })
+    const update = jest.fn()
     const prisma = {
       riderProfile: { findUnique: jest.fn().mockResolvedValue(rider), update },
     }
@@ -99,8 +99,24 @@ describe('RidersService atomic claim', () => {
 
     const profile = await service.profile(rider.id)
 
-    expect(profile.online).toBe(false)
-    expect(update).toHaveBeenCalledWith(expect.objectContaining({ data: { online: false } }))
+    expect(profile.online).toBe(true)
+    expect(update).not.toHaveBeenCalled()
+  })
+
+  it('rejects an unconfirmed offline write', async () => {
+    const rider = {
+      id: 'rider-1',
+      online: true,
+      status: RiderStatus.APPROVED,
+      roleStatus: RoleStatus.ACTIVE,
+      qualifications: [],
+    }
+    const update = jest.fn()
+    const prisma = { riderProfile: { findUnique: jest.fn().mockResolvedValue(rider), update } }
+    const service = new RidersService(prisma as never, { get: jest.fn() } as never)
+
+    await expect(service.setOnline(rider.id, false)).rejects.toThrow('本人确认')
+    expect(update).not.toHaveBeenCalled()
   })
 
   it('creates a pending application under the existing customer identity', async () => {

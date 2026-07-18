@@ -1,13 +1,13 @@
 <view class="rider-page profile-page">
   <view class="profile-hero" wx:if="{{rider}}">
     <view class="hero-topline">
-      <text class="hero-eyebrow">RIDER ACCOUNT</text>
+      <text class="hero-eyebrow">我的骑手档案</text>
       <view class="status-pill"><text class="status-dot"></text><text>{{statusText}}</text></view>
     </view>
     <view class="hero-identity">
       <view class="avatar">骑</view>
       <view class="identity"><view class="name">{{rider.name}}</view><view class="hero-caption">同城速送认证骑手</view></view>
-      <view class="role-badge">骑手模式</view>
+      <view class="role-badge">{{workStatusText}}</view>
     </view>
     <view class="hero-footer">
       <view class="hero-meta"><text>当前车型</text><view>{{vehicleSummary || rider.vehicleName || '待配置车型'}}</view></view>

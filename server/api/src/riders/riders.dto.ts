@@ -4,6 +4,10 @@ import { ArrayNotEmpty, IsArray, IsBoolean, IsIn, IsInt, IsNumber, IsOptional, I
 export class RiderOnlineDto {
   @IsBoolean()
   online!: boolean
+
+  @IsOptional()
+  @IsIn(['manual_offline'])
+  intent?: 'manual_offline'
 }
 
 export class RiderLocationDto {

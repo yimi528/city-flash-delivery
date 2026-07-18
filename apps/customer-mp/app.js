@@ -27,9 +27,12 @@ App({
     if (this.globalData.useBackend) this.refreshAppConfig()
   },
 
-  onHide() {
-    this.stopRiderPresence()
+  onShow() {
+    const rider = this.globalData.rider
+    if (this.globalData.riderAuthToken && rider && rider.online) this.startRiderPresence()
   },
+
+  onHide() {},
 
   refreshAppConfig() {
     return new Promise((resolve) => {
@@ -126,7 +129,14 @@ App({
       this.globalData.authToken = session.token
       try { if (wx.setStorageSync) wx.setStorageSync('customerAuthToken', session.token) } catch (error) {}
     }
-    this.clearRiderSession()
+    // Switching to the customer role must not end an active rider shift.
+    // Keep the rider token and online state so the rider can return without
+    // having to go online again. The rider can explicitly end the shift from
+    // the rider workspace, which calls the API and updates this state.
+    this.globalData.currentRole = 'customer'
+    if (this.globalData.riderAuthToken && this.globalData.rider && this.globalData.rider.online) {
+      this.startRiderPresence()
+    }
   },
 
   startRiderPresence() {

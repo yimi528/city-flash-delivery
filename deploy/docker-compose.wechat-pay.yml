@@ -1,0 +1,5 @@
+services:
+  api:
+    volumes:
+      - ./secrets/apiclient_key.pem:/run/secrets/apiclient_key.pem:ro
+      - ./secrets/wechatpay_platform.pem:/run/secrets/wechatpay_platform.pem:ro

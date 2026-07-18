@@ -1,7 +1,7 @@
 <view class="rider-page hall-page">
   <view class="work-hero">
     <view class="hero-top">
-      <view><view class="eyebrow">RIDER WORKSPACE</view><view class="hero-title">今日接单</view></view>
+      <view><view class="eyebrow">骑手工作台</view><view class="hero-title">接单大厅</view></view>
       <view class="signal {{online ? 'on' : ''}}"><text></text>{{online ? '在线接单中' : '当前已下线'}}</view>
     </view>
 
@@ -10,9 +10,8 @@
         <view class="state-title">{{online ? '正在为你匹配附近订单' : '上线后开始接单'}}</view>
         <view class="state-sub">{{online ? '符合车型与资质的新单每 8 秒刷新' : '需开启位置权限，便于计算取货距离'}}</view>
       </view>
-      <button wx:if="{{rider}}" class="online-btn {{online ? 'on' : ''}}" bindtap="toggleOnline">
-        <text class="online-dot"></text><text>{{online ? '收工' : '立即上线'}}</text>
-      </button>
+      <button wx:if="{{rider && !online}}" class="online-btn" bindtap="goOnline"><text class="online-dot"></text><text>立即上线</text></button>
+      <button wx:elif="{{rider}}" class="online-btn on" bindtap="confirmOffline"><text class="online-dot"></text><text>收工</text></button>
     </view>
 
     <view class="hero-stats" wx:if="{{rider}}">
@@ -25,20 +24,19 @@
   </view>
 
   <view class="section-head">
-    <view><view class="section-kicker">NEARBY</view><view class="section-title">附近可接</view></view>
+    <view><view class="section-title">附近订单</view><view class="section-sub">按距离和车型为你匹配</view></view>
     <view class="section-count">{{orders.length}} 单</view>
   </view>
 
   <view class="offline-card" wx:if="{{rider && !online}}">
     <view class="offline-icon"><view></view></view>
     <view class="offline-copy"><view>你还没有上线</view><text>上线后只显示符合车型、服务范围和资质的订单</text></view>
-    <button bindtap="toggleOnline">开始接单</button>
   </view>
 
   <block wx:for="{{orders}}" wx:key="id">
     <view class="rider-card order-card">
       <view class="order-head">
-        <view><view class="order-kicker">NEW ORDER</view><view class="service-line"><text class="service">{{item.serviceName}}</text><text class="vehicle-tag">{{item.vehicleName}}</text></view></view>
+        <view><view class="service-line"><text class="service">{{item.serviceName}}</text><text class="vehicle-tag">{{item.vehicleName}}</text></view></view>
         <view class="income-wrap"><view class="income-label">预计收入</view><view class="income"><text>¥</text>{{item.expectedIncomeFen / 100}}</view></view>
       </view>
 

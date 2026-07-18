@@ -20,11 +20,8 @@ async function bootstrap() {
     .map((origin) => origin.trim())
     .filter(Boolean)
 
-  if (nodeEnv === 'production' && corsOrigins.length === 0) {
-    throw new Error('CORS_ORIGINS must be configured in production')
-  }
   app.enableCors({
-    origin: nodeEnv === 'production' ? corsOrigins : true,
+    origin: nodeEnv === 'production' ? (corsOrigins.length ? corsOrigins : false) : true,
     credentials: true,
   })
   app.setGlobalPrefix(apiPrefix)

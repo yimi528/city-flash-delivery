@@ -24,7 +24,7 @@ export class RidersController {
 
   @Post('online')
   setOnline(@CurrentAuth() auth: AuthPrincipal, @Body() dto: RiderOnlineDto) {
-    return this.riders.setOnline(auth.subjectId, dto.online)
+    return this.riders.setOnline(auth.subjectId, dto.online, dto.intent)
   }
 
   @Post('location')

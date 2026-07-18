@@ -10,8 +10,8 @@ Create the following resources in one VPC and region:
 - TencentDB for PostgreSQL 16 on a private subnet.
 - TencentDB for Redis on a private subnet for location indexing, rate limiting, and the realtime event layer.
 - A TCR namespace with three image repositories or tags.
-- A public CLB with both CVMs registered as private backends; DNS records for `api.example.com` and `ops.example.com` point to the CLB.
-- One TLS certificate covering both domains.
+- A public CLB with both CVMs registered as private backends; the备案后的 API domain points to the CLB.
+- One TLS certificate covering the API domain. A separate merchant domain is optional; the merchant app may use a provider-assigned HTTPS address.
 
 Only expose application ports from the CLB security group. Keep PostgreSQL and Redis private, allowing ports 5432 and 6379 only from the CVM security group. Restrict SSH to a bastion host or fixed management addresses.
 
@@ -54,7 +54,7 @@ mkdir -p certs secrets
 chmod 700 certs secrets
 ```
 
-Edit `env.production` with the private TencentDB address, domains, image tags, WeChat credentials, and a new Tencent Map key. Never copy the local development `.env` to the server.
+Edit `env.production` with the private database address, API domain, image tags, WeChat login credentials, and a Tencent Map key. `OPS_DOMAIN` and `CORS_ORIGINS` may remain empty until the merchant app has an HTTPS address. Never copy the local development `.env` to the server.
 
 Before deployment, update `trial` and `release` in `apps/customer-mp/config/runtime.js` to the备案后的 API HTTPS 地址, then run the production gate from the repository root:
 
@@ -62,18 +62,23 @@ Before deployment, update `trial` and `release` in `apps/customer-mp/config/runt
 npm run release:check -- deploy/env.production
 ```
 
-The gate rejects placeholders, mocks, insecure origins/callbacks, missing TLS/payment files, a mismatched Mini Program API domain, and invalid Compose configuration. The API repeats critical checks at startup and refuses to serve with an incomplete production configuration.
+The gate permits mock payment only when `APP_RELEASE_STAGE=testing`, and permits `WECHAT_PAY_MODE=disabled` without merchant credentials. Public production rejects mock payment. It also checks the API domain, TLS files, explicit CORS origins and Compose configuration.
 
-Install the certificate and payment files with restrictive permissions:
+Install the TLS certificate with restrictive permissions:
 
 ```bash
 install -m 600 fullchain.pem certs/fullchain.pem
 install -m 600 privkey.pem certs/privkey.pem
+```
+
+Only when `WECHAT_PAY_MODE=wechat`, install the payment files and include `docker-compose.wechat-pay.yml` in validation and deployment commands:
+
+```bash
 install -o 1000 -g 1000 -m 400 apiclient_key.pem secrets/apiclient_key.pem
 install -o 1000 -g 1000 -m 400 wechatpay_platform.pem secrets/wechatpay_platform.pem
 ```
 
-The API container runs as the image's non-root `node` user (UID/GID 1000), so the two payment files must be readable by that numeric owner. The TLS certificate files remain root-owned because they are mounted by the Nginx gateway.
+The API container runs as UID/GID 1000, so payment files must be readable by that numeric owner. The TLS files remain root-owned for the Nginx gateway.
 
 ## 4. Migrate and start
 
@@ -85,6 +90,8 @@ docker compose --env-file env.production -f docker-compose.cloud.yml \
   --profile tools run --rm migrate
 docker compose --env-file env.production -f docker-compose.cloud.yml up -d
 ```
+
+For real WeChat Pay, append `-f docker-compose.wechat-pay.yml` to the pull, migration and `up` commands.
 
 Create the first operator once, then remove `OPERATOR_BOOTSTRAP_PASSWORD` from `env.production`:
 
@@ -98,7 +105,8 @@ docker compose --env-file env.production -f docker-compose.cloud.yml \
 ```bash
 docker compose --env-file env.production -f docker-compose.cloud.yml ps
 curl --fail https://api.example.com/api/health/ready
-curl --fail https://ops.example.com/healthz
+# Optional merchant HTTPS address:
+curl --fail https://your-sealos-merchant-address/healthz
 ```
 
 Configure `https://api.example.com` as the WeChat Mini Program request domain and configure the payment callback as:
