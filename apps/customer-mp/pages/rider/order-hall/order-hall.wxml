@@ -10,8 +10,8 @@
         <view class="state-title">{{online ? '正在为你匹配附近订单' : '上线后开始接单'}}</view>
         <view class="state-sub">{{online ? '符合车型与资质的新单每 8 秒刷新' : '需开启位置权限，便于计算取货距离'}}</view>
       </view>
-      <button wx:if="{{rider && !online}}" class="online-btn" bindtap="goOnline"><text class="online-dot"></text><text>立即上线</text></button>
-      <button wx:elif="{{rider}}" class="online-btn on" bindtap="confirmOffline"><text class="online-dot"></text><text>收工</text></button>
+      <button wx:if="{{rider && !online}}" class="online-btn" bindtap="toggleOnline"><text class="online-dot"></text><text>立即上线</text></button>
+      <button wx:elif="{{rider}}" class="online-btn on" bindtap="toggleOnline"><text class="online-dot"></text><text>收工</text></button>
     </view>
 
     <view class="hero-stats" wx:if="{{rider}}">

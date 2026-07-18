@@ -78,11 +78,20 @@ Page({
           this.setData({ rider, online: true })
           app.startRiderPresence()
           this.loadOrders(true)
-          if (wx.vibrateShort) wx.vibrateShort({ type: 'light' })
         })
         .catch((error) => wx.showToast({ title: error.message, icon: 'none' })),
       fail: () => wx.showToast({ title: '上线需要位置权限', icon: 'none' })
     })
+  },
+
+  // Keep one stable tap entry so a cached WXML/JS pair cannot lose the action
+  // while the WeChat developer tool recompiles only part of the page.
+  toggleOnline() {
+    if (this.data.online) {
+      this.confirmOffline()
+      return
+    }
+    this.goOnline()
   },
 
   confirmOffline() {
@@ -120,7 +129,6 @@ Page({
     if (this.data.claimingId) return
     this.setData({ claimingId: id })
     api.claim(id).then(() => {
-      if (wx.vibrateShort) wx.vibrateShort({ type: 'medium' })
       wx.showToast({ title: '抢单成功', icon: 'success' })
       this.setData({ orders: this.data.orders.filter((order) => order.id !== id) })
       setTimeout(() => wx.redirectTo({ url: RIDER_PAGES.tasks }), 500)

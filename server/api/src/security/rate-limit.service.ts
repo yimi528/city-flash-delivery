@@ -7,23 +7,38 @@ export class RateLimitService implements OnModuleDestroy {
   private readonly logger = new Logger(RateLimitService.name)
   private readonly redisUrl?: string
   private redis?: Redis
+  private redisConnection?: Promise<void>
   private readonly fallback = new Map<string, { count: number; resetAt: number }>()
 
   constructor(private readonly config: ConfigService) {
     this.redisUrl = this.config.get<string>('REDIS_URL')
   }
 
-  private getRedis() {
+  private async getRedis() {
     if (!this.redis && this.redisUrl) {
-      this.redis = new Redis(this.redisUrl, { lazyConnect: true, maxRetriesPerRequest: 1, enableOfflineQueue: false })
+      this.redis = new Redis(this.redisUrl, {
+        lazyConnect: true,
+        connectTimeout: 1000,
+        maxRetriesPerRequest: 1,
+        enableOfflineQueue: true,
+      })
+    }
+    if (this.redis?.status === 'wait') {
+      if (!this.redisConnection) {
+        this.redisConnection = this.redis.connect().finally(() => { this.redisConnection = undefined })
+      }
+      await this.redisConnection
+    } else if (this.redis?.status === 'connecting' && this.redisConnection) {
+      await this.redisConnection
     }
     return this.redis
   }
 
   async consume(key: string, limit: number, windowSeconds: number) {
-    const redis = this.getRedis()
-    if (redis) {
+    if (this.redisUrl) {
       try {
+        const redis = await this.getRedis()
+        if (!redis) throw new Error('Redis client is unavailable')
         const count = await redis.incr(key)
         if (count === 1) await redis.expire(key, windowSeconds)
         return { allowed: count <= limit, count, retryAfter: windowSeconds }

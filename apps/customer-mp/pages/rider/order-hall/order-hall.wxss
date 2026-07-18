@@ -19,9 +19,9 @@
 .state-copy { min-width: 0; flex: 1; }
 .state-title { color: #202938; font-size: 28rpx; font-weight: 850; }
 .state-sub { margin-top: 7rpx; color: #7f8998; font-size: 21rpx; line-height: 1.45; }
-.online-btn { min-width: 166rpx; height: 68rpx; margin: 0; padding: 0 24rpx; border-radius: 999rpx; color: #fff; background: #1677ff; box-shadow: 0 10rpx 24rpx rgba(22,119,255,.22); display: flex; align-items: center; justify-content: center; gap: 10rpx; font-size: 23rpx; font-weight: 850; white-space: nowrap; transition: transform 110ms var(--ease-out), opacity 110ms ease; }
+.online-btn { min-width: 166rpx; height: 68rpx; margin: 0; padding: 0 24rpx; border-radius: 999rpx; color: #fff; background: #1677ff; box-shadow: 0 10rpx 24rpx rgba(22,119,255,.22); display: flex; align-items: center; justify-content: center; gap: 10rpx; font-size: 23rpx; font-weight: 850; white-space: nowrap; transition: opacity 110ms ease; }
 .online-btn.on { color: #c6423a; background: #fff; box-shadow: inset 0 0 0 2rpx #efc8c5; }
-.online-btn:active { transform: scale(.96); opacity: .82; }
+.online-btn:active { opacity: .82; }
 .online-dot { width: 12rpx; height: 12rpx; border-radius: 50%; background: currentColor; }
 .hero-stats { margin-top: 28rpx; display: grid; grid-template-columns: repeat(3, 1fr); gap: 12rpx; }
 .stat { min-width: 0; padding: 18rpx 8rpx; border-radius: 20rpx; background: #f5f7fa; text-align: center; }
@@ -74,5 +74,5 @@
 
 @media (prefers-reduced-motion: reduce) {
   .online-btn, .claim-btn { transition: opacity 120ms ease; }
-  .online-btn:active, .claim-btn:active { transform: none; }
+  .claim-btn:active { transform: none; }
 }

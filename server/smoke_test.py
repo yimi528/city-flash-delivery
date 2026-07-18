@@ -17,6 +17,7 @@ os.environ["CITY_FLASH_DB"] = os.path.join(tempfile.mkdtemp(prefix="city-flash-"
 
 import app  # noqa: E402  pylint: disable=wrong-import-position
 
+LOCAL_OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 
 CUSTOMER_HEADERS = {"Authorization": "Bearer mock-token:customer:demo-user", "X-App-Role": "customer"}
 MERCHANT_HEADERS = {"Authorization": "Bearer mock-token:merchant:merchant-demo", "X-App-Role": "merchant"}
@@ -31,7 +32,7 @@ def request(method: str, url: str, body: dict | None = None, headers: dict | Non
     for key, value in (headers or {}).items():
         req.add_header(key, value)
     try:
-        with urllib.request.urlopen(req, timeout=5) as resp:
+        with LOCAL_OPENER.open(req, timeout=5) as resp:
             raw = resp.read().decode("utf-8")
             return resp.status, json.loads(raw) if raw else None
     except urllib.error.HTTPError as exc:
@@ -40,7 +41,7 @@ def request(method: str, url: str, body: dict | None = None, headers: dict | Non
 
 
 def request_text(url: str):
-    with urllib.request.urlopen(url, timeout=5) as resp:
+    with LOCAL_OPENER.open(url, timeout=5) as resp:
         return resp.status, resp.read().decode("utf-8")
 
 

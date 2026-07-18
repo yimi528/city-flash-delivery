@@ -1,8 +1,11 @@
-const app = getApp()
-
 function request(path, options) {
   const config = options || {}
   return new Promise((resolve, reject) => {
+    const app = typeof getApp === 'function' ? getApp() : null
+    if (!app || !app.globalData) {
+      reject(new Error('小程序状态正在初始化，请稍后重试'))
+      return
+    }
     const header = Object.assign({ 'content-type': 'application/json' }, config.header || {})
     if (app.globalData.riderAuthToken) header.Authorization = `Bearer ${app.globalData.riderAuthToken}`
     wx.request({

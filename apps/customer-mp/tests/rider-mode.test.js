@@ -6,6 +6,7 @@ const vm = require('node:vm')
 
 let requestHandler = null
 let clearedRiderSession = false
+let appAvailable = true
 
 global.wx = {
   request(options) {
@@ -13,7 +14,7 @@ global.wx = {
   }
 }
 
-global.getApp = () => ({
+const riderApp = {
   globalData: {
     apiBaseUrl: 'http://127.0.0.1:3000/api',
     authToken: 'customer-token',
@@ -22,7 +23,9 @@ global.getApp = () => ({
   clearRiderSession() {
     clearedRiderSession = true
   }
-})
+}
+
+global.getApp = () => appAvailable ? riderApp : undefined
 
 const riderApi = require(path.resolve(__dirname, '../utils/rider-api.js'))
 
@@ -33,6 +36,16 @@ test('rider mode uses the rider token without replacing the customer token', asy
     options.success({ statusCode: 200, data: { id: 'rider-1', roleStatus: 'ACTIVE' } })
   }
 
+  const rider = await riderApi.me()
+  assert.equal(rider.id, 'rider-1')
+})
+
+test('rider requests recover after the app instance is temporarily unavailable', async () => {
+  appAvailable = false
+  await assert.rejects(riderApi.me(), /小程序状态正在初始化/)
+
+  appAvailable = true
+  requestHandler = (options) => options.success({ statusCode: 200, data: { id: 'rider-1' } })
   const rider = await riderApi.me()
   assert.equal(rider.id, 'rider-1')
 })
