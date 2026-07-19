@@ -48,8 +48,7 @@ function ResultState({ kind, message }: { kind: 'loading' | 'error' | 'permissio
 
 function getInitialApiBase() {
   const saved = localStorage.getItem('merchantApiBase')
-  if (!saved || saved === 'http://127.0.0.1:8000/api') return DEFAULT_API_BASE
-  return saved
+  return saved || DEFAULT_API_BASE
 }
 
 function getInitialToken() {

@@ -14,5 +14,5 @@ test('legal and qualification pages are registered and reachable from profile', 
   assert.match(profile, /type=terms/)
   assert.match(profile, /type=qualification/)
   assert.match(legal, /隐私政策/)
-  assert.match(legal, /待配置：网站 ICP 备案号及小程序\/App 备案号/)
+  assert.match(legal, /待配置：网站 ICP 备案号及微信小程序备案号/)
 })

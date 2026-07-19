@@ -55,13 +55,17 @@ export class AddressesService {
 
   async delete(userId: string, id: string) {
     const existing = await this.findOwnedAddress(userId, id)
-    await this.prisma.$transaction(async (tx) => {
+    const defaultAddressId = await this.prisma.$transaction(async (tx) => {
       await tx.address.delete({ where: { id } })
-      if (!existing.isDefault) return
+      if (!existing.isDefault) {
+        const currentDefault = await tx.address.findFirst({ where: { userId, isDefault: true }, select: { id: true } })
+        return currentDefault?.id || null
+      }
       const replacement = await tx.address.findFirst({ where: { userId }, orderBy: { updatedAt: 'desc' } })
       if (replacement) await tx.address.update({ where: { id: replacement.id }, data: { isDefault: true } })
+      return replacement?.id || null
     })
-    return { id, deleted: true }
+    return { id, deleted: true, defaultAddressId }
   }
 
   async recordUse(userId: string, id: string) {

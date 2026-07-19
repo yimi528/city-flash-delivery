@@ -49,4 +49,31 @@ function recordUse(address) {
   return Object.assign({}, address, next)
 }
 
-module.exports = { rank, recordUse }
+function forget(addressId) {
+  if (!addressId) return
+  const stats = readStats()
+  if (!stats[addressId]) return
+  delete stats[addressId]
+  writeStats(stats)
+}
+
+function syncDeletedAddress(globalData, addressId, defaultAddressId) {
+  const state = globalData || {}
+  state.addresses = (state.addresses || []).filter((item) => item.id !== addressId).map((item) => (
+    defaultAddressId === undefined ? item : Object.assign({}, item, { isDefault: item.id === defaultAddressId })
+  ))
+  const draft = state.draftOrder || {}
+  ;['pickup', 'dropoff', 'purchaseAddress'].forEach((key) => {
+    if (draft[key] && draft[key].id === addressId) draft[key] = null
+  })
+  if (!draft.pickup || !draft.dropoff) {
+    draft.routeDistanceKm = 0
+    draft.routeDistanceSource = ''
+    draft.routeDuration = ''
+  }
+  if (state.pendingMapAddress && state.pendingMapAddress.id === addressId) state.pendingMapAddress = null
+  forget(addressId)
+  return state.addresses
+}
+
+module.exports = { rank, recordUse, forget, syncDeletedAddress }

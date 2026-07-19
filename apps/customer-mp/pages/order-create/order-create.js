@@ -852,8 +852,8 @@ Page({
         wx.showToast({ title: '下单成功，等待商家报价', icon: 'success' })
         return order
       }
-      return api.createWechatPayment(order.id).then(api.requestWechatPayment).then((payment) => {
-        wx.showToast({ title: payment && payment.mode === 'mock' ? '测试支付成功' : '支付成功', icon: 'success' })
+      return api.createWechatPayment(order.id).then(api.requestWechatPayment).then(() => {
+        wx.showToast({ title: '下单成功', icon: 'success' })
         return order
       }).catch((error) => {
         wx.showToast({ title: error.errMsg || error.message || '订单已创建，请稍后支付', icon: 'none' })

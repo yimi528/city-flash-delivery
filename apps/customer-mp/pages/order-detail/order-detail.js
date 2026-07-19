@@ -262,8 +262,8 @@ Page({
       return
     }
     this.setData({ isPaying: true })
-    api.createWechatPayment(order.id).then(api.requestWechatPayment).then((payment) => {
-      wx.showToast({ title: payment && payment.mode === 'mock' ? '测试支付成功' : '支付成功', icon: 'success' })
+    api.createWechatPayment(order.id).then(api.requestWechatPayment).then(() => {
+      wx.showToast({ title: '支付成功', icon: 'success' })
       return this.syncOrder({ silent: false })
     }).catch((error) => {
       wx.showToast({ title: error.errMsg || error.message || '支付未完成', icon: 'none' })

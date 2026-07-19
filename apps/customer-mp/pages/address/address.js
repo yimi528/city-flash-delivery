@@ -66,6 +66,8 @@ Page({
     const route = carpool.getRoute(query.route || (draftOrder.selectedLine && draftOrder.selectedLine.id))
     const meta = addressMeta(type, isCarpool, route.name)
     this.searchSeq = 0
+    this.pendingDeleteIds = {}
+    this.deletedAddressIds = {}
     this.setData({
       statusBarHeight: globalData.statusBarHeight || 24,
       type,
@@ -94,8 +96,12 @@ Page({
       return
     }
     api.getAddresses(app.globalData.userId).then((addresses) => {
-      app.globalData.addresses = addresses
-      this.applySearch(addresses)
+      Object.keys(this.deletedAddressIds || {}).forEach((id) => {
+        if (!addresses.some((item) => item.id === id)) delete this.deletedAddressIds[id]
+      })
+      const visibleAddresses = addresses.filter((item) => !this.pendingDeleteIds[item.id] && !this.deletedAddressIds[item.id])
+      app.globalData.addresses = visibleAddresses
+      this.applySearch(visibleAddresses)
     }).catch(() => {
       this.applySearch(savedAddresses)
       wx.showToast({ title: '后端未启动，使用本地地址', icon: 'none' })
@@ -106,6 +112,8 @@ Page({
     const keyword = this.data.keyword.trim()
     const origin = app.globalData.currentLocation
     const localAddresses = addressBook.rank(source || []).filter((item) => {
+      if (this.pendingDeleteIds && this.pendingDeleteIds[item.id]) return false
+      if (this.deletedAddressIds && this.deletedAddressIds[item.id]) return false
       if (this.data.isCarpool && !carpool.isSelectedCityAddress(item, this.data.routeId)) return false
       return !keyword || item.name.indexOf(keyword) > -1 || item.detail.indexOf(keyword) > -1 || (item.tag || '').indexOf(keyword) > -1
     }).map((item) => decorateAddress(item, origin, { isMapResult: false, sourceLabel: item.tag || '常用' }))
@@ -255,9 +263,31 @@ Page({
 
   deleteAddress(event) {
     const id = event.currentTarget.dataset.id
-    const removeLocal = () => {
-      app.globalData.addresses = app.globalData.addresses.filter((item) => item.id !== id)
+    if (!id || (this.pendingDeleteIds && this.pendingDeleteIds[id])) return
+    const existing = app.globalData.addresses.find((item) => item.id === id)
+    if (!existing) return
+    const previousAddresses = app.globalData.addresses.map((item) => Object.assign({}, item))
+
+    const removeOptimistically = () => {
+      this.pendingDeleteIds[id] = true
+      const remaining = app.globalData.addresses.filter((item) => item.id !== id)
+      const replacement = existing.isDefault ? addressBook.rank(remaining)[0] : null
+      app.globalData.addresses = replacement
+        ? remaining.map((item) => Object.assign({}, item, { isDefault: item.id === replacement.id }))
+        : remaining
       this.applySearch(app.globalData.addresses)
+    }
+    const rollback = () => {
+      delete this.pendingDeleteIds[id]
+      app.globalData.addresses = previousAddresses
+      this.applySearch(app.globalData.addresses)
+    }
+    const finish = (defaultAddressId) => {
+      delete this.pendingDeleteIds[id]
+      this.deletedAddressIds[id] = true
+      addressBook.syncDeletedAddress(app.globalData, id, defaultAddressId)
+      this.applySearch(app.globalData.addresses)
+      wx.showToast({ title: '地址已删除', icon: 'success' })
     }
 
     wx.showModal({
@@ -267,15 +297,18 @@ Page({
       confirmColor: '#d93025',
       success: (result) => {
         if (!result.confirm) return
+        removeOptimistically()
         if (!app.globalData.useBackend) {
-          removeLocal()
-          wx.showToast({ title: '已删除地址', icon: 'none' })
+          const replacement = existing.isDefault
+            ? addressBook.rank(app.globalData.addresses)[0]
+            : app.globalData.addresses.find((item) => item.isDefault)
+          finish(replacement ? replacement.id : null)
           return
         }
-        api.deleteAddress(id).then(() => {
-          removeLocal()
-          wx.showToast({ title: '已删除地址', icon: 'none' })
+        api.deleteAddress(id).then((result) => {
+          finish(result && Object.prototype.hasOwnProperty.call(result, 'defaultAddressId') ? result.defaultAddressId : undefined)
         }).catch(() => {
+          rollback()
           wx.showToast({ title: '删除失败，请稍后重试', icon: 'none' })
         })
       }

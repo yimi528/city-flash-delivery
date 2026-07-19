@@ -33,9 +33,11 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# Python backend local artifacts
+# Python utility artifacts
 __pycache__/
 *.pyc
+
+# Local database artifacts from removed development backends
 server/data/*.db
 server/data/*.sqlite
 server/data/*.db-*

@@ -11,7 +11,6 @@
 | 用户端与骑手端 | `apps/customer-mp` | 微信原生小程序 | 用户下单、订单查询、地址簿、骑手申请及骑手履约 |
 | 商家运营后台 | `apps/merchant-web` | React 18、TypeScript、Vite | 订单调度、骑手审核与管理、价格和系统配置 |
 | 主后端 | `server/api` | NestJS、Prisma、PostgreSQL、Redis | 账号、订单、计价、支付、地图、骑手和运营接口 |
-| 旧版后端 | `server/app.py` | Python、SQLite | 仅保留兼容性冒烟测试，不作为当前运行后端 |
 | 生产部署 | `deploy` | Docker Compose、Nginx | 云端部署、证书、备份和监控配置 |
 
 ## 快速开始
@@ -191,9 +190,7 @@ city-flash-delivery/
 │   ├── customer-mp/          # 用户端与骑手端微信小程序
 │   └── merchant-web/         # 商家运营后台
 ├── server/
-│   ├── api/                  # 当前 NestJS 主后端
-│   ├── app.py                # 旧版 Python MVP
-│   └── smoke_test.py         # 旧版兼容性冒烟测试
+│   └── api/                  # NestJS 主后端
 ├── packages/shared/          # 多端共享状态约定
 ├── scripts/                  # 启停、验收和发布检查脚本
 ├── deploy/                   # 云端 Compose、Nginx、备份和监控

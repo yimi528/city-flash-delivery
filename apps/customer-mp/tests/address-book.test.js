@@ -41,3 +41,32 @@ test('selecting a saved address persists another use locally', () => {
   assert.equal(storage[STORAGE_KEY].home.usageCount, 3)
   assert.match(storage[STORAGE_KEY].home.lastUsedAt, /^\d{4}-\d{2}-\d{2}T/)
 })
+
+test('deleting an address clears recommendations and matching order draft state', () => {
+  const storage = {
+    [STORAGE_KEY]: {
+      home: { usageCount: 5, lastUsedAt: '2026-07-16T08:00:00.000Z' }
+    }
+  }
+  const addressBook = loadAddressBook(storage)
+  const globalData = {
+    addresses: [{ id: 'home', isDefault: true }, { id: 'office', isDefault: false }],
+    draftOrder: {
+      pickup: { id: 'home' },
+      dropoff: { id: 'office' },
+      purchaseAddress: { id: 'home' },
+      routeDistanceKm: 8,
+      routeDistanceSource: '腾讯地图',
+      routeDuration: 20
+    }
+  }
+
+  addressBook.syncDeletedAddress(globalData, 'home', 'office')
+
+  assert.deepEqual(globalData.addresses, [{ id: 'office', isDefault: true }])
+  assert.equal(globalData.draftOrder.pickup, null)
+  assert.equal(globalData.draftOrder.purchaseAddress, null)
+  assert.deepEqual(globalData.draftOrder.dropoff, { id: 'office' })
+  assert.equal(globalData.draftOrder.routeDistanceKm, 0)
+  assert.equal(storage[STORAGE_KEY].home, undefined)
+})

@@ -58,17 +58,17 @@
     <view class="route-line" data-type="pickup" bindtap="chooseRouteAddress">
       <view class="{{draft.service === '帮买' ? 'tag-buy' : 'tag-red'}}">{{draft.service === '帮买' ? '买' : '发'}}</view>
       <view class="route-info">
-        <view class="title">{{draft.pickup.name}}</view>
-        <view class="sub" wx:if="{{draft.service === '帮买'}}">购买地址 · {{draft.pickup.detail}}</view>
-        <view class="sub" wx:else>{{draft.pickup.detail}}<text wx:if="{{draft.pickup.phone}}"> · {{draft.pickup.phone}}</text></view>
+        <view class="title">{{draft.pickup ? draft.pickup.name : (draft.service === '帮买' ? '请选择购买地址' : '请选择发货地址')}}</view>
+        <view class="sub" wx:if="{{draft.pickup && draft.service === '帮买'}}">购买地址 · {{draft.pickup.detail}}</view>
+        <view class="sub" wx:elif="{{draft.pickup}}">{{draft.pickup.detail}}<text wx:if="{{draft.pickup.phone}}"> · {{draft.pickup.phone}}</text></view>
       </view>
     </view>
     <view class="connector {{draft.service === '帮买' ? 'buy' : ''}}" wx:if="{{draft.taskId !== 'moving_handling' || draft.requiresDelivery}}"></view>
     <view class="route-line" wx:if="{{draft.taskId !== 'moving_handling' || draft.requiresDelivery}}" data-type="dropoff" bindtap="chooseRouteAddress">
       <view class="tag-green">收</view>
       <view class="route-info">
-        <view class="title">{{draft.dropoff.name}}</view>
-        <view class="sub">{{draft.dropoff.detail}}<text wx:if="{{draft.dropoff.phone}}"> · {{draft.dropoff.phone}}</text></view>
+        <view class="title">{{draft.dropoff ? draft.dropoff.name : '请选择收货地址'}}</view>
+        <view class="sub" wx:if="{{draft.dropoff}}">{{draft.dropoff.detail}}<text wx:if="{{draft.dropoff.phone}}"> · {{draft.dropoff.phone}}</text></view>
       </view>
     </view>
   </view>

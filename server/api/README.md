@@ -1,6 +1,6 @@
 # NestJS API
 
-This is the current MVP backend for the city flash delivery project. The older Python/SQLite server remains only as a legacy compatibility demo; all current customer, rider, operations, pricing, and configuration flows use this NestJS + PostgreSQL/PostGIS + Redis service.
+This is the backend for the city flash delivery project. All customer, rider, operations, pricing, payment, and configuration flows use this NestJS + PostgreSQL/PostGIS + Redis service.
 
 ## Stack
 
@@ -77,10 +77,6 @@ Apply the Prisma migration before using the new flow:
 ```bash
 npm run prisma:deploy
 ```
-
-## Legacy server
-
-`server/app.py` is retained only as historical reference. All current customer, rider, operations, pricing, payment, and configuration flows use this NestJS API; do not run the Python server for local or production service.
 
 ## Database Notes
 

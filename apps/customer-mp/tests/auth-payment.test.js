@@ -1,4 +1,5 @@
 const assert = require('node:assert/strict')
+const fs = require('node:fs')
 const path = require('node:path')
 const test = require('node:test')
 
@@ -101,6 +102,16 @@ test('payment requests include the bearer token and confirm development mock pay
 
   assert.equal(result.paymentStatus, 'PAID')
   assert.equal(paths.length, 2)
+})
+
+test('customer-facing payment feedback does not expose mock payment mode', () => {
+  const createPage = fs.readFileSync(path.resolve(__dirname, '../pages/order-create/order-create.js'), 'utf8')
+  const detailPage = fs.readFileSync(path.resolve(__dirname, '../pages/order-detail/order-detail.js'), 'utf8')
+
+  assert.match(createPage, /title: '下单成功'/)
+  assert.match(detailPage, /title: '支付成功'/)
+  assert.doesNotMatch(createPage, /测试支付成功/)
+  assert.doesNotMatch(detailPage, /测试支付成功/)
 })
 
 test('real JSAPI payment parameters are passed to wx.requestPayment', async () => {

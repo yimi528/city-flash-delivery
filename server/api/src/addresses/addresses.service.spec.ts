@@ -115,7 +115,7 @@ describe('AddressesService', () => {
     txAddressApi.findFirst.mockResolvedValue({ ...savedAddress, id: 'address-2', isDefault: false })
     txAddressApi.update.mockResolvedValue({ ...savedAddress, id: 'address-2' })
 
-    await expect(service.delete('user-1', 'address-1')).resolves.toEqual({ id: 'address-1', deleted: true })
+    await expect(service.delete('user-1', 'address-1')).resolves.toEqual({ id: 'address-1', deleted: true, defaultAddressId: 'address-2' })
     expect(txAddressApi.update).toHaveBeenCalledWith({ where: { id: 'address-2' }, data: { isDefault: true } })
   })
 

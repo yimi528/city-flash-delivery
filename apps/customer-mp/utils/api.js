@@ -96,11 +96,6 @@ function getBaseUrl() {
   }
 }
 
-function isNestApi() {
-  const baseUrl = getBaseUrl()
-  return baseUrl.indexOf(':8000') === -1
-}
-
 function getAuthToken() {
   try {
     const app = getApp()
@@ -453,7 +448,7 @@ function getCurrentUser() {
 function wechatLogin(payload) {
   return request('/auth/wechat-login', {
     method: 'POST',
-    data: isNestApi() ? buildNestLoginPayload(payload) : (payload || {})
+    data: buildNestLoginPayload(payload)
   })
 }
 
@@ -474,18 +469,12 @@ function submitRiderApplication(payload) {
 }
 
 function merchantLogin(payload) {
-  if (isNestApi()) {
-    return request('/auth/operator-login', {
-      method: 'POST',
-      data: {
-        username: (payload && payload.username) || 'operator-demo',
-        password: (payload && payload.password) || ''
-      }
-    })
-  }
-  return request('/auth/merchant-login', {
+  return request('/auth/operator-login', {
     method: 'POST',
-    data: payload || {}
+    data: {
+      username: (payload && payload.username) || 'operator-demo',
+      password: (payload && payload.password) || ''
+    }
   })
 }
 
@@ -537,14 +526,11 @@ function deleteAddress(id) {
 }
 
 function getVehicleTypes() {
-  if (isNestApi()) {
-    return Promise.resolve([
-      { id: 'ebike', type: 'EBIKE', name: '二轮车' },
-      { id: 'cargo_tricycle', type: 'ETRIKE', name: '货三轮车' },
-      { id: 'small_car', type: 'VAN', name: '小车' }
-    ])
-  }
-  return request('/vehicle-types')
+  return Promise.resolve([
+    { id: 'ebike', type: 'EBIKE', name: '二轮车' },
+    { id: 'cargo_tricycle', type: 'ETRIKE', name: '货三轮车' },
+    { id: 'small_car', type: 'VAN', name: '小车' }
+  ])
 }
 
 function getWeatherRisk(payload) {
@@ -557,30 +543,20 @@ function getWeatherRisk(payload) {
     .map((item) => `${encodeURIComponent(item[0])}=${encodeURIComponent(item[1])}`)
     .join('&')
 
-  if (!isNestApi()) {
-    return Promise.resolve({
-      isBadWeather: false,
-      badWeather: false,
-      multiplier: 1,
-      weatherText: '旧版后端暂未接入天气预报',
-      reason: '按正常天气计价',
-      source: 'legacy-fallback'
-    })
-  }
   return request(`/maps/weather-risk${query ? `?${query}` : ''}`)
 }
 
 function estimatePrice(payload) {
   return request('/pricing/estimate', {
     method: 'POST',
-    data: isNestApi() ? buildNestPricePayload(payload) : payload
+    data: buildNestPricePayload(payload)
   })
 }
 
 function createOrder(payload) {
   return request('/orders', {
     method: 'POST',
-    data: isNestApi() ? buildNestOrderPayload(payload) : payload
+    data: buildNestOrderPayload(payload)
   }).then(normalizeOrder)
 }
 
@@ -619,7 +595,7 @@ function getOrder(id) {
 function updateOrderStatus(id, payload) {
   return request(`/orders/${encodeURIComponent(id)}/status`, {
     method: 'PATCH',
-    data: isNestApi() ? buildNestStatusPayload(payload) : payload
+    data: buildNestStatusPayload(payload)
   }).then(normalizeOrder)
 }
 
@@ -672,32 +648,21 @@ function requestWechatPayment(payment) {
 }
 
 function getMerchantDashboard(merchantId) {
-  if (isNestApi()) return request('/operations/orders')
-  return request(`/merchant/dashboard?merchantId=${encodeURIComponent(merchantId || 'merchant-demo')}`)
+  return request('/operations/orders')
 }
 
 function getMerchantOrders(merchantId, status) {
-  if (isNestApi()) {
-    return request('/operations/orders').then((payload) => {
-      const orders = normalizeOrders(payload)
-      return status ? orders.filter((order) => order.status === status) : orders
-    })
-  }
-  const query = status ? `&status=${encodeURIComponent(status)}` : ''
-  return request(`/merchant/orders?merchantId=${encodeURIComponent(merchantId || 'merchant-demo')}${query}`)
+  return request('/operations/orders').then((payload) => {
+    const orders = normalizeOrders(payload)
+    return status ? orders.filter((order) => order.status === status) : orders
+  })
 }
 
 function updateMerchantOrderStatus(id, payload) {
-  if (isNestApi()) {
-    return request(`/operations/orders/${encodeURIComponent(id)}/status`, {
-      method: 'PATCH',
-      data: buildNestStatusPayload(payload)
-    }).then(normalizeOrder)
-  }
-  return request(`/merchant/orders/${encodeURIComponent(id)}/status`, {
+  return request(`/operations/orders/${encodeURIComponent(id)}/status`, {
     method: 'PATCH',
-    data: payload
-  })
+    data: buildNestStatusPayload(payload)
+  }).then(normalizeOrder)
 }
 
 function getNotifications(limit) {
