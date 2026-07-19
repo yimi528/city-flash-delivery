@@ -129,7 +129,7 @@ Page({
   },
 
   login() {
-    const fallbackLogin = () => {
+    if (!app.globalData.useBackend) {
       const user = {
         id: 'demo-user',
         phone: '138****4581',
@@ -140,34 +140,18 @@ Page({
       app.setCurrentUser(user, '')
       this.syncUserState()
       wx.showToast({ title: '已使用本地登录', icon: 'success' })
+      return
     }
-
-    const doLogin = (code) => {
-      if (!app.globalData.useBackend) {
-        fallbackLogin()
-        return
-      }
-      this.setData({ isLoggingIn: true })
-      api.wechatLogin({ code, userInfo: { nickName: '微信用户' } }).then((result) => {
-        app.setCurrentUser(Object.assign({}, result.user, { roles: result.roles, currentRole: result.currentRole }), result.token)
+    this.setData({ isLoggingIn: true })
+    app.ensureWechatLogin().then(() => {
         this.syncUserState()
         this.loadRiderState()
         wx.showToast({ title: '登录成功', icon: 'success' })
       }).catch((error) => {
         wx.showToast({ title: error.message || '微信登录失败', icon: 'none' })
       }).finally(() => {
-      this.setData({ isLoggingIn: false })
+        this.setData({ isLoggingIn: false })
       })
-    }
-
-    if (wx.login) {
-      wx.login({
-        success: (res) => doLogin(res.code || ''),
-        fail: () => doLogin('')
-      })
-      return
-    }
-    doLogin('')
   },
 
   logout() {

@@ -123,6 +123,7 @@ enum RoutePriceUnit {
 model User {
   id                String               @id @default(cuid())
   openid            String?              @unique
+  unionid           String?              @unique
   phone             String?
   nickname          String
   avatarUrl         String               @default("")
@@ -143,18 +144,20 @@ model User {
 }
 
 model Operator {
-  id           String    @id @default(cuid())
-  username     String    @unique
-  name         String
-  phone        String?
-  passwordHash String    @default("")
-  role         UserRole  @default(OPERATOR)
-  enabled      Boolean   @default(true)
-  failedLoginCount Int    @default(0)
-  lockedUntil  DateTime?
-  lastLoginAt  DateTime?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  id                  String    @id @default(cuid())
+  username            String    @unique
+  name                String
+  phone               String?
+  passwordHash        String    @default("")
+  totpSecretEncrypted String?
+  lastTotpCounter     Int?
+  role                UserRole  @default(OPERATOR)
+  enabled             Boolean   @default(true)
+  failedLoginCount    Int       @default(0)
+  lockedUntil         DateTime?
+  lastLoginAt         DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
 
   @@map("operators")
 }
@@ -174,26 +177,26 @@ model UserRoleAssignment {
 }
 
 model Address {
-  id        String                                 @id @default(cuid())
-  userId    String
-  user      User                                   @relation(fields: [userId], references: [id])
-  name      String
-  detail    String
-  contact   String
-  phone     String
-  tag       String                                 @default("")
-  city      String                                 @default("")
-  district  String                                 @default("")
-  adcode    String                                 @default("")
-  latitude  Decimal?                               @db.Decimal(10, 7)
-  longitude Decimal?                               @db.Decimal(10, 7)
-  location  Unsupported("geography(Point, 4326)")?
-  mapPoiId  String                                 @default("")
-  isDefault Boolean                                @default(false)
-  usageCount Int                                   @default(0)
+  id         String                                 @id @default(cuid())
+  userId     String
+  user       User                                   @relation(fields: [userId], references: [id])
+  name       String
+  detail     String
+  contact    String
+  phone      String
+  tag        String                                 @default("")
+  city       String                                 @default("")
+  district   String                                 @default("")
+  adcode     String                                 @default("")
+  latitude   Decimal?                               @db.Decimal(10, 7)
+  longitude  Decimal?                               @db.Decimal(10, 7)
+  location   Unsupported("geography(Point, 4326)")?
+  mapPoiId   String                                 @default("")
+  isDefault  Boolean                                @default(false)
+  usageCount Int                                    @default(0)
   lastUsedAt DateTime?
-  createdAt DateTime                               @default(now())
-  updatedAt DateTime                               @updatedAt
+  createdAt  DateTime                               @default(now())
+  updatedAt  DateTime                               @updatedAt
 
   @@index([userId])
   @@index([userId, isDefault])

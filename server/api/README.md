@@ -62,6 +62,10 @@ The production API includes:
 
 The customer and rider roles now share the same `users` row. A customer submits a rider application from the customer mini program; an operator review transaction creates or activates the `RIDER` role assignment and the rider profile. Rejected applications do not affect customer access, and suspend/resign operations only disable rider capabilities.
 
+Customer sessions are created by `wx.login` and `jscode2session`. The returned UnionID is persisted when the Mini Program is bound to a WeChat Open Platform account, while customer and rider tokens remain separate so switching back to customer mode does not end an active rider shift.
+
+The operations web app uses username + strong password + TOTP authentication. TOTP secrets are encrypted at rest, successful codes cannot be replayed, and five consecutive failures lock the account for 15 minutes. Customer and rider credentials cannot be used to enter the operations console.
+
 New endpoints:
 
 - `GET /api/v1/account/roles`

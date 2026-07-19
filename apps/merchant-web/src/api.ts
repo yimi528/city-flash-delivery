@@ -217,10 +217,10 @@ export class OperationsApi {
     return data as T
   }
 
-  login(username: string, password: string) {
+  login(username: string, password: string, totpCode: string) {
     return this.request<{ token: string; operator?: { id?: string; username?: string; name?: string } }>('/auth/operator-login', {
       method: 'POST',
-      body: JSON.stringify({ username, password })
+      body: JSON.stringify({ username, password, totpCode })
     })
   }
 

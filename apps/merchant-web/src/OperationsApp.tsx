@@ -15,6 +15,11 @@ import { NewOrderAlert } from './newOrderAlert'
 const orderFilters = ['全部', '待商家接单', '待骑手接单', '待商家报价', '待确认报价', '待支付', '进行中', '已完成', '已取消']
 const PAGE_SIZE = 5
 
+type OperatorSession = {
+  token: string
+  operator?: { id?: string; username?: string; name?: string }
+}
+
 function dateValue(value?: string) {
   if (!value) return ''
   const date = new Date(value)
@@ -66,41 +71,44 @@ function Toast({ message }: { message: string }) {
 
 function LoginDialog({
   open,
-  username,
-  password,
   loading,
-  onUsername,
-  onPassword,
-  onSubmit,
+  onLogin,
   onClose
 }: {
   open: boolean
-  username: string
-  password: string
   loading: boolean
-  onUsername: (value: string) => void
-  onPassword: (value: string) => void
-  onSubmit: () => void
+  onLogin: (username: string, password: string, totpCode: string) => void
   onClose: () => void
 }) {
+  const [username, setUsername] = useState(() => localStorage.getItem('merchantUsername') || '')
+  const [password, setPassword] = useState('')
+  const [totpCode, setTotpCode] = useState('')
   if (!open) return null
   return (
     <div className="login-overlay" role="presentation">
-      <form className="login-dialog" onSubmit={(event) => { event.preventDefault(); onSubmit() }}>
+      <form className="login-dialog" role="dialog" aria-modal="true" aria-labelledby="operator-login-title" onSubmit={(event) => {
+        event.preventDefault()
+        onLogin(username.trim(), password, totpCode.trim())
+      }}>
         <div className="login-heading">
-          <div className="login-symbol">速</div>
-          <div><strong>运营账号登录</strong><span>登录后处理报价和配送订单</span></div>
+          <div className="login-symbol">盾</div>
+          <div><strong id="operator-login-title">商家安全登录</strong><span>密码与动态验证码双重验证</span></div>
         </div>
         <label className="login-field">
-          <span>账号</span>
-          <input autoComplete="username" value={username} onChange={(event) => onUsername(event.target.value)} placeholder="请输入运营账号" />
+          <span>用户名</span>
+          <input value={username} onChange={(event) => setUsername(event.target.value)} autoComplete="username" required placeholder="请输入运营账号" />
         </label>
         <label className="login-field">
-          <span>密码</span>
-          <input type="password" autoComplete="current-password" value={password} onChange={(event) => onPassword(event.target.value)} placeholder="请输入登录密码" />
+          <span>强密码</span>
+          <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" required placeholder="请输入登录密码" />
         </label>
-        <button className="login-submit" type="submit" disabled={loading || !username || password.length < 6}>
-          {loading ? '正在登录...' : '登录运营后台'}
+        <label className="login-field">
+          <span>TOTP 动态验证码</span>
+          <input className="totp-input" value={totpCode} onChange={(event) => setTotpCode(event.target.value.replace(/\D/g, '').slice(0, 6))} autoComplete="one-time-code" inputMode="numeric" pattern="\d{6}" maxLength={6} required placeholder="6 位动态验证码" />
+        </label>
+        <p className="login-security-note">请打开身份验证器获取当前验证码。连续失败 5 次，账号将锁定 15 分钟。</p>
+        <button className="login-submit" type="submit" disabled={loading || !username.trim() || !password || totpCode.length !== 6}>
+          {loading ? '正在安全验证…' : '登录商家后台'}
         </button>
         <button className="login-cancel" type="button" onClick={onClose}>暂不登录</button>
       </form>
@@ -492,8 +500,6 @@ export function OperationsApp() {
   const [token, setToken] = useState(getInitialToken)
   const [operatorId, setOperatorId] = useState(() => localStorage.getItem('merchantId') || DEFAULT_OPERATOR_ID)
   const [operatorName, setOperatorName] = useState(() => localStorage.getItem('merchantName') || '')
-  const [username, setUsername] = useState(() => localStorage.getItem('merchantUsername') || 'operator-demo')
-  const [password, setPassword] = useState('')
   const [showLogin, setShowLogin] = useState(() => !getInitialToken())
   const [loggingIn, setLoggingIn] = useState(false)
   const [filter, setFilter] = useState('全部')
@@ -597,26 +603,21 @@ export function OperationsApp() {
     }
   }, [api, notifyNewActionableOrders, operatorId, showToast])
 
-  const login = useCallback(async () => {
-    const cleanBase = apiBase.replace(/\/$/, '') || DEFAULT_API_BASE
+  const completeOperatorLogin = useCallback(async (session: OperatorSession, cleanBase: string) => {
     setApiBase(cleanBase)
     localStorage.setItem('merchantApiBase', cleanBase)
-    setLoggingIn(true)
     try {
-      const session = await api.login(username.trim(), password)
       const nextToken = session.token
       const nextOperatorId = session.operator?.id || operatorId
-      const nextOperatorName = session.operator?.name || username
+      const nextOperatorName = session.operator?.name || '运营员'
       setToken(nextToken)
       setOperatorId(nextOperatorId)
       setOperatorName(nextOperatorName)
       sessionStorage.setItem('merchantToken', nextToken)
       localStorage.setItem('merchantId', nextOperatorId)
       localStorage.setItem('merchantName', nextOperatorName)
-      localStorage.setItem('merchantUsername', username.trim())
-      setPassword('')
       setShowLogin(false)
-      showToast('运营登录成功')
+      showToast('安全登录成功')
       const sessionApi = new OperationsApi(cleanBase, nextToken)
       const [payload, riderApplications, riderList] = await Promise.all([sessionApi.listOrders(), sessionApi.listRiderApplications(), sessionApi.listRiders()])
       const dashboard = normalizeDashboard(payload, nextOperatorId)
@@ -637,7 +638,22 @@ export function OperationsApp() {
     } finally {
       setLoggingIn(false)
     }
-  }, [api, apiBase, notifyNewActionableOrders, operatorId, password, showToast, username])
+  }, [notifyNewActionableOrders, operatorId, showToast])
+
+  const loginOperator = useCallback(async (username: string, password: string, totpCode: string) => {
+    const cleanBase = apiBase.replace(/\/$/, '') || DEFAULT_API_BASE
+    setApiBase(cleanBase)
+    localStorage.setItem('merchantApiBase', cleanBase)
+    localStorage.setItem('merchantUsername', username)
+    setLoggingIn(true)
+    try {
+      const session = await new OperationsApi(cleanBase, '').login(username, password, totpCode)
+      await completeOperatorLogin(session, cleanBase)
+    } catch (error) {
+      setLoggingIn(false)
+      showToast(`登录失败：${error instanceof Error ? error.message : '未知错误'}`)
+    }
+  }, [apiBase, completeOperatorLogin, showToast])
 
   const logout = useCallback(() => {
     setToken('')
@@ -791,12 +807,8 @@ export function OperationsApp() {
       <Toast message={toast} />
       <LoginDialog
         open={showLogin}
-        username={username}
-        password={password}
         loading={loggingIn}
-        onUsername={setUsername}
-        onPassword={setPassword}
-        onSubmit={login}
+        onLogin={loginOperator}
         onClose={() => setShowLogin(false)}
       />
     </div>

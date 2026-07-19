@@ -54,7 +54,19 @@ mkdir -p certs secrets
 chmod 700 certs secrets
 ```
 
-Edit `env.production` with the private database address, API domain, image tags, WeChat login credentials, and a Tencent Map key. `OPS_DOMAIN` and `CORS_ORIGINS` may remain empty until the merchant app has an HTTPS address. Never copy the local development `.env` to the server.
+Edit `env.production` with the private database address, API domain, image tags, Mini Program login credentials, WeChat Pay credentials, the operator TOTP encryption key, and a Tencent Map key. The merchant app may use a provider-assigned HTTPS address, but once chosen its exact origin must be written to `CORS_ORIGINS`. Never copy the local development `.env` to the server.
+
+Merchant login requires a username, a strong password, and a 6-digit TOTP code. Set a random encryption key, run the operator initializer once with the bootstrap values, add the resulting `otpauth://` account to an authenticator, and then remove the bootstrap password and TOTP secret from the runtime environment:
+
+```text
+OPERATOR_BOOTSTRAP_USERNAME=city-flash-admin
+OPERATOR_BOOTSTRAP_PASSWORD=a 12+ character password with upper/lowercase letters, number and symbol
+OPERATOR_BOOTSTRAP_TOTP_SECRET=a random Base32 secret
+OPERATOR_TOTP_ENCRYPTION_KEY=at least 32 random characters
+CORS_ORIGINS=https://the-exact-merchant-origin
+```
+
+Run `npm --prefix server/api run operator:create` as a one-time administrative step. Production keeps `OPERATOR_BOOTSTRAP_ENABLED=false`; five consecutive failed login attempts lock the account for 15 minutes, and a successfully used TOTP time window cannot be replayed.
 
 Before deployment, update `trial` and `release` in `apps/customer-mp/config/runtime.js` to the备案后的 API HTTPS 地址, then run the production gate from the repository root:
 
@@ -62,7 +74,7 @@ Before deployment, update `trial` and `release` in `apps/customer-mp/config/runt
 npm run release:check -- deploy/env.production
 ```
 
-The gate permits mock payment only when `APP_RELEASE_STAGE=testing`, and permits `WECHAT_PAY_MODE=disabled` without merchant credentials. Public production rejects mock payment. It also checks the API domain, TLS files, explicit CORS origins and Compose configuration.
+The gate permits mock payment only when `APP_RELEASE_STAGE=testing`, and permits `WECHAT_PAY_MODE=disabled` without merchant credentials. Public production rejects mock payment. It also checks the operator TOTP encryption key, the API domain, TLS files, explicit CORS origins and Compose configuration.
 
 Install the TLS certificate with restrictive permissions:
 
@@ -71,7 +83,7 @@ install -m 600 fullchain.pem certs/fullchain.pem
 install -m 600 privkey.pem certs/privkey.pem
 ```
 
-Only when `WECHAT_PAY_MODE=wechat`, install the payment files and include `docker-compose.wechat-pay.yml` in validation and deployment commands:
+For real payment, bind the Mini Program AppID to the WeChat Pay merchant account, set `WECHAT_PAY_MODE=wechat`, and install the payment files. Include `docker-compose.wechat-pay.yml` in validation and deployment commands:
 
 ```bash
 install -o 1000 -g 1000 -m 400 apiclient_key.pem secrets/apiclient_key.pem
@@ -117,7 +129,7 @@ https://api.example.com/api/payments/wechat/notify
 
 Before uploading the trial or release Mini Program, verify that `apps/customer-mp/config/runtime.js` matches the备案后的正式域名. The user and rider modes share this one Mini Program AppID and customer login credentials.
 
-Before a production release, test real-device login, a small real payment, callback verification, cancellation, refund, and reconciliation. These integrations are implemented, but they cannot be accepted against WeChat's real environment without the production AppID, merchant credentials, certificates, approved domains, and a real device.
+Before a production release, test Mini Program login, merchant QR login with an allowlisted account, a small real payment, callback verification, cancellation, refund, and reconciliation. These integrations are implemented, but they cannot be accepted against WeChat's real environment without the production AppIDs, merchant credentials, certificates, approved domains, and a real device.
 
 ## 6. Update and rollback
 

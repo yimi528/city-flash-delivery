@@ -11,6 +11,8 @@ const validConfig: Record<string, string> = {
   WECHAT_MINI_APP_ID: 'wx123',
   WECHAT_MINI_APP_SECRET: 'secret',
   WECHAT_LOGIN_MOCK_ENABLED: 'false',
+  OPERATOR_BOOTSTRAP_ENABLED: 'false',
+  OPERATOR_TOTP_ENCRYPTION_KEY: 'a-different-secure-random-key-for-totp-encryption',
   WECHAT_PAY_MODE: 'wechat',
   WECHAT_PAY_MOCK_ENABLED: 'false',
   WECHAT_PAY_MCH_ID: '1900000001',
@@ -50,7 +52,7 @@ describe('validateProductionConfig', () => {
     const mockConfig = {
       ...validConfig,
       APP_RELEASE_STAGE: 'testing',
-      CORS_ORIGINS: '',
+      CORS_ORIGINS: 'https://ops.city-flash.test',
       WECHAT_PAY_MODE: 'mock',
       WECHAT_PAY_MOCK_ENABLED: 'true',
       WECHAT_PAY_AUTO_RECONCILIATION_ENABLED: 'false',

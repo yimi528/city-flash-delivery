@@ -1,4 +1,10 @@
-import { BadGatewayException, ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/common'
+import {
+  BadGatewayException,
+  ForbiddenException,
+  Injectable,
+  ServiceUnavailableException,
+  UnauthorizedException,
+} from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto'
 import { PrismaService } from '../common/prisma/prisma.service'
@@ -6,6 +12,7 @@ import { UserRole, RoleStatus } from '@prisma/client'
 import { AuthTokenService } from './auth-token.service'
 import { ChangePasswordDto, OperatorLoginDto, WechatLoginDto } from './auth.dto'
 import { AuditService } from '../audit/audit.service'
+import { decryptTotpSecret, encryptTotpSecret, verifyTotp } from './totp'
 
 type CodeSessionResponse = {
   openid?: string
@@ -27,6 +34,7 @@ export class AuthService {
   async wechatLogin(dto: WechatLoginDto) {
     const mockEnabled = this.isDevelopmentMockEnabled('WECHAT_LOGIN_MOCK_ENABLED')
     let openid = ''
+    let unionid = ''
     let mode: 'wechat' | 'mock' = 'wechat'
 
     if (mockEnabled) {
@@ -34,7 +42,9 @@ export class AuthService {
       mode = 'mock'
     } else {
       if (!dto.code) throw new UnauthorizedException('微信登录凭证不能为空')
-      openid = await this.exchangeWechatCode(dto.code)
+      const identity = await this.exchangeWechatCode(dto.code)
+      openid = identity.openid
+      unionid = identity.unionid
     }
 
     const user = mode === 'mock'
@@ -53,19 +63,7 @@ export class AuthService {
             memberLevel: '青铜会员',
           },
         })
-      : await this.prisma.user.upsert({
-          where: { openid },
-          update: {
-            nickname: dto.nickname || undefined,
-            avatarUrl: dto.avatarUrl || undefined,
-          },
-          create: {
-            openid,
-            nickname: dto.nickname || '微信用户',
-            avatarUrl: dto.avatarUrl || '',
-            memberLevel: '青铜会员',
-          },
-        })
+      : await this.upsertWechatUser({ openid, unionid, nickname: dto.nickname, avatarUrl: dto.avatarUrl })
 
     await this.ensureRoleAssignment(user.id, UserRole.CUSTOMER)
 
@@ -91,18 +89,30 @@ export class AuthService {
       await this.audit.record({ action: 'operator.login.locked', resourceType: 'operator', resourceId: operator.id, metadata: { username: dto.username } })
       throw new UnauthorizedException('账号暂时锁定，请稍后再试')
     }
-    if (!operator || !operator.enabled || !this.verifyPassword(dto.password, operator.passwordHash)) {
-      if (operator) {
-        const failedLoginCount = operator.failedLoginCount + 1
-        await this.prisma.operator.update({
-          where: { id: operator.id },
-          data: { failedLoginCount, lockedUntil: failedLoginCount >= 5 ? new Date(Date.now() + 15 * 60 * 1000) : null },
-        })
-      }
-      await this.audit.record({ action: 'operator.login.failed', resourceType: 'operator', resourceId: operator?.id, metadata: { username: dto.username } })
-      throw new UnauthorizedException('账号或密码错误')
+    if (!operator) return this.recordFailedOperatorLogin(null, dto.username)
+    if (!operator.enabled || !this.verifyPassword(dto.password, operator.passwordHash)) {
+      return this.recordFailedOperatorLogin(operator, dto.username)
     }
-    await this.prisma.operator.update({ where: { id: operator.id }, data: { lastLoginAt: new Date(), failedLoginCount: 0, lockedUntil: null } })
+    if (!operator.totpSecretEncrypted) throw new ServiceUnavailableException('运营账号尚未配置 TOTP 二次验证')
+    let totpSecret = ''
+    try {
+      totpSecret = decryptTotpSecret(operator.totpSecretEncrypted, this.required('OPERATOR_TOTP_ENCRYPTION_KEY'))
+    } catch {
+      throw new ServiceUnavailableException('运营账号 TOTP 配置不可用，请联系管理员')
+    }
+    const totpCounter = verifyTotp(totpSecret, dto.totpCode)
+    if (totpCounter === null) return this.recordFailedOperatorLogin(operator, dto.username)
+    const updated = await this.prisma.operator.updateMany({
+      where: {
+        id: operator.id,
+        OR: [{ lastTotpCounter: null }, { lastTotpCounter: { lt: totpCounter } }],
+      },
+      data: { lastLoginAt: new Date(), failedLoginCount: 0, lockedUntil: null, lastTotpCounter: totpCounter },
+    })
+    if (!updated.count) {
+      await this.audit.record({ action: 'operator.login.totp-replayed', resourceType: 'operator', resourceId: operator.id })
+      throw new UnauthorizedException('动态验证码已使用，请等待验证码更新')
+    }
     await this.audit.record({ action: 'operator.login.succeeded', actorId: operator.id, actorRole: 'operator', resourceType: 'operator', resourceId: operator.id })
     return {
       token: this.tokens.sign(operator.id, 'operator'),
@@ -178,7 +188,7 @@ export class AuthService {
     code: string,
     appIdKey = 'WECHAT_MINI_APP_ID',
     appSecretKey = 'WECHAT_MINI_APP_SECRET',
-  ) {
+  ): Promise<{ openid: string; unionid: string }> {
     if (!code) throw new UnauthorizedException('微信登录凭证不能为空')
     const appId = this.config.get<string>(appIdKey) || ''
     const appSecret = this.config.get<string>(appSecretKey) || ''
@@ -199,19 +209,63 @@ export class AuthService {
     if (!response.ok || !data.openid || data.errcode) {
       throw new UnauthorizedException(data.errmsg || '微信登录凭证校验失败')
     }
-    return data.openid
+    return { openid: data.openid, unionid: data.unionid || '' }
+  }
+
+  private async upsertWechatUser(input: { openid: string; unionid: string; nickname?: string; avatarUrl?: string }) {
+    const existing = await this.prisma.user.findFirst({
+      where: {
+        OR: [
+          { openid: input.openid },
+          ...(input.unionid ? [{ unionid: input.unionid }] : []),
+        ],
+      },
+    })
+    if (existing) {
+      return this.prisma.user.update({
+        where: { id: existing.id },
+        data: {
+          openid: input.openid,
+          unionid: input.unionid || existing.unionid,
+          nickname: input.nickname || undefined,
+          avatarUrl: input.avatarUrl || undefined,
+        },
+      })
+    }
+    return this.prisma.user.create({
+      data: {
+        openid: input.openid,
+        unionid: input.unionid || null,
+        nickname: input.nickname || '微信用户',
+        avatarUrl: input.avatarUrl || '',
+        memberLevel: '青铜会员',
+      },
+    })
+  }
+
+  private required(key: string) {
+    const value = this.config.get<string>(key) || ''
+    if (!value) throw new ServiceUnavailableException(`${key} must be configured`)
+    return value
   }
 
   private async findOrBootstrapOperator(username: string, password: string) {
     const existing = await this.prisma.operator.findUnique({ where: { username } })
     const bootstrapUsername = this.config.get<string>('OPERATOR_BOOTSTRAP_USERNAME') || 'operator-demo'
-    const bootstrapPassword = this.config.get<string>('OPERATOR_BOOTSTRAP_PASSWORD') || 'demo123456'
+    const bootstrapPassword = this.config.get<string>('OPERATOR_BOOTSTRAP_PASSWORD') || ''
+    const bootstrapTotpSecret = this.config.get<string>('OPERATOR_BOOTSTRAP_TOTP_SECRET') || ''
     const bootstrapEnabled = this.isDevelopmentMockEnabled('OPERATOR_BOOTSTRAP_ENABLED')
     if (existing) {
-      if (!existing.passwordHash && bootstrapEnabled && username === bootstrapUsername && password === bootstrapPassword) {
+      if (bootstrapEnabled && username === bootstrapUsername && password === bootstrapPassword && (!existing.passwordHash || !existing.totpSecretEncrypted)) {
         return this.prisma.operator.update({
           where: { id: existing.id },
-          data: { passwordHash: this.hashPassword(password) },
+          data: {
+            passwordHash: this.hashPassword(password),
+            totpSecretEncrypted: existing.totpSecretEncrypted || this.encryptConfiguredTotpSecret(bootstrapTotpSecret),
+            failedLoginCount: 0,
+            lockedUntil: null,
+            lastTotpCounter: null,
+          },
         })
       }
       return existing
@@ -223,8 +277,33 @@ export class AuthService {
         username,
         name: this.config.get<string>('OPERATOR_BOOTSTRAP_NAME') || '同城速送运营员',
         passwordHash: this.hashPassword(password),
+        totpSecretEncrypted: this.encryptConfiguredTotpSecret(bootstrapTotpSecret),
       },
     })
+  }
+
+  private encryptConfiguredTotpSecret(secret: string) {
+    if (!secret) throw new ServiceUnavailableException('本地运营账号尚未配置 TOTP 密钥')
+    try {
+      return encryptTotpSecret(secret, this.required('OPERATOR_TOTP_ENCRYPTION_KEY'))
+    } catch {
+      throw new ServiceUnavailableException('本地运营账号 TOTP 配置无效')
+    }
+  }
+
+  private async recordFailedOperatorLogin(
+    operator: { id: string; failedLoginCount: number } | null,
+    username: string,
+  ): Promise<never> {
+    if (operator) {
+      const failedLoginCount = operator.failedLoginCount + 1
+      await this.prisma.operator.update({
+        where: { id: operator.id },
+        data: { failedLoginCount, lockedUntil: failedLoginCount >= 5 ? new Date(Date.now() + 15 * 60 * 1000) : null },
+      })
+    }
+    await this.audit.record({ action: 'operator.login.failed', resourceType: 'operator', resourceId: operator?.id, metadata: { username } })
+    throw new UnauthorizedException('账号、密码或动态验证码错误')
   }
 
   private hashPassword(password: string) {
@@ -244,4 +323,5 @@ export class AuthService {
   private isDevelopmentMockEnabled(key: string) {
     return this.config.get<string>('NODE_ENV') !== 'production' && this.config.get<string>(key) === 'true'
   }
+
 }

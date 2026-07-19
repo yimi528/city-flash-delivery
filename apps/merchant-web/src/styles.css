@@ -1167,6 +1167,19 @@ h1 {
 
 .login-field input:focus { border-color: var(--primary); }
 
+.login-field .totp-input {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .28em;
+  font-weight: 800;
+}
+
+.login-security-note {
+  margin: 14px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
 .login-submit,
 .login-cancel {
   width: 100%;

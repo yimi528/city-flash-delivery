@@ -24,7 +24,10 @@ App({
         this.globalData.rider = savedRider || null
       }
     } catch (error) {}
-    if (this.globalData.useBackend) this.refreshAppConfig()
+    if (this.globalData.useBackend) {
+      this.refreshAppConfig()
+      this.ensureWechatLogin().catch(() => {})
+    }
   },
 
   onShow() {
@@ -55,6 +58,30 @@ App({
         fail: () => resolve(null)
       })
     })
+  },
+
+  ensureWechatLogin() {
+    if (this.globalData.isLoggedIn && this.globalData.authToken) {
+      return Promise.resolve({ user: this.globalData.currentUser, token: this.globalData.authToken })
+    }
+    if (this.wechatLoginPromise) return this.wechatLoginPromise
+    if (!this.globalData.useBackend || !wx.login) return Promise.reject(new Error('当前环境不支持微信登录'))
+    const api = require('./utils/api')
+    this.wechatLoginPromise = new Promise((resolve, reject) => {
+      wx.login({
+        success: (result) => result && result.code ? resolve(result.code) : reject(new Error('微信登录凭证为空')),
+        fail: () => reject(new Error('无法获取微信登录凭证'))
+      })
+    }).then((code) => api.wechatLogin({ code, userInfo: { nickName: '微信用户' } }))
+      .then((session) => {
+        this.setCurrentUser(Object.assign({}, session.user, {
+          roles: session.roles,
+          currentRole: session.currentRole
+        }), session.token)
+        return session
+      })
+      .finally(() => { this.wechatLoginPromise = null })
+    return this.wechatLoginPromise
   },
 
   setCurrentUser(user, token) {

@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsOptional, IsString, MinLength } from 'class-validator'
+import { IsNotEmpty, IsOptional, IsString, Matches, MinLength } from 'class-validator'
 
 export class WechatLoginDto {
   @IsOptional()
@@ -24,8 +24,12 @@ export class OperatorLoginDto {
   username!: string
 
   @IsString()
-  @MinLength(6)
+  @IsNotEmpty()
   password!: string
+
+  @IsString()
+  @Matches(/^\d{6}$/, { message: '动态验证码必须是 6 位数字' })
+  totpCode!: string
 }
 
 export class ChangePasswordDto {
@@ -35,6 +39,9 @@ export class ChangePasswordDto {
 
   @IsString()
   @MinLength(12)
+  @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z\d]).{12,}$/, {
+    message: '新密码至少 12 位，并包含大小写字母、数字和特殊字符',
+  })
   newPassword!: string
 }
 

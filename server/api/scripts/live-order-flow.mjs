@@ -6,6 +6,7 @@ const prisma = new PrismaClient()
 let userId = ''
 let customerToken = ''
 let operatorToken = ''
+let riderId = ''
 const createdOrderIds = []
 const flowTrace = []
 
@@ -96,17 +97,31 @@ async function createOrder(overrides) {
 }
 
 async function fulfill(orderId, expectedStates = []) {
-  const statuses = ['ACCEPTED', 'PICKING_UP', 'DELIVERING', 'COMPLETED']
-  let order = null
-  for (let index = 0; index < statuses.length; index += 1) {
-    const status = statuses[index]
+  let order = await request(`/operations/orders/${encodeURIComponent(orderId)}/status`, {
+    method: 'PATCH',
+    token: operatorToken,
+    body: { status: 'ACCEPTED', note: '联调测试商家接单' }
+  })
+  assert.equal(order.status, 'ACCEPTED')
+  if (expectedStates[0]) await expectSyncedState(orderId, expectedStates[0])
+
+  order = await request(`/operations/orders/${encodeURIComponent(orderId)}/assign`, {
+    method: 'POST',
+    token: operatorToken,
+    body: { riderId, note: '联调测试指派骑手' }
+  })
+  assert.equal(order.status, 'PICKING_UP')
+  if (expectedStates[1]) await expectSyncedState(orderId, expectedStates[1])
+
+  for (let index = 0; index < 2; index += 1) {
+    const status = ['DELIVERING', 'COMPLETED'][index]
     order = await request(`/operations/orders/${encodeURIComponent(orderId)}/status`, {
       method: 'PATCH',
       token: operatorToken,
       body: { status, note: `联调测试更新为 ${status}` }
     })
     assert.equal(order.status, status)
-    if (expectedStates[index]) await expectSyncedState(orderId, expectedStates[index])
+    if (expectedStates[index + 2]) await expectSyncedState(orderId, expectedStates[index + 2])
   }
   return order
 }
@@ -129,6 +144,30 @@ async function run() {
     }
   })
   operatorToken = operatorSession.token
+
+  const testRider = await prisma.riderProfile.create({
+    data: {
+      name: '联调测试骑手',
+      phone: '13800000002',
+      status: 'APPROVED',
+      roleStatus: 'ACTIVE',
+      workStatus: 'ONLINE',
+      vehicleType: 'EBIKE',
+      vehicleName: '联调测试车辆',
+      handlingQualified: true,
+      online: true,
+      latitude: 26.6659,
+      longitude: 119.5476,
+      maxActiveOrders: 2,
+      vehicles: {
+        create: [
+          { vehicleType: 'EBIKE', vehicleName: '二轮车', enabled: true, verified: true },
+          { vehicleType: 'ETRIKE', vehicleName: '货三轮车', enabled: true, verified: true }
+        ]
+      }
+    }
+  })
+  riderId = testRider.id
 
   const delivery = await createOrder({})
   assert.equal(delivery.status, 'PENDING')
@@ -187,8 +226,8 @@ async function run() {
   assert.equal(paidMoving.paymentStatus, 'PAID')
   await expectSyncedState(moving.id, {
     step: '用户完成支付',
-    businessStatus: 'PENDING',
-    businessStatusText: '待接单',
+    businessStatus: 'AWAITING_MERCHANT_ACCEPTANCE',
+    businessStatusText: '待商家接单',
     status: 'PENDING',
     quoteStatus: 'NONE',
     paymentStatus: 'PAID'
@@ -196,8 +235,8 @@ async function run() {
   const completedMoving = await fulfill(moving.id, [
     {
       step: '商家接单',
-      businessStatus: 'ACCEPTED',
-      businessStatusText: '已接单',
+      businessStatus: 'AWAITING_RIDER_ACCEPTANCE',
+      businessStatusText: '待骑手接单',
       status: 'ACCEPTED',
       quoteStatus: 'NONE',
       paymentStatus: 'PAID'
@@ -242,6 +281,7 @@ try {
   if (createdOrderIds.length) {
     await prisma.order.deleteMany({ where: { id: { in: createdOrderIds } } })
   }
+  if (riderId) await prisma.riderProfile.deleteMany({ where: { id: riderId } })
   if (userId && userId !== 'demo-user') await prisma.user.deleteMany({ where: { id: userId } })
   await prisma.$disconnect()
 }
