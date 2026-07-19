@@ -51,7 +51,7 @@ npm run dev
 
 > 直接打开 `/api` 返回 `Cannot GET /api`（404）是正常现象，因为 API 根路径没有页面路由。请使用 `/api/health` 判断后端是否启动成功。
 
-商家端使用“用户名 + 强密码 + TOTP 动态验证码”登录。本地示例账号参数位于 `server/api/.env.example`；请将其中的 Base32 密钥添加到身份验证器后使用当前 6 位验证码。生产账号必须通过一次性初始化脚本创建。
+商家端使用“用户名 + 强密码”登录。本地示例账号参数位于 `server/api/.env.example`，生产账号必须通过一次性初始化脚本创建。
 
 ### 停止项目
 
@@ -208,7 +208,6 @@ cp server/api/.env.example server/api/.env
 | `REDIS_URL` | Redis 连接 | `redis://127.0.0.1:6379` |
 | `JWT_SECRET` | 登录令牌签名 | 仅限本地的占位密钥 |
 | `WECHAT_LOGIN_MOCK_ENABLED` | 微信登录 Mock | `true` |
-| `OPERATOR_TOTP_ENCRYPTION_KEY` | 加密保存商家 TOTP 密钥 | 仅限本地的占位密钥 |
 | `WECHAT_PAY_MODE` | `mock`、`disabled` 或 `wechat` | `mock` |
 | `TENCENT_MAP_KEY` | 腾讯地图 WebService Key | 空，使用降级逻辑 |
 | `ENABLE_SWAGGER` | 是否启用 Swagger | `true` |
@@ -291,8 +290,8 @@ node --test apps/customer-mp/tests/*.test.js
 2. API、数据库迁移和商家端三个不可变版本镜像；
 3. 稳定的 API HTTPS 域名及 TLS 证书；
 4. 正式微信小程序 AppID 和 Secret；
-5. 商家运营账号、符合规则的强密码和 TOTP 身份验证器；
-6. 至少 32 字符的随机 TOTP 加密密钥及商家端精确 HTTPS 来源；
+5. 商家运营账号和符合规则的强密码；
+6. 商家端精确 HTTPS 来源；
 7. 腾讯地图 WebService Key；
 8. 至少 32 字符的随机 `JWT_SECRET`；
 9. 与 API 域名一致的小程序 `trial` / `release` 地址；

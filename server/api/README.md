@@ -64,7 +64,7 @@ The customer and rider roles now share the same `users` row. A customer submits 
 
 Customer sessions are created by `wx.login` and `jscode2session`. The returned UnionID is persisted when the Mini Program is bound to a WeChat Open Platform account, while customer and rider tokens remain separate so switching back to customer mode does not end an active rider shift.
 
-The operations web app uses username + strong password + TOTP authentication. TOTP secrets are encrypted at rest, successful codes cannot be replayed, and five consecutive failures lock the account for 15 minutes. Customer and rider credentials cannot be used to enter the operations console.
+The operations web app uses username + strong password authentication. Passwords are stored with salted scrypt hashes, and five consecutive failures lock the account for 15 minutes. Customer and rider credentials cannot be used to enter the operations console.
 
 New endpoints:
 

@@ -54,19 +54,17 @@ mkdir -p certs secrets
 chmod 700 certs secrets
 ```
 
-Edit `env.production` with the private database address, API domain, image tags, Mini Program login credentials, WeChat Pay credentials, the operator TOTP encryption key, and a Tencent Map key. The merchant app may use a provider-assigned HTTPS address, but once chosen its exact origin must be written to `CORS_ORIGINS`. Never copy the local development `.env` to the server.
+Edit `env.production` with the private database address, API domain, image tags, Mini Program login credentials, WeChat Pay credentials, and a Tencent Map key. The merchant app may use a provider-assigned HTTPS address, but once chosen its exact origin must be written to `CORS_ORIGINS`. Never copy the local development `.env` to the server.
 
-Merchant login requires a username, a strong password, and a 6-digit TOTP code. Set a random encryption key, run the operator initializer once with the bootstrap values, add the resulting `otpauth://` account to an authenticator, and then remove the bootstrap password and TOTP secret from the runtime environment:
+Merchant login requires a username and a strong password. Run the operator initializer once with the bootstrap values, and then remove the bootstrap password from the runtime environment:
 
 ```text
 OPERATOR_BOOTSTRAP_USERNAME=city-flash-admin
 OPERATOR_BOOTSTRAP_PASSWORD=a 12+ character password with upper/lowercase letters, number and symbol
-OPERATOR_BOOTSTRAP_TOTP_SECRET=a random Base32 secret
-OPERATOR_TOTP_ENCRYPTION_KEY=at least 32 random characters
 CORS_ORIGINS=https://the-exact-merchant-origin
 ```
 
-Run `npm --prefix server/api run operator:create` as a one-time administrative step. Production keeps `OPERATOR_BOOTSTRAP_ENABLED=false`; five consecutive failed login attempts lock the account for 15 minutes, and a successfully used TOTP time window cannot be replayed.
+Run `npm --prefix server/api run operator:create` as a one-time administrative step. Production keeps `OPERATOR_BOOTSTRAP_ENABLED=false`; five consecutive failed login attempts lock the account for 15 minutes.
 
 Before deployment, update `trial` and `release` in `apps/customer-mp/config/runtime.js` to the备案后的 API HTTPS 地址, then run the production gate from the repository root:
 
@@ -74,7 +72,7 @@ Before deployment, update `trial` and `release` in `apps/customer-mp/config/runt
 npm run release:check -- deploy/env.production
 ```
 
-The gate permits mock payment only when `APP_RELEASE_STAGE=testing`, and permits `WECHAT_PAY_MODE=disabled` without merchant credentials. Public production rejects mock payment. It also checks the operator TOTP encryption key, the API domain, TLS files, explicit CORS origins and Compose configuration.
+The gate permits mock payment only when `APP_RELEASE_STAGE=testing`, and permits `WECHAT_PAY_MODE=disabled` without merchant credentials. Public production rejects mock payment. It also checks the API domain, TLS files, explicit CORS origins and Compose configuration.
 
 Install the TLS certificate with restrictive permissions:
 

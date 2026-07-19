@@ -45,10 +45,6 @@ export function validateProductionConfig(config: ConfigReader) {
     errors.push('WECHAT_LOGIN_MOCK_ENABLED must be false in production')
   }
   if (value(config, 'OPERATOR_BOOTSTRAP_ENABLED') !== 'false') errors.push('OPERATOR_BOOTSTRAP_ENABLED must be false in production')
-  const totpEncryptionKey = value(config, 'OPERATOR_TOTP_ENCRYPTION_KEY')
-  if (totpEncryptionKey.length < 32 || PLACEHOLDER_PATTERN.test(totpEncryptionKey)) {
-    errors.push('OPERATOR_TOTP_ENCRYPTION_KEY must contain at least 32 random characters')
-  }
   if (!origins.length) errors.push('CORS_ORIGINS must contain the merchant HTTPS origin')
   const releaseStage = value(config, 'APP_RELEASE_STAGE') || 'testing'
   if (!['testing', 'production'].includes(releaseStage)) {

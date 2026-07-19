@@ -25,7 +25,7 @@ Open:
 http://127.0.0.1:5173
 ```
 
-The login dialog requires an operator username, strong password, and the current six-digit code from a TOTP authenticator. Production must use an exact merchant HTTPS origin in `CORS_ORIGINS`, keep automatic operator bootstrap disabled, and retain the TOTP encryption key securely.
+The login dialog requires an operator username and strong password. Production must use an exact merchant HTTPS origin in `CORS_ORIGINS` and keep automatic operator bootstrap disabled.
 
 ## Build
 

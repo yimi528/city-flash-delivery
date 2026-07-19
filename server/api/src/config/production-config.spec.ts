@@ -12,7 +12,6 @@ const validConfig: Record<string, string> = {
   WECHAT_MINI_APP_SECRET: 'secret',
   WECHAT_LOGIN_MOCK_ENABLED: 'false',
   OPERATOR_BOOTSTRAP_ENABLED: 'false',
-  OPERATOR_TOTP_ENCRYPTION_KEY: 'a-different-secure-random-key-for-totp-encryption',
   WECHAT_PAY_MODE: 'wechat',
   WECHAT_PAY_MOCK_ENABLED: 'false',
   WECHAT_PAY_MCH_ID: '1900000001',

@@ -77,22 +77,21 @@ function LoginDialog({
 }: {
   open: boolean
   loading: boolean
-  onLogin: (username: string, password: string, totpCode: string) => void
+  onLogin: (username: string, password: string) => void
   onClose: () => void
 }) {
   const [username, setUsername] = useState(() => localStorage.getItem('merchantUsername') || '')
   const [password, setPassword] = useState('')
-  const [totpCode, setTotpCode] = useState('')
   if (!open) return null
   return (
     <div className="login-overlay" role="presentation">
       <form className="login-dialog" role="dialog" aria-modal="true" aria-labelledby="operator-login-title" onSubmit={(event) => {
         event.preventDefault()
-        onLogin(username.trim(), password, totpCode.trim())
+        onLogin(username.trim(), password)
       }}>
         <div className="login-heading">
           <div className="login-symbol">盾</div>
-          <div><strong id="operator-login-title">商家安全登录</strong><span>密码与动态验证码双重验证</span></div>
+          <div><strong id="operator-login-title">商家安全登录</strong><span>使用运营账号与强密码登录</span></div>
         </div>
         <label className="login-field">
           <span>用户名</span>
@@ -102,12 +101,8 @@ function LoginDialog({
           <span>强密码</span>
           <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" required placeholder="请输入登录密码" />
         </label>
-        <label className="login-field">
-          <span>TOTP 动态验证码</span>
-          <input className="totp-input" value={totpCode} onChange={(event) => setTotpCode(event.target.value.replace(/\D/g, '').slice(0, 6))} autoComplete="one-time-code" inputMode="numeric" pattern="\d{6}" maxLength={6} required placeholder="6 位动态验证码" />
-        </label>
-        <p className="login-security-note">请打开身份验证器获取当前验证码。连续失败 5 次，账号将锁定 15 分钟。</p>
-        <button className="login-submit" type="submit" disabled={loading || !username.trim() || !password || totpCode.length !== 6}>
+        <p className="login-security-note">密码至少 12 位，并包含大小写字母、数字和特殊字符。连续失败 5 次，账号将锁定 15 分钟。</p>
+        <button className="login-submit" type="submit" disabled={loading || !username.trim() || !password}>
           {loading ? '正在安全验证…' : '登录商家后台'}
         </button>
         <button className="login-cancel" type="button" onClick={onClose}>暂不登录</button>
@@ -640,14 +635,14 @@ export function OperationsApp() {
     }
   }, [notifyNewActionableOrders, operatorId, showToast])
 
-  const loginOperator = useCallback(async (username: string, password: string, totpCode: string) => {
+  const loginOperator = useCallback(async (username: string, password: string) => {
     const cleanBase = apiBase.replace(/\/$/, '') || DEFAULT_API_BASE
     setApiBase(cleanBase)
     localStorage.setItem('merchantApiBase', cleanBase)
     localStorage.setItem('merchantUsername', username)
     setLoggingIn(true)
     try {
-      const session = await new OperationsApi(cleanBase, '').login(username, password, totpCode)
+      const session = await new OperationsApi(cleanBase, '').login(username, password)
       await completeOperatorLogin(session, cleanBase)
     } catch (error) {
       setLoggingIn(false)

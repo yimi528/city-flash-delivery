@@ -2,7 +2,6 @@ import {
   BadGatewayException,
   ForbiddenException,
   Injectable,
-  ServiceUnavailableException,
   UnauthorizedException,
 } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
@@ -12,7 +11,6 @@ import { UserRole, RoleStatus } from '@prisma/client'
 import { AuthTokenService } from './auth-token.service'
 import { ChangePasswordDto, OperatorLoginDto, WechatLoginDto } from './auth.dto'
 import { AuditService } from '../audit/audit.service'
-import { decryptTotpSecret, encryptTotpSecret, verifyTotp } from './totp'
 
 type CodeSessionResponse = {
   openid?: string
@@ -93,26 +91,10 @@ export class AuthService {
     if (!operator.enabled || !this.verifyPassword(dto.password, operator.passwordHash)) {
       return this.recordFailedOperatorLogin(operator, dto.username)
     }
-    if (!operator.totpSecretEncrypted) throw new ServiceUnavailableException('运营账号尚未配置 TOTP 二次验证')
-    let totpSecret = ''
-    try {
-      totpSecret = decryptTotpSecret(operator.totpSecretEncrypted, this.required('OPERATOR_TOTP_ENCRYPTION_KEY'))
-    } catch {
-      throw new ServiceUnavailableException('运营账号 TOTP 配置不可用，请联系管理员')
-    }
-    const totpCounter = verifyTotp(totpSecret, dto.totpCode)
-    if (totpCounter === null) return this.recordFailedOperatorLogin(operator, dto.username)
-    const updated = await this.prisma.operator.updateMany({
-      where: {
-        id: operator.id,
-        OR: [{ lastTotpCounter: null }, { lastTotpCounter: { lt: totpCounter } }],
-      },
-      data: { lastLoginAt: new Date(), failedLoginCount: 0, lockedUntil: null, lastTotpCounter: totpCounter },
+    await this.prisma.operator.update({
+      where: { id: operator.id },
+      data: { lastLoginAt: new Date(), failedLoginCount: 0, lockedUntil: null },
     })
-    if (!updated.count) {
-      await this.audit.record({ action: 'operator.login.totp-replayed', resourceType: 'operator', resourceId: operator.id })
-      throw new UnauthorizedException('动态验证码已使用，请等待验证码更新')
-    }
     await this.audit.record({ action: 'operator.login.succeeded', actorId: operator.id, actorRole: 'operator', resourceType: 'operator', resourceId: operator.id })
     return {
       token: this.tokens.sign(operator.id, 'operator'),
@@ -243,28 +225,19 @@ export class AuthService {
     })
   }
 
-  private required(key: string) {
-    const value = this.config.get<string>(key) || ''
-    if (!value) throw new ServiceUnavailableException(`${key} must be configured`)
-    return value
-  }
-
   private async findOrBootstrapOperator(username: string, password: string) {
     const existing = await this.prisma.operator.findUnique({ where: { username } })
     const bootstrapUsername = this.config.get<string>('OPERATOR_BOOTSTRAP_USERNAME') || 'operator-demo'
     const bootstrapPassword = this.config.get<string>('OPERATOR_BOOTSTRAP_PASSWORD') || ''
-    const bootstrapTotpSecret = this.config.get<string>('OPERATOR_BOOTSTRAP_TOTP_SECRET') || ''
     const bootstrapEnabled = this.isDevelopmentMockEnabled('OPERATOR_BOOTSTRAP_ENABLED')
     if (existing) {
-      if (bootstrapEnabled && username === bootstrapUsername && password === bootstrapPassword && (!existing.passwordHash || !existing.totpSecretEncrypted)) {
+      if (bootstrapEnabled && username === bootstrapUsername && password === bootstrapPassword && !existing.passwordHash) {
         return this.prisma.operator.update({
           where: { id: existing.id },
           data: {
             passwordHash: this.hashPassword(password),
-            totpSecretEncrypted: existing.totpSecretEncrypted || this.encryptConfiguredTotpSecret(bootstrapTotpSecret),
             failedLoginCount: 0,
             lockedUntil: null,
-            lastTotpCounter: null,
           },
         })
       }
@@ -277,18 +250,8 @@ export class AuthService {
         username,
         name: this.config.get<string>('OPERATOR_BOOTSTRAP_NAME') || '同城速送运营员',
         passwordHash: this.hashPassword(password),
-        totpSecretEncrypted: this.encryptConfiguredTotpSecret(bootstrapTotpSecret),
       },
     })
-  }
-
-  private encryptConfiguredTotpSecret(secret: string) {
-    if (!secret) throw new ServiceUnavailableException('本地运营账号尚未配置 TOTP 密钥')
-    try {
-      return encryptTotpSecret(secret, this.required('OPERATOR_TOTP_ENCRYPTION_KEY'))
-    } catch {
-      throw new ServiceUnavailableException('本地运营账号 TOTP 配置无效')
-    }
   }
 
   private async recordFailedOperatorLogin(
@@ -303,7 +266,7 @@ export class AuthService {
       })
     }
     await this.audit.record({ action: 'operator.login.failed', resourceType: 'operator', resourceId: operator?.id, metadata: { username } })
-    throw new UnauthorizedException('账号、密码或动态验证码错误')
+    throw new UnauthorizedException('账号或密码错误')
   }
 
   private hashPassword(password: string) {

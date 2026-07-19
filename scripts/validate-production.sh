@@ -43,17 +43,11 @@ printf '\n[生产验收] 环境与凭证\n'
 [[ "$(value WECHAT_LOGIN_MOCK_ENABLED)" == "false" ]] || fail '正式环境必须关闭登录 Mock'
 [[ "$(value ENABLE_SWAGGER)" == "false" ]] || fail '正式环境应关闭 Swagger'
 
-for key in API_IMAGE API_MIGRATION_IMAGE MERCHANT_IMAGE API_DOMAIN DATABASE_URL REDIS_URL WECHAT_MINI_APP_ID WECHAT_MINI_APP_SECRET OPERATOR_TOTP_ENCRYPTION_KEY TENCENT_MAP_KEY; do
+for key in API_IMAGE API_MIGRATION_IMAGE MERCHANT_IMAGE API_DOMAIN DATABASE_URL REDIS_URL WECHAT_MINI_APP_ID WECHAT_MINI_APP_SECRET TENCENT_MAP_KEY; do
   required_value "$key"
 done
 
 [[ "$(value OPERATOR_BOOTSTRAP_ENABLED)" == "false" ]] || fail '正式环境必须关闭运营账号自动初始化'
-totp_encryption_key="$(value OPERATOR_TOTP_ENCRYPTION_KEY)"
-if (( ${#totp_encryption_key} < 32 )) || [[ "$totp_encryption_key" =~ replace|change-me ]]; then
-  fail 'OPERATOR_TOTP_ENCRYPTION_KEY 必须是至少 32 字符的随机密钥'
-else
-  pass 'TOTP 加密密钥长度符合要求'
-fi
 
 ops_domain="$(value OPS_DOMAIN)"
 if [[ -z "$ops_domain" || "$ops_domain" == "_" ]]; then

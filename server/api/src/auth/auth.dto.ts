@@ -27,9 +27,6 @@ export class OperatorLoginDto {
   @IsNotEmpty()
   password!: string
 
-  @IsString()
-  @Matches(/^\d{6}$/, { message: '动态验证码必须是 6 位数字' })
-  totpCode!: string
 }
 
 export class ChangePasswordDto {
