@@ -63,25 +63,14 @@ function serviceProgressText(service: string, status: string) {
 
 export function actionLabel(status: string, service = '') {
   if (status === '待接单') return '接单'
-  if (status === '已接单') {
-    if (['搬运', '装卸', '搬家', '搬店'].some((keyword) => service.includes(keyword))) return '开始上门'
-    if (['拼车', '送客'].some((keyword) => service.includes(keyword))) return '前往上车点'
-    return '前往取货'
-  }
-  if (status === '取货中') {
-    if (['搬运', '装卸', '搬家', '搬店'].some((keyword) => service.includes(keyword))) return '开始搬运'
-    if (['拼车', '送客'].some((keyword) => service.includes(keyword))) return '开始行程'
-    return '开始配送'
-  }
-  if (status === '配送中') return '完成订单'
   return ''
 }
 
 export function statusClass(status: string) {
   if (status === '待支付') return 'payment'
   if (status === '待商家报价' || status === '待确认报价') return 'ready'
-  if (status === '待接单') return 'hot'
-  if (['取货中', '配送中', '前往取货', '上门途中', '搬运中', '前往上车点', '行程中'].includes(status)) return 'ready'
+  if (status === '待商家接单') return 'hot'
+  if (['待骑手接单', '取货中', '配送中', '前往取货', '上门途中', '搬运中', '前往上车点', '行程中', '已到达取货点', '已到达上车点', '已到达服务地点'].includes(status)) return 'ready'
   if (status === '已完成') return 'done'
   return ''
 }
@@ -174,8 +163,8 @@ export function normalizeOrder(order: ApiOrder): Order {
 
 export function calcStats(orders: Order[]): Stats {
   return {
-    pending: orders.filter((item) => item.displayStatus === '待接单').length,
-    preparing: orders.filter((item) => item.status === '已接单').length,
+    pending: orders.filter((item) => item.displayStatus === '待商家接单').length,
+    preparing: orders.filter((item) => item.displayStatus === '待骑手接单').length,
     ready: orders.filter((item) => item.status === '取货中').length,
     delivering: orders.filter((item) => item.status === '配送中').length,
     todayOrders: orders.length,

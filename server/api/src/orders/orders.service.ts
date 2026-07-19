@@ -354,6 +354,9 @@ export class OrdersService {
     if (status !== PrismaOrderStatus.CANCELLED && status !== expectedStatus) {
       throw new ConflictException('订单状态必须按接单、取货、配送、完成的顺序更新')
     }
+    if (order.status === PrismaOrderStatus.ACCEPTED && status === PrismaOrderStatus.PICKING_UP) {
+      throw new ConflictException('商家已接单，请等待骑手抢单或由运营指派骑手')
+    }
     const isProgressing =
       status !== PrismaOrderStatus.PENDING && status !== PrismaOrderStatus.CANCELLED
     if (order.isManualQuote && order.quoteStatus !== PrismaQuoteStatus.ACCEPTED && isProgressing) {
@@ -592,11 +595,11 @@ export class OrdersService {
     }
 
     const fulfillmentStatuses: Record<PrismaOrderStatus, { code: string; text: string }> = {
-      [PrismaOrderStatus.PENDING]: { code: 'PENDING', text: '待接单' },
-      [PrismaOrderStatus.ACCEPTED]: { code: 'ACCEPTED', text: '已接单' },
+      [PrismaOrderStatus.PENDING]: { code: 'AWAITING_MERCHANT_ACCEPTANCE', text: '待商家接单' },
+      [PrismaOrderStatus.ACCEPTED]: { code: 'AWAITING_RIDER_ACCEPTANCE', text: '待骑手接单' },
       [PrismaOrderStatus.PICKING_UP]: {
-        code: 'PICKING_UP',
-        text: this.serviceProgressText(order.serviceName, 'pickup'),
+        code: order.arrivedAt ? 'ARRIVED' : 'PICKING_UP',
+        text: order.arrivedAt ? this.serviceProgressText(order.serviceName, 'arrived') : this.serviceProgressText(order.serviceName, 'pickup'),
       },
       [PrismaOrderStatus.DELIVERING]: {
         code: 'DELIVERING',
@@ -608,10 +611,11 @@ export class OrdersService {
     return fulfillmentStatuses[order.status]
   }
 
-  private serviceProgressText(serviceName: string, stage: 'pickup' | 'delivery') {
+  private serviceProgressText(serviceName: string, stage: 'pickup' | 'arrived' | 'delivery') {
     const name = serviceName || ''
     const isMoving = ['搬运', '装卸', '搬家', '搬店'].some((keyword) => name.includes(keyword))
     const isPassenger = ['拼车', '送客'].some((keyword) => name.includes(keyword))
+    if (stage === 'arrived') return isMoving ? '已到达服务地点' : isPassenger ? '已到达上车点' : '已到达取货点'
     if (isMoving) return stage === 'pickup' ? '上门途中' : '搬运中'
     if (isPassenger) return stage === 'pickup' ? '前往上车点' : '行程中'
     return stage === 'pickup' ? '前往取货' : '配送中'

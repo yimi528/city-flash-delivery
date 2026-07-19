@@ -351,6 +351,7 @@ h1 {
 
 .primary-btn,
 .ghost-btn,
+.sound-btn,
 .action-btn,
 .light-btn,
 .quote-btn {
@@ -364,6 +365,7 @@ h1 {
 
 .primary-btn:active,
 .ghost-btn:active,
+.sound-btn:active,
 .action-btn:not(:disabled):active,
 .light-btn:active,
 .quote-btn:not(:disabled):active,
@@ -382,6 +384,48 @@ h1 {
   color: var(--primary);
   border-color: var(--line-strong);
   background: var(--paper);
+}
+
+.sound-btn {
+  height: 42px;
+  padding: 0 13px;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  color: var(--muted);
+  background: var(--paper);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 850;
+  white-space: nowrap;
+  transition: transform 140ms var(--ease-out), color 150ms ease, background-color 150ms ease, border-color 150ms ease;
+}
+
+.sound-btn.on {
+  color: #176843;
+  border-color: #b9ddca;
+  background: #edf8f2;
+}
+
+.sound-glyph {
+  width: 14px;
+  height: 14px;
+  position: relative;
+  border: 2px solid currentColor;
+  border-radius: 50%;
+}
+
+.sound-glyph::before {
+  content: '';
+  width: 2px;
+  height: 6px;
+  position: absolute;
+  left: 4px;
+  top: 2px;
+  border-radius: 2px;
+  background: currentColor;
+  box-shadow: 4px 0 0 currentColor;
 }
 
 
@@ -1330,6 +1374,7 @@ h1 {
   .quote-btn:hover,
   .action-btn:not(:disabled):hover { background: var(--primary-strong); transform: translateY(-1px); }
   .ghost-btn:hover { border-color: var(--primary); transform: translateY(-1px); }
+  .sound-btn:hover { color: var(--primary); border-color: var(--primary); transform: translateY(-1px); }
   .light-btn:hover { border-color: #879691; transform: translateY(-1px); }
   .filter-btn:hover { background: #eee9df; }
   .filter-btn:active { transform: scale(0.97); }

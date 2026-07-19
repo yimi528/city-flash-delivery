@@ -10,8 +10,9 @@ import {
 } from './api'
 import type { Order, RiderApplication, Stats, Store } from './types'
 import { PricingWorkspace, ServiceAreasWorkspace, SystemSettingsWorkspace } from './ConfigWorkspaces'
+import { NewOrderAlert } from './newOrderAlert'
 
-const orderFilters = ['全部', '待商家报价', '待确认报价', '待支付', '待接单', '已接单', '进行中', '已完成', '已取消']
+const orderFilters = ['全部', '待商家接单', '待骑手接单', '待商家报价', '待确认报价', '待支付', '进行中', '已完成', '已取消']
 const PAGE_SIZE = 5
 
 function dateValue(value?: string) {
@@ -132,9 +133,9 @@ function Sidebar({ activeView, pendingRiderCount, onNavigate }: { activeView: st
           <b>4 步</b>
         </div>
         <ol className="fulfillment-flow" aria-label="标准履约流程">
-          <li className="flow-step"><span>01</span><strong>接单</strong></li>
-          <li className="flow-step"><span>02</span><strong>上门</strong></li>
-          <li className="flow-step"><span>03</span><strong>服务</strong></li>
+          <li className="flow-step"><span>01</span><strong>商家接单</strong></li>
+          <li className="flow-step"><span>02</span><strong>骑手接单</strong></li>
+          <li className="flow-step"><span>03</span><strong>上门服务</strong></li>
           <li className="flow-step"><span>04</span><strong>完成</strong></li>
         </ol>
       </div>
@@ -176,8 +177,8 @@ function StorePanel({ store, connected, healthText }: { store: Store | null; con
 function StatsGrid({ stats }: { stats: Stats }) {
   return (
     <section className="stats-grid" aria-label="今日概览">
-      <article className="stat-card hot"><span>待接单</span><strong>{stats.pending}</strong></article>
-      <article className="stat-card"><span>已接单</span><strong>{stats.preparing}</strong></article>
+      <article className="stat-card hot"><span>待商家接单</span><strong>{stats.pending}</strong></article>
+      <article className="stat-card"><span>待骑手接单</span><strong>{stats.preparing}</strong></article>
       <article className="stat-card"><span>服务中</span><strong>{Number(stats.ready) + Number(stats.delivering)}</strong></article>
       <article className="stat-card"><span>今日订单</span><strong>{stats.todayOrders}</strong></article>
       <article className="stat-card"><span>金额合计</span><strong>￥{stats.revenue}</strong></article>
@@ -398,7 +399,7 @@ function OrderCard({
             ? '已完成'
             : isCancelled
               ? '已取消'
-              : order.actionText || (isWaitingPayment && !order.needsQuote && !order.awaitingQuoteConfirmation ? '待支付' : order.awaitingQuoteConfirmation ? '待确认报价' : '待商家报价')}
+              : order.actionText || (isWaitingPayment && !order.needsQuote && !order.awaitingQuoteConfirmation ? '待支付' : order.awaitingQuoteConfirmation ? '待确认报价' : order.displayStatus)}
         </button>
       </div>
     </article>
@@ -506,9 +507,15 @@ export function OperationsApp() {
   const [refreshing, setRefreshing] = useState(false)
   const [dataError, setDataError] = useState('')
   const [toast, setToast] = useState('')
+  const [soundEnabled, setSoundEnabled] = useState(() => localStorage.getItem('merchantNewOrderSound') !== 'off')
+  const [soundArmed, setSoundArmed] = useState(false)
   const [healthText, setHealthText] = useState('请先启动 NestJS 后端：cd server/api && npm run start:dev')
   const toastTimer = useRef(0)
   const refreshingRef = useRef(false)
+  const orderAlertRef = useRef(new NewOrderAlert())
+  const seenActionableOrderIdsRef = useRef<Set<string> | null>(null)
+  const soundEnabledRef = useRef(soundEnabled)
+  const soundArmedRef = useRef(false)
 
   const api = useMemo(() => new OperationsApi(apiBase.replace(/\/$/, ''), token), [apiBase, token])
   const stats = useMemo(() => calcStats(orders), [orders])
@@ -525,6 +532,44 @@ export function OperationsApp() {
     toastTimer.current = window.setTimeout(() => setToast(''), 2200)
   }, [])
 
+  const armOrderSound = useCallback(async (preview = false) => {
+    const armed = await orderAlertRef.current.arm().catch(() => false)
+    soundArmedRef.current = armed
+    setSoundArmed(armed)
+    if (armed && preview) orderAlertRef.current.play()
+    return armed
+  }, [])
+
+  const toggleOrderSound = useCallback(async () => {
+    if (!soundEnabled || !soundArmed) {
+      localStorage.setItem('merchantNewOrderSound', 'on')
+      soundEnabledRef.current = true
+      setSoundEnabled(true)
+      const armed = await armOrderSound(true)
+      showToast(armed ? '新单提示音已开启' : '浏览器阻止了声音，请检查网站声音权限')
+      return
+    }
+    localStorage.setItem('merchantNewOrderSound', 'off')
+    soundEnabledRef.current = false
+    setSoundEnabled(false)
+    showToast('新单提示音已静音')
+  }, [armOrderSound, showToast, soundArmed, soundEnabled])
+
+  const notifyNewActionableOrders = useCallback((nextOrders: Order[]) => {
+    const actionable = nextOrders.filter((order) => order.displayStatus === '待商家接单' || order.needsQuote)
+    const nextIds = new Set(actionable.map((order) => order.id))
+    const seen = seenActionableOrderIdsRef.current
+    if (seen === null) {
+      seenActionableOrderIdsRef.current = nextIds
+      return
+    }
+    const fresh = actionable.filter((order) => !seen.has(order.id))
+    nextIds.forEach((id) => seen.add(id))
+    if (!fresh.length) return
+    const played = soundEnabledRef.current && soundArmedRef.current && orderAlertRef.current.play()
+    showToast(`收到 ${fresh.length} 个新订单${played ? '，请及时处理' : '，请及时处理（提示音未启用）'}`)
+  }, [showToast])
+
   const loadDashboard = useCallback(async (silent = false) => {
     if (refreshingRef.current) return
     refreshingRef.current = true
@@ -532,6 +577,7 @@ export function OperationsApp() {
     try {
       const [payload, riderApplications, riderList] = await Promise.all([api.listOrders(), api.listRiderApplications(), api.listRiders()])
       const dashboard = normalizeDashboard(payload, operatorId)
+      notifyNewActionableOrders(dashboard.orders)
       setStore(dashboard.store)
       setOrders(dashboard.orders)
       setRiders(riderApplications)
@@ -550,7 +596,7 @@ export function OperationsApp() {
       refreshingRef.current = false
       setRefreshing(false)
     }
-  }, [api, operatorId, showToast])
+  }, [api, notifyNewActionableOrders, operatorId, showToast])
 
   const login = useCallback(async () => {
     const cleanBase = apiBase.replace(/\/$/, '') || DEFAULT_API_BASE
@@ -575,6 +621,7 @@ export function OperationsApp() {
       const sessionApi = new OperationsApi(cleanBase, nextToken)
       const [payload, riderApplications, riderList] = await Promise.all([sessionApi.listOrders(), sessionApi.listRiderApplications(), sessionApi.listRiders()])
       const dashboard = normalizeDashboard(payload, nextOperatorId)
+      notifyNewActionableOrders(dashboard.orders)
       setStore(dashboard.store)
       setOrders(dashboard.orders)
       setRiders(riderApplications)
@@ -591,7 +638,7 @@ export function OperationsApp() {
     } finally {
       setLoggingIn(false)
     }
-  }, [api, apiBase, operatorId, password, showToast, username])
+  }, [api, apiBase, notifyNewActionableOrders, operatorId, password, showToast, username])
 
   const logout = useCallback(() => {
     setToken('')
@@ -602,6 +649,7 @@ export function OperationsApp() {
     setStore(null)
     setConnected(false)
     setDataError('')
+    seenActionableOrderIdsRef.current = null
     sessionStorage.removeItem('merchantToken')
     localStorage.removeItem('merchantId')
     localStorage.removeItem('merchantName')
@@ -678,6 +726,19 @@ export function OperationsApp() {
   }, [loadDashboard, token])
 
   useEffect(() => {
+    soundEnabledRef.current = soundEnabled
+  }, [soundEnabled])
+
+  useEffect(() => {
+    if (!soundEnabled || soundArmed) return undefined
+    const armFromGesture = () => { void armOrderSound(false) }
+    window.addEventListener('pointerdown', armFromGesture, { once: true, capture: true })
+    return () => window.removeEventListener('pointerdown', armFromGesture, { capture: true })
+  }, [armOrderSound, soundArmed, soundEnabled])
+
+  useEffect(() => () => orderAlertRef.current.dispose(), [])
+
+  useEffect(() => {
     const onHashChange = () => setView(window.location.hash.replace(/^#/, '') || 'orders')
     window.addEventListener('hashchange', onHashChange)
     return () => window.removeEventListener('hashchange', onHashChange)
@@ -701,6 +762,10 @@ export function OperationsApp() {
               <span>服务地址</span>
               <input value={apiBase} aria-label="API 地址" onChange={(event) => setApiBase(event.target.value)} />
             </label>
+            <button className={`sound-btn ${soundEnabled && soundArmed ? 'on' : ''}`} type="button" onClick={toggleOrderSound} aria-pressed={soundEnabled && soundArmed} title="新订单到达时播放短提示音">
+              <span className="sound-glyph" aria-hidden="true" />
+              {soundEnabled ? (soundArmed ? '提示音已开启' : '启用提示音') : '提示音已静音'}
+            </button>
             <button className="ghost-btn" type="button" onClick={token ? logout : () => setShowLogin(true)}>{token ? `${operatorName || '运营员'} · 退出` : '登录'}</button>
             <button className="primary-btn" type="button" onClick={() => loadDashboard(false)} disabled={refreshing}>
               {refreshing ? '刷新中' : '刷新'}

@@ -146,7 +146,7 @@ test('customer order status follows quote, payment, then fulfillment lifecycle',
   assert.equal(awaitingPayment.displayStatus, '待支付')
   assert.equal(awaitingPayment.eta, '请完成支付后安排服务')
   assert.equal(awaitingPayment.rider, '等待用户支付')
-  assert.equal(awaitingAcceptance.displayStatus, '待接单')
+  assert.equal(awaitingAcceptance.displayStatus, '待商家接单')
 })
 
 test('customer progress labels match the selected service', () => {

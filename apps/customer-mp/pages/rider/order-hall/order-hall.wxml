@@ -14,6 +14,12 @@
       <button wx:elif="{{rider}}" class="online-btn on" bindtap="toggleOnline"><text class="online-dot"></text><text>收工</text></button>
     </view>
 
+    <button class="sound-toggle {{soundEnabled ? 'on' : ''}}" bindtap="toggleSound" aria-label="切换新订单提示音">
+      <view class="sound-icon"><text></text><text></text></view>
+      <view><text>新单提醒</text><text>{{soundEnabled ? '声音已开启' : '当前已静音'}}</text></view>
+      <view class="sound-switch"><text></text></view>
+    </button>
+
     <view class="hero-stats" wx:if="{{rider}}">
       <view class="stat"><text>{{orders.length}}</text><view>附近可抢</view></view>
       <view class="stat-divider"></view>

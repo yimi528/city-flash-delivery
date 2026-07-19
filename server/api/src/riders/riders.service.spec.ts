@@ -19,7 +19,7 @@ describe('RidersService atomic claim', () => {
     const order = {
       id: 'order-1',
       orderNo: 'N1',
-      status: OrderStatus.PENDING,
+      status: OrderStatus.ACCEPTED,
       paymentStatus: PaymentStatus.PAID,
       riderId: null,
       version: 0,
@@ -58,6 +58,47 @@ describe('RidersService atomic claim', () => {
     expect(results.filter((result) => result.status === 'rejected')).toHaveLength(99)
     expect(tx.orderAssignment.create).toHaveBeenCalledTimes(1)
     expect(tx.outboxEvent.create).toHaveBeenCalledTimes(1)
+    expect(tx.order.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ status: OrderStatus.ACCEPTED }),
+    }))
+  })
+
+  it('rejects a rider claim before the merchant accepts the order', async () => {
+    const rider = {
+      id: 'rider-1',
+      status: RiderStatus.APPROVED,
+      enabled: true,
+      online: true,
+      vehicleType: VehicleType.ETRIKE,
+      handlingQualified: true,
+      maxActiveOrders: 1,
+      qualifications: [],
+    }
+    const order = {
+      id: 'order-1',
+      orderNo: 'N1',
+      status: OrderStatus.PENDING,
+      paymentStatus: PaymentStatus.PAID,
+      riderId: null,
+      version: 0,
+      vehicleType: VehicleType.ETRIKE,
+      taskId: 'cargo_haul',
+      isManualQuote: false,
+      quoteStatus: QuoteStatus.NONE,
+    }
+    const tx = {
+      riderIdempotency: { findUnique: jest.fn().mockResolvedValue(null) },
+      order: { count: jest.fn().mockResolvedValue(0), findFirst: jest.fn().mockResolvedValue(order), updateMany: jest.fn() },
+    }
+    const prisma = {
+      riderProfile: { findUnique: jest.fn().mockResolvedValue(rider) },
+      $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)),
+    }
+    const service = new RidersService(prisma as never, { get: jest.fn().mockReturnValue('30') } as never)
+
+    await expect(service.claim(rider.id, order.id, 'claim-before-merchant'))
+      .rejects.toThrow('商家先接单')
+    expect(tx.order.updateMany).not.toHaveBeenCalled()
   })
 
   it('records a presence heartbeat separately from the last known location', async () => {

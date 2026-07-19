@@ -1,5 +1,5 @@
-const ORDER_STATUS_FLOW = ['待接单', '已接单', '取货中', '配送中', '已完成']
-const MERCHANT_STATUS_FLOW = ['待接单', '备货中', '待骑手取货', '已交付']
+const ORDER_STATUS_FLOW = ['待商家接单', '待骑手接单', '前往履约地点', '服务中', '已完成']
+const MERCHANT_STATUS_FLOW = ORDER_STATUS_FLOW
 const APP_ROLES = {
   CUSTOMER: 'customer',
   MERCHANT: 'merchant',

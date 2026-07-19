@@ -185,9 +185,21 @@ describe('OrdersService quote confirmation', () => {
       businessStatusText: '待支付',
     }))
     expect(awaitingAcceptance).toEqual(expect.objectContaining({
-      businessStatus: 'PENDING',
-      businessStatusText: '待接单',
+      businessStatus: 'AWAITING_MERCHANT_ACCEPTANCE',
+      businessStatusText: '待商家接单',
     }))
+  })
+
+  it('requires a rider claim after merchant acceptance', async () => {
+    const accepted = {
+      ...manualQuoteOrder(QuoteStatus.ACCEPTED),
+      status: OrderStatus.ACCEPTED,
+    }
+    orderApi.findFirst.mockResolvedValue(accepted)
+
+    await expect(service.updateStatus(accepted.id, { status: OrderStatus.PICKING_UP }))
+      .rejects.toThrow('等待骑手抢单')
+    expect(orderApi.update).not.toHaveBeenCalled()
   })
 
   it('uses service-specific progress labels without changing persisted statuses', async () => {
@@ -291,26 +303,24 @@ describe('OrdersService quote confirmation', () => {
       .rejects.toThrow('收货地址必须包含有效坐标')
   })
 
-  it('advances through the complete fulfillment flow in order', async () => {
+  it('lets the merchant accept, then leaves fulfillment progress to the rider', async () => {
     const base = manualQuoteOrder(QuoteStatus.ACCEPTED)
-    const statuses = [
-      OrderStatus.PENDING,
-      OrderStatus.ACCEPTED,
-      OrderStatus.PICKING_UP,
-      OrderStatus.DELIVERING,
-      OrderStatus.COMPLETED,
+    const transitions = [
+      [OrderStatus.PENDING, OrderStatus.ACCEPTED],
+      [OrderStatus.PICKING_UP, OrderStatus.DELIVERING],
+      [OrderStatus.DELIVERING, OrderStatus.COMPLETED],
     ]
-    for (let index = 0; index < statuses.length - 1; index += 1) {
-      orderApi.findFirst.mockResolvedValueOnce({ ...base, status: statuses[index] })
-      orderApi.update.mockResolvedValueOnce({ ...base, status: statuses[index + 1] })
+    for (const [current, next] of transitions) {
+      orderApi.findFirst.mockResolvedValueOnce({ ...base, status: current })
+      orderApi.update.mockResolvedValueOnce({ ...base, status: next })
     }
 
-    for (let index = 1; index < statuses.length; index += 1) {
-      const result = await service.updateStatus(base.id, { status: statuses[index] })
-      expect(result.status).toBe(statuses[index])
+    for (const [, next] of transitions) {
+      const result = await service.updateStatus(base.id, { status: next })
+      expect(result.status).toBe(next)
     }
 
-    expect(orderApi.update).toHaveBeenCalledTimes(4)
+    expect(orderApi.update).toHaveBeenCalledTimes(3)
   })
 
   it('copies a merchant quote into the final delivery fee', async () => {

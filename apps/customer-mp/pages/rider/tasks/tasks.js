@@ -10,15 +10,21 @@ const RIDER_PAGES = {
 function decorateTask(task) {
   const isPickingUp = task.status === 'PICKING_UP'
   const isArrived = Boolean(task.arrivedAt)
-  const statusText = isPickingUp ? (isArrived ? '已到达' : '前往取货') : '服务进行中'
+  const serviceName = String(task.serviceName || '')
+  const isMoving = ['搬运', '装卸', '搬家', '搬店'].some((keyword) => serviceName.indexOf(keyword) !== -1)
+  const isPassenger = ['拼车', '送客'].some((keyword) => serviceName.indexOf(keyword) !== -1)
+  const pickupText = isMoving ? '上门途中' : (isPassenger ? '前往上车点' : '前往取货')
+  const arrivedText = isMoving ? '已到达服务地点' : (isPassenger ? '已到达上车点' : '已到达取货点')
+  const deliveryText = isMoving ? '搬运中' : (isPassenger ? '行程中' : '配送中')
+  const statusText = isPickingUp ? (isArrived ? arrivedText : pickupText) : deliveryText
   const statusHint = isPickingUp
-    ? (isArrived ? '已到达履约地点，可开始服务' : '请先前往取货或上门地址')
+    ? (isArrived ? '已到达履约地点，可开始服务' : `请${pickupText}`)
     : '请按订单要求完成配送或服务'
   return Object.assign({}, task, {
     statusText,
     statusHint,
     nextActionText: isPickingUp ? (isArrived ? '开始服务/配送' : '确认到达') : '确认完成',
-    navigateLabel: isPickingUp ? '导航去取货' : '导航去送达',
+    navigateLabel: isPickingUp ? (isPassenger ? '导航去上车点' : isMoving ? '导航去服务地点' : '导航去取货') : '导航去送达',
     navigateLat: isPickingUp ? task.pickupLat : (task.dropoffLat || task.pickupLat),
     navigateLng: isPickingUp ? task.pickupLng : (task.dropoffLng || task.pickupLng),
     contactPhone: isPickingUp ? task.pickupPhone : (task.dropoffPhone || task.pickupPhone)

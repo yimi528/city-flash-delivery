@@ -5,7 +5,7 @@ import { OrderStatus, Prisma, QuoteStatus, RiderStatus, RoleStatus, RiderWorkSta
 import { PrismaService } from '../common/prisma/prisma.service'
 import { AssignRiderDto, ReviewRiderDto, RiderApplicationDto, RiderExceptionDto, RiderHeartbeatDto, RiderLocationDto, RiderStatusDto, RiderVehicleUpdateDto } from './riders.dto'
 
-const ACTIVE_STATUSES: OrderStatus[] = [OrderStatus.ACCEPTED, OrderStatus.PICKING_UP, OrderStatus.DELIVERING]
+const ACTIVE_STATUSES: OrderStatus[] = [OrderStatus.PICKING_UP, OrderStatus.DELIVERING]
 
 @Injectable()
 export class RidersService {
@@ -365,7 +365,7 @@ export class RidersService {
     if (!vehicleTypes.length && !rider.handlingQualified) return []
     const orders = await this.prisma.order.findMany({
       where: {
-        status: OrderStatus.PENDING,
+        status: OrderStatus.ACCEPTED,
         paymentStatus: 'PAID',
         riderId: null,
         ...(qualifications.length ? { taskId: { in: qualifications } } : {}),
@@ -402,7 +402,7 @@ export class RidersService {
       const updated = await tx.order.updateMany({
         where: {
           id: order.id,
-          status: OrderStatus.PENDING,
+          status: OrderStatus.ACCEPTED,
           paymentStatus: 'PAID',
           riderId: null,
           version: order.version,
@@ -508,7 +508,7 @@ export class RidersService {
       if (!order) throw new NotFoundException('订单不存在')
       await this.assertMatches(tx, rider, order)
       const updated = await tx.order.updateMany({
-        where: { id: order.id, status: OrderStatus.PENDING, riderId: null, paymentStatus: 'PAID' },
+        where: { id: order.id, status: OrderStatus.ACCEPTED, riderId: null, paymentStatus: 'PAID' },
         data: { riderId: rider.id, status: OrderStatus.PICKING_UP, acceptedAt: new Date(), version: { increment: 1 } },
       })
       if (updated.count !== 1) throw new ConflictException('订单已被接单或当前不可指派')
@@ -565,7 +565,9 @@ export class RidersService {
   }
 
   private async assertMatches(tx: Prisma.TransactionClient, rider: Awaited<ReturnType<RidersService['findRider']>>, order: Prisma.OrderGetPayload<object>) {
-    if (order.status !== OrderStatus.PENDING || order.paymentStatus !== 'PAID' || order.riderId) throw new ConflictException('订单当前不可接')
+    if (order.status !== OrderStatus.ACCEPTED || order.paymentStatus !== 'PAID' || order.riderId) {
+      throw new ConflictException('订单需由商家先接单，骑手才能抢单')
+    }
     if (order.isManualQuote && order.quoteStatus !== QuoteStatus.ACCEPTED) throw new ConflictException('用户尚未确认报价')
     const vehicleMatches = this.riderVehicleTypes(rider).includes(order.vehicleType as VehicleType) || (order.vehicleType === VehicleType.MANUAL && rider.handlingQualified)
     if (!vehicleMatches) throw new ForbiddenException('骑手车型与订单不匹配')

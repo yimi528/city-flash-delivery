@@ -23,6 +23,20 @@
 .online-btn.on { color: #c6423a; background: #fff; box-shadow: inset 0 0 0 2rpx #efc8c5; }
 .online-btn:active { opacity: .82; }
 .online-dot { width: 12rpx; height: 12rpx; border-radius: 50%; background: currentColor; }
+.sound-toggle { width: 100%; height: 68rpx; margin: 20rpx 0 0; padding: 0 18rpx; border: 2rpx solid #e5eaf1; border-radius: 20rpx; color: #778397; background: rgba(255,255,255,.78); display: flex; align-items: center; gap: 14rpx; text-align: left; transition: transform 140ms var(--ease-out), border-color 150ms ease, background-color 150ms ease; }
+.sound-toggle:active { transform: scale(.98); }
+.sound-toggle.on { color: #176843; border-color: #cbe6d8; background: #edf8f2; }
+.sound-toggle > view:nth-child(2) { min-width: 0; flex: 1; display: flex; align-items: baseline; gap: 12rpx; }
+.sound-toggle > view:nth-child(2) text:first-child { color: #273142; font-size: 21rpx; font-weight: 850; }
+.sound-toggle > view:nth-child(2) text:last-child { font-size: 18rpx; font-weight: 700; }
+.sound-icon { width: 31rpx; height: 31rpx; position: relative; flex: 0 0 auto; border: 3rpx solid currentColor; border-radius: 50%; }
+.sound-icon text { width: 3rpx; height: 11rpx; position: absolute; top: 7rpx; border-radius: 3rpx; background: currentColor; }
+.sound-icon text:first-child { left: 8rpx; }
+.sound-icon text:last-child { right: 8rpx; }
+.sound-switch { width: 52rpx; height: 30rpx; padding: 3rpx; flex: 0 0 auto; border-radius: 999rpx; background: #c7ced8; box-sizing: border-box; transition: background-color 150ms ease; }
+.sound-switch text { display: block; width: 24rpx; height: 24rpx; border-radius: 50%; background: #fff; box-shadow: 0 2rpx 7rpx rgba(0,0,0,.16); transform: translateX(0); transition: transform 160ms var(--ease-out); }
+.sound-toggle.on .sound-switch { background: #18a66a; }
+.sound-toggle.on .sound-switch text { transform: translateX(22rpx); }
 .hero-stats { margin-top: 28rpx; display: grid; grid-template-columns: repeat(3, 1fr); gap: 12rpx; }
 .stat { min-width: 0; padding: 18rpx 8rpx; border-radius: 20rpx; background: #f5f7fa; text-align: center; }
 .stat text { display: block; overflow: hidden; color: #182033; font-family: "DIN Alternate", sans-serif; font-size: 30rpx; font-weight: 900; text-overflow: ellipsis; white-space: nowrap; }
@@ -73,6 +87,6 @@
 .empty-title { margin-bottom: 5rpx; color: #303846; font-size: 25rpx; font-weight: 900; }
 
 @media (prefers-reduced-motion: reduce) {
-  .online-btn, .claim-btn { transition: opacity 120ms ease; }
-  .claim-btn:active { transform: none; }
+  .online-btn, .claim-btn, .sound-toggle, .sound-switch text { transition: opacity 120ms ease; }
+  .claim-btn:active, .sound-toggle:active { transform: none; }
 }

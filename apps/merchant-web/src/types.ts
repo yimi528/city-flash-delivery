@@ -4,6 +4,11 @@ export type DisplayStatusLabel =
   | '待商家报价'
   | '待确认报价'
   | '待支付'
+  | '待商家接单'
+  | '待骑手接单'
+  | '已到达取货点'
+  | '已到达上车点'
+  | '已到达服务地点'
   | '前往取货'
   | '上门途中'
   | '搬运中'
@@ -54,6 +59,7 @@ export type ApiOrder = {
   customerPhone?: string
   riderName?: string
   riderPhone?: string
+  arrivedAt?: string | null
   serviceType?: BackendService | string
   serviceName?: string
   service?: string

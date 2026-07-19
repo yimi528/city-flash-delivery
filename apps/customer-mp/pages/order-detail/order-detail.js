@@ -2,7 +2,7 @@ const app = getApp()
 const api = require('../../utils/api')
 
 const SYNC_INTERVAL_MS = 2000
-const fulfillmentStatusFlow = ['待接单', '已接单', '取货中', '配送中', '已完成']
+const fulfillmentStatusFlow = ['待商家接单', '待骑手接单', '取货中', '配送中', '已完成']
 const merchantStatusFlow = [
   { status: '待接单', label: '接单' },
   { status: '备货中', label: '备货' },
@@ -60,8 +60,9 @@ function getStatusFlow(order) {
   const isMoving = ['搬运', '装卸', '搬家', '搬店'].some((keyword) => service.indexOf(keyword) !== -1)
   const isPassenger = ['拼车', '送客'].some((keyword) => service.indexOf(keyword) !== -1)
   const pickupStatus = isMoving ? '上门途中' : (isPassenger ? '前往上车点' : '前往取货')
+  const arrivedStatus = isMoving ? '已到达服务地点' : (isPassenger ? '已到达上车点' : '已到达取货点')
   const deliveryStatus = isMoving ? '搬运中' : (isPassenger ? '行程中' : '配送中')
-  return ['待支付', '待接单', '已接单', pickupStatus, deliveryStatus, '已完成']
+  return ['待支付', '待商家接单', '待骑手接单', pickupStatus, arrivedStatus, deliveryStatus, '已完成']
 }
 
 function pad(value) {
@@ -77,7 +78,7 @@ Page({
   data: {
     statusBarHeight: 24,
     order: null,
-    statusFlow: ['待支付', '待接单', '已接单', '前往取货', '配送中', '已完成'],
+    statusFlow: ['待支付', '待商家接单', '待骑手接单', '前往取货', '已到达取货点', '配送中', '已完成'],
     activeIndex: 0,
     merchantStatusFlow,
     merchantStatus: '',

@@ -1,5 +1,8 @@
 const app = getApp()
 const api = require('../../../utils/rider-api')
+const { createOrderAlert } = require('../../../utils/order-alert')
+
+const SOUND_STORAGE_KEY = 'riderNewOrderSound'
 
 const RIDER_PAGES = {
   hall: '/pages/rider/order-hall/order-hall',
@@ -8,21 +11,27 @@ const RIDER_PAGES = {
 }
 
 Page({
-  data: { rider: null, online: false, orders: [], loading: false, claimingId: '' },
+  data: { rider: null, online: false, orders: [], loading: false, claimingId: '', soundEnabled: true },
 
   onShow() {
     if (!app.globalData.riderAuthToken) {
       this.returnToUser('骑手会话已失效，请重新进入')
       return
     }
+    if (!this.orderAlert) this.orderAlert = createOrderAlert()
+    const storedSound = wx.getStorageSync(SOUND_STORAGE_KEY)
     const rider = app.globalData.rider
-    this.setData({ rider, online: Boolean(rider && rider.online) })
+    this.setData({ rider, online: Boolean(rider && rider.online), soundEnabled: storedSound !== 'off' })
     this.refresh()
     this.startPolling()
   },
 
   onHide() { this.stopPolling() },
-  onUnload() { this.stopPolling() },
+  onUnload() {
+    this.stopPolling()
+    if (this.orderAlert) this.orderAlert.destroy()
+    this.orderAlert = null
+  },
 
   onPullDownRefresh() {
     this.refresh().finally(() => wx.stopPullDownRefresh())
@@ -112,11 +121,34 @@ Page({
     })
   },
 
+  toggleSound() {
+    const soundEnabled = !this.data.soundEnabled
+    wx.setStorageSync(SOUND_STORAGE_KEY, soundEnabled ? 'on' : 'off')
+    this.setData({ soundEnabled })
+    if (soundEnabled && this.orderAlert) this.orderAlert.play()
+    wx.showToast({ title: soundEnabled ? '新单提示音已开启' : '新单提示音已静音', icon: 'none' })
+  },
+
   loadOrders(showLoading) {
     if (this.data.loading) return Promise.resolve()
     this.setData({ loading: true })
     if (showLoading) wx.showNavigationBarLoading()
-    return api.availableOrders().then((orders) => this.setData({ orders }))
+    return api.availableOrders().then((orders) => {
+      const currentIds = {}
+      orders.forEach((order) => { currentIds[order.id] = true })
+      if (!this.seenOrderIds) {
+        this.seenOrderIds = currentIds
+      } else {
+        const newOrders = orders.filter((order) => !this.seenOrderIds[order.id])
+        orders.forEach((order) => { this.seenOrderIds[order.id] = true })
+        if (newOrders.length && this.data.soundEnabled && this.data.online) {
+          if (this.orderAlert) this.orderAlert.play()
+          if (wx.vibrateShort) wx.vibrateShort({ type: 'medium' })
+          wx.showToast({ title: `收到 ${newOrders.length} 个新订单`, icon: 'none' })
+        }
+      }
+      this.setData({ orders })
+    })
       .catch((error) => wx.showToast({ title: error.message, icon: 'none' }))
       .finally(() => {
         this.setData({ loading: false })

@@ -18,7 +18,7 @@ const STATUS_VALUES = {
   已取消: 'CANCELLED'
 }
 
-const STATUS_FLOW = ['待支付', '待接单', '已接单', '前往取货', '配送中', '已完成']
+const STATUS_FLOW = ['待支付', '待商家接单', '待骑手接单', '前往取货', '配送中', '已完成']
 
 const SERVICE_VALUES = {
   寄货: 'CARGO',
@@ -181,6 +181,7 @@ function formatTime(value) {
 function getStatusIndex(status) {
   const index = STATUS_FLOW.indexOf(status)
   if (['取货中', '前往取货', '上门途中', '前往上车点'].includes(status)) return 3
+  if (['已到达取货点', '已到达上车点', '已到达服务地点'].includes(status)) return 3
   if (['配送中', '搬运中', '行程中'].includes(status)) return 4
   return index > -1 ? index : 0
 }
@@ -191,6 +192,8 @@ function getBusinessStatusText(order, status, quoteStatus, isManualQuote, paymen
   if (isManualQuote && (quoteStatus === 'PENDING' || quoteStatus === 'REJECTED')) return '待商家报价'
   if (isManualQuote && quoteStatus === 'QUOTED') return '待确认报价'
   if (paymentStatus !== 'PAID') return '待支付'
+  if (status === '待接单') return '待商家接单'
+  if (status === '已接单') return '待骑手接单'
   return status
 }
 
@@ -199,7 +202,9 @@ function getBusinessStatusActor(displayStatus, status, rider) {
   if (displayStatus === '待商家报价') return '等待商家报价'
   if (displayStatus === '待确认报价') return '等待你确认价格'
   if (displayStatus === '待支付') return '等待用户支付'
-  return rider || (status === '待接单' ? '等待运营接单' : '同城速送配送员')
+  if (displayStatus === '待商家接单') return '等待商家接单'
+  if (displayStatus === '待骑手接单') return '等待骑手接单'
+  return rider || '同城速送配送员'
 }
 
 function getWeightLabel(weight) {
@@ -210,8 +215,8 @@ function getWeightLabel(weight) {
 }
 
 function getEta(status) {
-  if (status === '待接单') return '等待运营接单'
-  if (status === '已接单') return '运营已接单'
+  if (status === '待商家接单') return '等待商家接单'
+  if (status === '待骑手接单') return '商家已接单，正在匹配骑手'
   if (status === '取货中') return '正在前往取货'
   if (status === '前往取货') return '正在前往取货'
   if (status === '上门途中') return '服务人员正在上门'
