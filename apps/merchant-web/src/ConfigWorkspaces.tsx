@@ -5,7 +5,7 @@ import type { OperationsApi } from './api'
 type WorkspaceProps = { api: OperationsApi; onToast: (message: string) => void }
 
 const SERVICE_NAMES: Record<string, string> = {
-  carpool_ride: '拼车', send_parcel: '寄货', cargo_haul: '运货', urgent_delivery: '急送', pickup: '帮取', buy_for_me: '帮买', pedicab_delivery: '送货/送客', moving_handling: '搬运装卸'
+  carpool_ride: '顺风车', send_parcel: '寄货', cargo_haul: '运货', urgent_delivery: '急送', pickup: '帮取', buy_for_me: '帮买', pedicab_delivery: '送货/送客', moving_handling: '搬运装卸'
 }
 
 function clone<T>(value: T): T {
@@ -32,7 +32,23 @@ function ConfigActions({ category, version, dirty, saving, onSave, onPublish }: 
 }
 
 function NumberField({ label, value, suffix, onChange, step = '0.01' }: { label: string; value: string | number; suffix?: string; onChange: (value: string) => void; step?: string }) {
-  return <label className="config-field"><span>{label}</span><div className="number-input"><input type="number" min="0" step={step} value={value} onChange={(event) => onChange(event.target.value)} /><em>{suffix}</em></div></label>
+  const [inputValue, setInputValue] = useState(String(value))
+  const [editing, setEditing] = useState(false)
+  useEffect(() => {
+    if (!editing) setInputValue(String(value))
+  }, [editing, value])
+  return <label className="config-field"><span>{label}</span><div className="number-input"><input
+    type="number"
+    min="0"
+    step={step}
+    value={inputValue}
+    onFocus={() => setEditing(true)}
+    onChange={(event) => {
+      setInputValue(event.target.value)
+      onChange(event.target.value)
+    }}
+    onBlur={() => setEditing(false)}
+  /><em>{suffix}</em></div></label>
 }
 
 export function PricingWorkspace({ api, onToast }: WorkspaceProps) {

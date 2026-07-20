@@ -58,7 +58,7 @@ function getBusinessStatusIndex(order) {
 function getStatusFlow(order) {
   const service = String((order && order.service) || '')
   const isMoving = ['搬运', '装卸', '搬家', '搬店'].some((keyword) => service.indexOf(keyword) !== -1)
-  const isPassenger = ['拼车', '送客'].some((keyword) => service.indexOf(keyword) !== -1)
+  const isPassenger = ['拼车', '顺风车', '送客'].some((keyword) => service.indexOf(keyword) !== -1)
   const pickupStatus = isMoving ? '上门途中' : (isPassenger ? '前往上车点' : '前往取货')
   const arrivedStatus = isMoving ? '已到达服务地点' : (isPassenger ? '已到达上车点' : '已到达取货点')
   const deliveryStatus = isMoving ? '搬运中' : (isPassenger ? '行程中' : '配送中')

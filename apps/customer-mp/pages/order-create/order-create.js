@@ -18,7 +18,7 @@ const FIELD_PRESETS = {
   },
   carpool_ride: {
     sectionTitle: '乘车信息',
-    sectionHint: '固定线路拼车',
+    sectionHint: '固定线路顺风车',
     itemTypes: [],
     showWeight: false,
     limitText: '',
@@ -117,7 +117,7 @@ function inferPricingMode(draft) {
   if (draft && draft.pricingMode) return draft.pricingMode
   if (!draft) return 'distance_weather'
   if (draft.service === '寄货') return 'fixed_line_parcel'
-  if (draft.service === '拼车') return 'fixed_line_ride'
+  if (draft.service === '拼车' || draft.service === '顺风车') return 'fixed_line_ride'
   if (draft.service === '搬运装卸' || draft.service === '装货' || draft.service === '卸货') return 'handling_fixed'
   if (draft.service === '急送' || draft.service === '帮取' || draft.service === '帮买' || draft.service === '帮送' || draft.service === '1对1急送') return 'distance_weather'
   return 'distance'
@@ -141,37 +141,7 @@ function getPricingRule(draft) {
 }
 
 function applyRemotePricing(draft) {
-  const config = app.globalData.appConfig || {}
-  const remoteService = (config.services || []).find((item) => item.id === (draft && draft.taskId))
-  const remoteRule = (config.pricing && config.pricing.rules || []).find((item) => item.serviceId === (draft && draft.taskId))
-  if (!draft || !remoteService || !remoteRule) return false
-  const basePrice = Number(remoteRule.baseFeeFen || 0) / 100
-  const extraPerKm = Number(remoteRule.perKmFen || 0) / 100
-  const serviceSurcharge = Number(remoteRule.serviceSurchargeFen || 0) / 100
-  draft.priceSummary = remoteService.priceSummary || draft.priceSummary
-  draft.pricingVersion = Number(config.pricingVersion || (config.pricing && config.pricing.version) || 0)
-  draft.servicePricing = Object.assign({}, draft.servicePricing || {}, {
-    remote: true,
-    baseDistanceKm: Number(remoteRule.includedDistanceMeters || 0) / 1000,
-    basePrice,
-    extraPerKm,
-    serviceSurcharge,
-    deliveryStartFee: Number(remoteRule.deliveryStartFeeFen || 0) / 100,
-    minimumFee: Number(remoteRule.minimumFeeFen || 0) / 100,
-    maxDeliveryFee: Number(remoteRule.maxFeeFen || 0) / 100,
-    badWeatherMultiplier: Number(remoteRule.weatherMultiplierBps || 10000) / 10000
-  })
-  if (draft.cargoOptions) {
-    draft.cargoOptions.baseFee = basePrice
-    draft.cargoOptions.distanceRate = extraPerKm
-    draft.cargoOptions.maxDeliveryFee = Number(remoteRule.maxFeeFen || 0) / 100
-  }
-  if (remoteRule.pricingMode === 'fixed_route' && remoteService.routes && remoteService.routes.length) {
-    const taskLines = remoteService.routes.map((route) => ({ id: route.id, name: route.destinationName || route.city, price: Number(route.unitPriceFen || 0) / 100 }))
-    draft.remoteTaskLines = taskLines
-    draft.selectedLine = taskLines.find((line) => draft.selectedLine && line.id === draft.selectedLine.id) || taskLines[0]
-  }
-  return true
+  return serviceConfig.applyRemoteConfigToDraft(draft, app.globalData.appConfig || {})
 }
 
 function estimateFee(draft) {
@@ -306,7 +276,7 @@ function normalizeHandlingDraft(draft) {
 
 function prepareFormState(draft) {
   const task = serviceConfig.getTask((draft && draft.taskId) || 'send_parcel')
-  const taskLines = task.lines || []
+  const taskLines = (draft && draft.remoteTaskLines && draft.remoteTaskLines.length ? draft.remoteTaskLines : task.lines) || []
   if (draft && taskLines.length && (!draft.selectedLine || !taskLines.some((item) => item.id === draft.selectedLine.id))) {
     draft.selectedLine = taskLines[0]
   }
@@ -494,7 +464,11 @@ Page({
   onShow() {
     const draft = app.globalData.draftOrder
     normalizeHandlingDraft(draft)
-    if (draft.taskId === 'carpool_ride') carpool.applyRoute(draft)
+    applyRemotePricing(draft)
+    if (draft.taskId === 'carpool_ride') {
+      carpool.applyRoute(draft)
+      applyRemotePricing(draft)
+    }
     const selectedVehicle = ensureDraftVehicle(draft)
     const formState = prepareFormState(draft)
     this.setData({
@@ -689,12 +663,15 @@ Page({
   },
 
   selectLine(event) {
+    const draft = app.globalData.draftOrder
+    if (draft.taskId === 'carpool_ride') {
+      wx.showToast({ title: '顺风车路线已锁定，请返回主页修改', icon: 'none' })
+      return
+    }
     const lineId = event.currentTarget.dataset.id
     const line = this.data.taskLines.find((item) => item.id === lineId)
     if (!line) return
-    const draft = app.globalData.draftOrder
     draft.selectedLine = line
-    if (draft.taskId === 'carpool_ride') carpool.applyRoute(draft)
     vehicleConfig.applyVehicleToDraft(draft, draft.cargoOptions.vehicleId)
     this.refreshLocalEstimate()
   },

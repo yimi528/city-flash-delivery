@@ -11,7 +11,7 @@ const FUDING_STOP = {
   district: '福鼎市',
   latitude: 27.3245,
   longitude: 120.216,
-  contact: '拼车客服',
+  contact: '顺风车客服',
   phone: '',
   isCarpoolFixedStop: true
 }
@@ -119,8 +119,8 @@ function applySelectedAddress(draft, address, type, routeId) {
 function validateDraft(draft) {
   const routeId = draft && draft.selectedLine && draft.selectedLine.id
   const address = getCitySideAddress(draft)
-  if (!isSelectedCityAddress(address)) return { valid: false, message: '请选择苍南或温州境内的拼车地址' }
-  if (getRouteIdForAddress(address) !== routeId) return { valid: false, message: '所选地址与拼车线路不匹配，请重新选择' }
+  if (!isSelectedCityAddress(address)) return { valid: false, message: '请选择苍南或温州境内的顺风车地址' }
+  if (getRouteIdForAddress(address) !== routeId) return { valid: false, message: '所选地址与顺风车线路不匹配，请重新选择' }
   return { valid: true, address }
 }
 

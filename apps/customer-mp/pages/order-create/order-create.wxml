@@ -83,11 +83,19 @@
       <view class="direction-option {{draft.direction === 'RETURN' ? 'active' : ''}}" data-direction="RETURN" bindtap="selectDirection">返程 · 回福鼎</view>
     </view>
     <view class="line-grid">
-      <block wx:for="{{taskLines}}" wx:key="id">
-        <view class="line-option {{selectedLineId === item.id ? 'active' : ''}}" data-id="{{item.id}}" bindtap="selectLine">
-          <view class="line-name">{{item.name}}</view>
-          <view class="line-price">￥{{item.price}}{{draft.taskId === 'carpool_ride' ? '/人' : ''}}</view>
+      <block wx:if="{{draft.taskId === 'carpool_ride'}}">
+        <view class="line-option active locked-line">
+          <view class="line-name">{{draft.selectedLine.name}}</view>
+          <view class="line-price">￥{{draft.selectedLine.price}}/人 · 已锁定</view>
         </view>
+      </block>
+      <block wx:else>
+        <block wx:for="{{taskLines}}" wx:key="id">
+          <view class="line-option {{selectedLineId === item.id ? 'active' : ''}}" data-id="{{item.id}}" bindtap="selectLine">
+            <view class="line-name">{{item.name}}</view>
+            <view class="line-price">￥{{item.price}}</view>
+          </view>
+        </block>
       </block>
     </view>
   </view>
@@ -179,7 +187,7 @@
       </view>
       <view class="weather-badge {{draft.badWeather ? 'bad' : ''}}">{{isWeatherLoading ? '同步中' : (draft.badWeather ? '已触发' : '正常')}}</view>
     </view>
-    <view class="guarantee" wx:if="{{!estimate.isManualQuote && draft.service !== '拼车'}}" bindtap="toggleGuarantee">
+    <view class="guarantee" wx:if="{{!estimate.isManualQuote && draft.taskId !== 'carpool_ride'}}" bindtap="toggleGuarantee">
       <view class="check {{guarantee ? 'checked' : ''}}">✓</view>
       <view>
         <view class="guarantee-title">购买保价服务</view>

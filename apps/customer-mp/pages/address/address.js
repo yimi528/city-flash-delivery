@@ -5,7 +5,7 @@ const carpool = require('../../utils/carpool')
 const addressBook = require('../../utils/address-book.js')
 
 function addressMeta(type, isCarpool, routeName) {
-  if (isCarpool) return { title: `填写${routeName || '拼车'}地址`, pinLabel: '拼', pinClass: 'pickup', toast: '已选择拼车地址' }
+  if (isCarpool) return { title: `填写${routeName || '顺风车'}地址`, pinLabel: '顺', pinClass: 'pickup', toast: '已选择顺风车地址' }
   if (type === 'pickup') return { title: '选择发货地址', pinLabel: '发', pinClass: 'pickup', toast: '已选发货地址' }
   if (type === 'purchase') return { title: '选择购买地址', pinLabel: '买', pinClass: 'purchase', toast: '已选购买地址' }
   return { title: '选择收货地址', pinLabel: '收', pinClass: 'dropoff', toast: '已选收货地址' }
@@ -165,7 +165,7 @@ Page({
       if (this.searchSeq !== searchSeq || this.data.keyword) return
       const mapResults = mergeUnique(results.filter((item) => carpool.isSelectedCityAddress(item, this.data.routeId))).map((item) => decorateAddress(item, app.globalData.currentLocation, {
         isMapResult: true,
-        sourceLabel: item.source === 'tencent' ? '腾讯地图推荐' : '拼车地点推荐'
+        sourceLabel: item.source === 'tencent' ? '腾讯地图推荐' : '顺风车地点推荐'
       }))
       this.setData({ mapResults, isSearching: false })
       this.applySearch(app.globalData.addresses)

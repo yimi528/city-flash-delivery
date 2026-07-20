@@ -55,7 +55,7 @@ export function nextStatus(status: string) {
 
 function serviceProgressText(service: string, status: string) {
   const isMoving = ['搬运', '装卸', '搬家', '搬店'].some((keyword) => service.includes(keyword))
-  const isPassenger = ['拼车', '送客'].some((keyword) => service.includes(keyword))
+  const isPassenger = ['拼车', '顺风车', '送客'].some((keyword) => service.includes(keyword))
   if (status === '取货中') return isMoving ? '上门途中' : isPassenger ? '前往上车点' : '前往取货'
   if (status === '配送中') return isMoving ? '搬运中' : isPassenger ? '行程中' : '配送中'
   return status

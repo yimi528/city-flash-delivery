@@ -4,6 +4,18 @@ const carpool = require('../../utils/carpool')
 const serviceConfig = require('../../utils/service-config')
 const vehicleConfig = require('../../utils/vehicle-config')
 
+function getCarpoolRoutes() {
+  const remoteRoutes = ((app.globalData.appConfig && app.globalData.appConfig.services || []).find((item) => item.id === 'carpool_ride') || {}).routes || []
+  if (remoteRoutes.length) {
+    return remoteRoutes.map((route) => ({
+      id: route.id,
+      name: route.destinationName || route.city,
+      price: Number(route.unitPriceFen || 0) / 100
+    }))
+  }
+  return Object.keys(carpool.ROUTES).map((id) => carpool.ROUTES[id])
+}
+
 function ensureDraftTask(taskId) {
   const draft = app.globalData.draftOrder
   const nextTaskId = taskId || draft.taskId || 'send_parcel'
@@ -41,6 +53,7 @@ function ensureDraftTask(taskId) {
     if (remoteService.priceSummary) draft.priceSummary = remoteService.priceSummary
     if (remoteService.vehicleName) draft.recommendedVehicleName = remoteService.vehicleName
   }
+  serviceConfig.applyRemoteConfigToDraft(draft, app.globalData.appConfig)
   return draft
 }
 
@@ -51,7 +64,13 @@ function visibleTasks() {
   const preferredOrder = new Map(serviceConfig.ALL_TASKS.map((item, index) => [item.id, index]))
   return serviceConfig.ALL_TASKS
     .filter((task) => order.has(task.id))
-    .sort((left, right) => Number(preferredOrder.get(left.id)) - Number(preferredOrder.get(right.id)))
+    .sort((left, right) => {
+      const leftOrder = Number(order.get(left.id).sortOrder)
+      const rightOrder = Number(order.get(right.id).sortOrder)
+      const leftRank = Number.isFinite(leftOrder) ? leftOrder : preferredOrder.get(left.id)
+      const rightRank = Number.isFinite(rightOrder) ? rightOrder : preferredOrder.get(right.id)
+      return leftRank - rightRank
+    })
 }
 
 Page({
@@ -81,11 +100,26 @@ Page({
         serviceCount: tasks.length,
         coreTasks: tasks.slice(0, 4),
         moreTasks: tasks.slice(4),
-        activeTask: serviceConfig.getTask(draft.taskId)
+        activeTask: serviceConfig.getTask(draft.taskId),
+        carpoolRoutes: getCarpoolRoutes()
       })
     }
-    if (app.globalData.useBackend && app.refreshAppConfig) app.refreshAppConfig().then(apply)
-    else apply()
+    if (this.configSyncTimer) clearInterval(this.configSyncTimer)
+    if (app.globalData.useBackend && app.refreshAppConfig) {
+      app.refreshAppConfig().then(apply)
+      this.configSyncTimer = setInterval(() => app.refreshAppConfig().then(apply), 15000)
+    } else apply()
+  },
+
+  onHide() {
+    if (this.configSyncTimer) {
+      clearInterval(this.configSyncTimer)
+      this.configSyncTimer = null
+    }
+  },
+
+  onUnload() {
+    this.onHide()
   },
 
   chooseTask(event) {
@@ -133,6 +167,7 @@ Page({
     const draft = app.globalData.draftOrder
     if (!carpool.ROUTES[routeId] || (draft.selectedLine && draft.selectedLine.id === routeId)) return
     carpool.applyRoute(draft, { routeId, clearAddress: true })
+    serviceConfig.applyRemoteConfigToDraft(draft, app.globalData.appConfig)
     this.setData({ draft })
   },
 

@@ -69,6 +69,9 @@ function Toast({ message }: { message: string }) {
   return <div className={`toast ${message ? 'show' : ''}`} role="status" aria-live="polite">{message}</div>
 }
 
+const DEMO_OPERATOR_USERNAME = 'operator-demo'
+const DEMO_OPERATOR_PASSWORD = 'DevOperator!2026'
+
 function LoginDialog({
   open,
   loading,
@@ -80,8 +83,8 @@ function LoginDialog({
   onLogin: (username: string, password: string) => void
   onClose: () => void
 }) {
-  const [username, setUsername] = useState(() => localStorage.getItem('merchantUsername') || '')
-  const [password, setPassword] = useState('')
+  const [username, setUsername] = useState(() => import.meta.env.DEV ? DEMO_OPERATOR_USERNAME : localStorage.getItem('merchantUsername') || '')
+  const [password, setPassword] = useState(() => import.meta.env.DEV ? DEMO_OPERATOR_PASSWORD : '')
   if (!open) return null
   return (
     <div className="login-overlay" role="presentation">

@@ -614,7 +614,7 @@ export class OrdersService {
   private serviceProgressText(serviceName: string, stage: 'pickup' | 'arrived' | 'delivery') {
     const name = serviceName || ''
     const isMoving = ['搬运', '装卸', '搬家', '搬店'].some((keyword) => name.includes(keyword))
-    const isPassenger = ['拼车', '送客'].some((keyword) => name.includes(keyword))
+    const isPassenger = ['拼车', '顺风车', '送客'].some((keyword) => name.includes(keyword))
     if (stage === 'arrived') return isMoving ? '已到达服务地点' : isPassenger ? '已到达上车点' : '已到达取货点'
     if (isMoving) return stage === 'pickup' ? '上门途中' : '搬运中'
     if (isPassenger) return stage === 'pickup' ? '前往上车点' : '行程中'
@@ -651,6 +651,7 @@ export class OrdersService {
   private taskIdForService(serviceName: string) {
     const mapping: Record<string, string> = {
       拼车: 'carpool_ride',
+      顺风车: 'carpool_ride',
       拉货: 'cargo_haul',
       运货: 'cargo_haul',
       搬家: 'moving_handling',
@@ -839,7 +840,7 @@ export class OrdersService {
     if (serviceType === PrismaServiceType.PICKUP) return '帮取'
     if (serviceType === PrismaServiceType.CARGO) return '送货'
     if (serviceType === PrismaServiceType.BUY_FOR_ME) return '帮买'
-    if (serviceType === PrismaServiceType.CARPOOL) return '拼车'
+    if (serviceType === PrismaServiceType.CARPOOL) return '顺风车'
     if (serviceType === PrismaServiceType.MOVING) return '搬家'
     if (serviceType === PrismaServiceType.HANDLING) return '搬运装卸'
     return '帮送'
@@ -857,7 +858,7 @@ export class OrdersService {
 
   private serviceNameForTask(taskId: string) {
     const labels: Record<string, string> = {
-      carpool_ride: '拼车',
+      carpool_ride: '顺风车',
       send_parcel: '寄货',
       cargo_haul: '运货',
       urgent_delivery: '急送',

@@ -20,10 +20,10 @@ const PRIMARY_TASKS = [
   },
   {
     id: 'carpool_ride',
-    name: '拼车',
+    name: '顺风车',
     icon: '🚘',
-    subtitle: '拼小车拼车',
-    desc: '固定线路拼车',
+    subtitle: '固定线路顺风车',
+    desc: '固定线路顺风车',
     vehicleType: 'business_van',
     vehicleName: '7座商务车',
     priceSummary: '苍南40元/人 · 温州150元/人',
@@ -168,8 +168,8 @@ const TASKS_BY_ID = PRIMARY_TASKS.concat(COMMON_TASKS).reduce((result, task) => 
 }, {})
 
 const ALL_TASKS = [
-  'carpool_ride',
   'send_parcel',
+  'carpool_ride',
   'cargo_haul',
   'moving_handling',
   'urgent_delivery',
@@ -249,6 +249,51 @@ function buildDraftService(taskId) {
   }
 }
 
+function applyRemoteConfigToDraft(draft, config) {
+  if (!draft || !config) return false
+  const remoteService = (config.services || []).find((item) => item.id === draft.taskId)
+  const remoteRule = (config.pricing && config.pricing.rules || []).find((item) => item.serviceId === draft.taskId)
+  if (!remoteService && !remoteRule) return false
+
+  if (remoteService) {
+    if (remoteService.priceSummary) draft.priceSummary = remoteService.priceSummary
+    if (remoteService.vehicleName) draft.recommendedVehicleName = remoteService.vehicleName
+  }
+  if (!remoteRule) return true
+
+  const basePrice = Number(remoteRule.baseFeeFen || 0) / 100
+  const extraPerKm = Number(remoteRule.perKmFen || 0) / 100
+  const maxDeliveryFee = Number(remoteRule.maxFeeFen || 0) / 100
+  draft.pricingMode = remoteRule.pricingMode || draft.pricingMode
+  draft.pricingVersion = Number(config.pricingVersion || (config.pricing && config.pricing.version) || 0)
+  draft.servicePricing = Object.assign({}, draft.servicePricing || {}, {
+    remote: true,
+    baseDistanceKm: Number(remoteRule.includedDistanceMeters || 0) / 1000,
+    basePrice,
+    extraPerKm,
+    serviceSurcharge: Number(remoteRule.serviceSurchargeFen || 0) / 100,
+    deliveryStartFee: Number(remoteRule.deliveryStartFeeFen || 0) / 100,
+    minimumFee: Number(remoteRule.minimumFeeFen || 0) / 100,
+    maxDeliveryFee,
+    badWeatherMultiplier: Number(remoteRule.weatherMultiplierBps || 10000) / 10000
+  })
+  if (draft.cargoOptions) {
+    draft.cargoOptions.baseFee = basePrice
+    draft.cargoOptions.distanceRate = extraPerKm
+    draft.cargoOptions.maxDeliveryFee = maxDeliveryFee
+  }
+  if (remoteRule.pricingMode === 'fixed_route' && remoteService && remoteService.routes && remoteService.routes.length) {
+    const taskLines = remoteService.routes.map((route) => ({
+      id: route.id,
+      name: route.destinationName || route.city,
+      price: Number(route.unitPriceFen || 0) / 100
+    }))
+    draft.remoteTaskLines = taskLines
+    draft.selectedLine = taskLines.find((line) => draft.selectedLine && line.id === draft.selectedLine.id) || taskLines[0]
+  }
+  return true
+}
+
 module.exports = {
   PRIMARY_TASKS,
   COMMON_TASKS,
@@ -257,5 +302,6 @@ module.exports = {
   getTask,
   getDefaultItem,
   applyHandlingType,
-  buildDraftService
+  buildDraftService,
+  applyRemoteConfigToDraft
 }

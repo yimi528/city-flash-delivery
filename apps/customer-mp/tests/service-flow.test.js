@@ -112,7 +112,7 @@ test('all services create an order with their fixed vehicle', () => {
   index.onShow()
 
   const cases = [
-    { id: 'carpool_ride', service: '拼车', vehicle: 'business_van', alternate: 'ebike' },
+    { id: 'carpool_ride', service: '顺风车', vehicle: 'business_van', alternate: 'ebike' },
     { id: 'send_parcel', service: '寄货', vehicle: 'small_car', alternate: 'ebike' },
     { id: 'cargo_haul', service: '运货', vehicle: 'cargo_tricycle', alternate: 'small_car' },
     { id: 'moving_handling', service: '搬运装卸', vehicle: 'manual_labor', alternate: 'small_car' },
@@ -122,7 +122,16 @@ test('all services create an order with their fixed vehicle', () => {
     { id: 'pedicab_delivery', service: '送货/送客', vehicle: 'human_tricycle', alternate: 'small_car' }
   ]
 
-  assert.deepEqual(index.data.allTasks.map((item) => item.id), cases.map((item) => item.id))
+  assert.deepEqual(index.data.allTasks.map((item) => item.id), [
+    'send_parcel',
+    'carpool_ride',
+    'cargo_haul',
+    'moving_handling',
+    'urgent_delivery',
+    'pickup',
+    'buy_for_me',
+    'pedicab_delivery'
+  ])
 
   cases.forEach((flow) => {
     index.chooseTask(event({ task: flow.id }))
@@ -168,7 +177,7 @@ test('all eight services keep their form choices selectable', () => {
       id: 'carpool_ride',
       select(page, event) {
         page.selectLine(event({ id: 'wenzhou' }))
-        assert.equal(page.data.selectedLineId, 'wenzhou')
+        assert.equal(page.data.selectedLineId, 'cangnan')
       }
     },
     {
@@ -239,6 +248,43 @@ test('all eight services keep their form choices selectable', () => {
     flow.select(page, event)
     assert.equal(app.globalData.draftOrder.taskId, flow.id)
   })
+})
+
+test('published pricing is merged into the customer draft and route prices', () => {
+  const { app, event, loadPage } = createHarness()
+  app.globalData.appConfig = {
+    pricingVersion: 42,
+    services: [
+      {
+        id: 'send_parcel',
+        priceSummary: '温州66元',
+        routes: [{ id: 'wenzhou_parcel', destinationName: '温州', unitPriceFen: 6600 }]
+      },
+      {
+        id: 'carpool_ride',
+        routes: [{ id: 'cangnan', destinationName: '苍南', unitPriceFen: 5200 }]
+      }
+    ],
+    pricing: {
+      version: 42,
+      rules: [
+        { serviceId: 'send_parcel', pricingMode: 'fixed_route', baseFeeFen: 1200, perKmFen: 350, maxFeeFen: 50000 },
+        { serviceId: 'carpool_ride', pricingMode: 'fixed_route', baseFeeFen: 0, perKmFen: 0, maxFeeFen: 50000 }
+      ]
+    }
+  }
+  app.globalData.remoteServices = app.globalData.appConfig.services
+  const index = loadPage('pages/index/index.js')
+  index.onShow()
+  assert.equal(index.data.draft.taskName, '寄货')
+  assert.equal(index.data.draft.priceSummary, '温州66元')
+  assert.equal(index.data.allTasks[0].id, 'send_parcel')
+
+  const orderPage = loadPage('pages/order-create/order-create.js')
+  orderPage.onShow()
+  assert.equal(orderPage.data.draft.pricingVersion, 42)
+  assert.equal(orderPage.data.draft.selectedLine.price, 66)
+  assert.equal(orderPage.data.draft.servicePricing.basePrice, 12)
 })
 
 test('legacy moving entry opens the unified handling service', () => {

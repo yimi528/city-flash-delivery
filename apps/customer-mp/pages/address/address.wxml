@@ -55,7 +55,7 @@
   <view class="list-header">
     <view>{{keyword ? '搜索结果' : (isCarpool ? routeName + '地址推荐' : (frequentAddresses.length ? '其他地址' : '我的地址'))}}</view>
     <view class="list-sub" wx:if="{{isSearching}}">正在搜索腾讯地图...</view>
-    <view class="list-sub" wx:elif="{{keyword}}">{{isCarpool ? '仅显示可匹配拼车线路的地点' : '包含地址簿和地图建议'}}</view>
+    <view class="list-sub" wx:elif="{{keyword}}">{{isCarpool ? '仅显示可匹配顺风车线路的地点' : '包含地址簿和地图建议'}}</view>
   </view>
 
   <view class="address-list">
