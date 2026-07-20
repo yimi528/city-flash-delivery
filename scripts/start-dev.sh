@@ -24,6 +24,34 @@ is_running() {
   [[ "$pid" =~ ^[0-9]+$ ]] && kill -0 "$pid" 2>/dev/null
 }
 
+launch_dev() {
+  if command -v python3 >/dev/null 2>&1; then
+    python3 - "$ROOT_DIR" "$LOG_FILE" <<'PY'
+import os
+import subprocess
+import sys
+
+root_dir, log_file = sys.argv[1:]
+environment = {**os.environ, "OPEN_BROWSER": "0"}
+with open(log_file, "ab", buffering=0) as output:
+    process = subprocess.Popen(
+        ["bash", os.path.join(root_dir, "scripts", "dev.sh")],
+        cwd=root_dir,
+        env=environment,
+        stdin=subprocess.DEVNULL,
+        stdout=output,
+        stderr=subprocess.STDOUT,
+        start_new_session=True,
+    )
+print(process.pid)
+PY
+    return
+  fi
+
+  nohup bash "$ROOT_DIR/scripts/dev.sh" >"$LOG_FILE" 2>&1 </dev/null &
+  printf '%s\n' "$!"
+}
+
 if ! mkdir "$START_LOCK_DIR" 2>/dev/null; then
   log '启动任务已经在进行中，请稍候。'
   exit 0
@@ -45,8 +73,7 @@ if is_reachable "$API_URL" && is_reachable "$WEB_URL"; then
 fi
 
 log '正在后台启动 PostgreSQL、Redis、后端 API 和运营后台……'
-OPEN_BROWSER=0 nohup bash "$ROOT_DIR/scripts/dev.sh" >"$LOG_FILE" 2>&1 </dev/null &
-launcher_pid=$!
+launcher_pid="$(launch_dev)"
 
 for _ in $(seq 1 90); do
   if is_reachable "$API_URL" && is_reachable "$WEB_URL"; then
