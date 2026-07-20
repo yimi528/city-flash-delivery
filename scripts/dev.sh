@@ -7,6 +7,7 @@ API_DIR="$ROOT_DIR/server/api"
 WEB_DIR="$ROOT_DIR/apps/merchant-web"
 RUNTIME_DIR="$ROOT_DIR/.runtime"
 PID_FILE="$RUNTIME_DIR/dev.pids"
+LAUNCHER_PID_FILE="$RUNTIME_DIR/dev-launcher.pid"
 
 mkdir -p "$RUNTIME_DIR"
 
@@ -47,9 +48,13 @@ cleanup() {
   kill_port 5173
   kill_port 3000
   rm -f "$PID_FILE"
+  if [[ -f "$LAUNCHER_PID_FILE" ]] && [[ "$(<"$LAUNCHER_PID_FILE")" == "$$" ]]; then
+    rm -f "$LAUNCHER_PID_FILE"
+  fi
 }
 
 trap cleanup EXIT INT TERM
+printf '%s\n' "$$" >"$LAUNCHER_PID_FILE"
 
 require_command node
 require_command npm

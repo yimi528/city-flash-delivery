@@ -5,6 +5,7 @@ set -Eeuo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 API_DIR="$ROOT_DIR/server/api"
 PID_FILE="$ROOT_DIR/.runtime/dev.pids"
+LAUNCHER_PID_FILE="$ROOT_DIR/.runtime/dev-launcher.pid"
 
 kill_tree() {
   local pid="$1"
@@ -51,6 +52,14 @@ close_port() {
   force_kill_port "$port"
   wait_for_port_to_close "$port"
 }
+
+if [[ -f "$LAUNCHER_PID_FILE" ]]; then
+  launcher_pid="$(<"$LAUNCHER_PID_FILE")"
+  if [[ "$launcher_pid" =~ ^[0-9]+$ ]] && [[ "$launcher_pid" != "$$" ]] && kill -0 "$launcher_pid" 2>/dev/null; then
+    kill_tree "$launcher_pid"
+  fi
+  rm -f "$LAUNCHER_PID_FILE"
+fi
 
 if [[ -f "$PID_FILE" ]]; then
   while IFS='=' read -r _ pid; do

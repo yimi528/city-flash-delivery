@@ -28,6 +28,14 @@
 在仓库根目录运行：
 
 ```bash
+npm run start:dev
+```
+
+该命令会在后台启动前端、后端、PostgreSQL 和 Redis，等待前后端健康检查通过后返回终端。也可以双击 `启动开发环境.command`。
+
+如果需要在当前终端持续查看启动日志，可使用底层前台命令：
+
+```bash
 npm run dev
 ```
 
