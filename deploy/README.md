@@ -36,6 +36,7 @@ docker build --target migration \
   -t "$REGISTRY/city-flash-api-migration:$VERSION" server/api
 docker build \
   --build-arg VITE_API_BASE_URL=https://api.example.com/api \
+  --build-arg VITE_TENCENT_MAP_JS_KEY="$TENCENT_MAP_KEY" \
   -t "$REGISTRY/city-flash-merchant:$VERSION" apps/merchant-web
 
 docker push "$REGISTRY/city-flash-api:$VERSION"

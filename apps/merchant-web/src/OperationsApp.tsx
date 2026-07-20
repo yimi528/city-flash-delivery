@@ -573,7 +573,7 @@ export function OperationsApp() {
   const loadDashboard = useCallback(async (silent = false) => {
     if (refreshingRef.current) return
     refreshingRef.current = true
-    setRefreshing(true)
+    if (!silent) setRefreshing(true)
     try {
       const [payload, riderApplications, riderList] = await Promise.all([api.listOrders(), api.listRiderApplications(), api.listRiders()])
       const dashboard = normalizeDashboard(payload, operatorId)
@@ -594,7 +594,7 @@ export function OperationsApp() {
       if (!silent) showToast(`刷新失败：${error instanceof Error ? error.message : '未知错误'}`)
     } finally {
       refreshingRef.current = false
-      setRefreshing(false)
+      if (!silent) setRefreshing(false)
     }
   }, [api, notifyNewActionableOrders, operatorId, showToast])
 

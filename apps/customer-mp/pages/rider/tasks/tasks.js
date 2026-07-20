@@ -16,6 +16,7 @@ function decorateTask(task) {
   const pickupText = isMoving ? '上门途中' : (isPassenger ? '前往上车点' : '前往取货')
   const arrivedText = isMoving ? '已到达服务地点' : (isPassenger ? '已到达上车点' : '已到达取货点')
   const deliveryText = isMoving ? '搬运中' : (isPassenger ? '行程中' : '配送中')
+  const startText = isMoving ? '开始搬运服务' : (isPassenger ? '开始行程' : '开始配送')
   const statusText = isPickingUp ? (isArrived ? arrivedText : pickupText) : deliveryText
   const statusHint = isPickingUp
     ? (isArrived ? '已到达履约地点，可开始服务' : `请${pickupText}`)
@@ -23,7 +24,7 @@ function decorateTask(task) {
   return Object.assign({}, task, {
     statusText,
     statusHint,
-    nextActionText: isPickingUp ? (isArrived ? '开始服务/配送' : '确认到达') : '确认完成',
+    nextActionText: isPickingUp ? (isArrived ? startText : arrivedText) : '确认送达并完成',
     navigateLabel: isPickingUp ? (isPassenger ? '导航去上车点' : isMoving ? '导航去服务地点' : '导航去取货') : '导航去送达',
     navigateLat: isPickingUp ? task.pickupLat : (task.dropoffLat || task.pickupLat),
     navigateLng: isPickingUp ? task.pickupLng : (task.dropoffLng || task.pickupLng),

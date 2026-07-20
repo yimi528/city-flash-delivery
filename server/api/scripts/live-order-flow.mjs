@@ -139,8 +139,8 @@ async function run() {
   const operatorSession = await request('/auth/operator-login', {
     method: 'POST',
     body: {
-      username: process.env.LIVE_OPERATOR_USERNAME || 'operator-demo',
-      password: process.env.LIVE_OPERATOR_PASSWORD || 'demo123456'
+      username: process.env.LIVE_OPERATOR_USERNAME || process.env.OPERATOR_BOOTSTRAP_USERNAME || 'operator-demo',
+      password: process.env.LIVE_OPERATOR_PASSWORD || process.env.OPERATOR_BOOTSTRAP_PASSWORD || 'demo123456'
     }
   })
   operatorToken = operatorSession.token

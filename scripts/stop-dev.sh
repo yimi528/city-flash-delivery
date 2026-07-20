@@ -35,6 +35,23 @@ wait_for_port_to_close() {
   return 1
 }
 
+force_kill_port() {
+  local port="$1"
+  local pid
+  while IFS= read -r pid; do
+    [[ "$pid" =~ ^[0-9]+$ ]] && kill -KILL "$pid" 2>/dev/null || true
+  done < <(lsof -tiTCP:"$port" -sTCP:LISTEN 2>/dev/null || true)
+}
+
+close_port() {
+  local port="$1"
+  if wait_for_port_to_close "$port"; then
+    return 0
+  fi
+  force_kill_port "$port"
+  wait_for_port_to_close "$port"
+}
+
 if [[ -f "$PID_FILE" ]]; then
   while IFS='=' read -r _ pid; do
     if [[ "$pid" =~ ^[0-9]+$ ]] && kill -0 "$pid" 2>/dev/null; then
@@ -48,8 +65,8 @@ fi
 # Always clear the two ports reserved by this project so "stop" remains reliable.
 kill_port 5173
 kill_port 3000
-wait_for_port_to_close 5173 || true
-wait_for_port_to_close 3000 || true
+close_port 5173
+close_port 3000
 
 if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
   (cd "$API_DIR" && docker compose stop)

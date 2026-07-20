@@ -26,7 +26,7 @@
         <button data-id="{{item.id}}" bindtap="reportException"><view class="action-icon warn">!</view><text>上报异常</text></button>
       </view>
 
-      <button class="advance-btn" data-id="{{item.id}}" data-status="{{item.status}}" data-arrived="{{item.arrivedAt}}" bindtap="advance"><text>{{item.nextActionText}}</text><text>→</text></button>
+      <button class="advance-btn" data-id="{{item.id}}" data-status="{{item.status}}" data-arrived="{{item.arrivedAt}}" bindtap="advance"><text>{{item.nextActionText}}</text></button>
     </view>
   </block>
 
