@@ -108,7 +108,14 @@ export class CatalogService implements OnModuleInit {
     const totalFen = route.unitPriceFen * dto.passengerCount
     const outbound = dto.direction === 'OUTBOUND'
     const cityAddress = this.carpoolAddress(dto)
-    const fudingStop = { name: '福鼎', detail: '固定线路集合点，具体上车点由客服确认' }
+    const fudingStop = {
+      name: '福鼎',
+      detail: '固定线路集合点，具体上车点由客服确认',
+      city: '宁德市',
+      district: '福鼎市',
+      latitude: 27.3245,
+      longitude: 120.216,
+    }
     return this.prisma.quote.create({
       data: {
         userId,

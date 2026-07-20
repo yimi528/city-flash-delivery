@@ -16,7 +16,10 @@
 
     <button class="sound-toggle {{soundEnabled ? 'on' : ''}}" bindtap="toggleSound" aria-label="切换新订单提示音">
       <view class="sound-icon"><text></text><text></text></view>
-      <view><text>新单提醒</text><text>{{soundEnabled ? '声音已开启' : '当前已静音'}}</text></view>
+      <view class="sound-copy">
+        <text class="sound-title">新单提醒</text>
+        <text class="sound-status">{{soundEnabled ? '声音已开启' : '当前已静音'}}</text>
+      </view>
       <view class="sound-switch"><text></text></view>
     </button>
 

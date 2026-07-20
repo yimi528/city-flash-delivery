@@ -9,6 +9,8 @@ const FUDING_STOP = {
   detail: '固定线路集合点，具体上车点由客服确认',
   city: '宁德市',
   district: '福鼎市',
+  latitude: 27.3245,
+  longitude: 120.216,
   contact: '拼车客服',
   phone: '',
   isCarpoolFixedStop: true

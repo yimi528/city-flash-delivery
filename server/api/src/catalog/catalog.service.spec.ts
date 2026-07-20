@@ -46,7 +46,13 @@ describe('CatalogService quotes', () => {
 
     expect(quote).toEqual(expect.objectContaining({ unitPriceFen: 15000, totalFen: 45000 }))
     expect(quote.pickup).toEqual(expect.objectContaining({ name: '温州南站', district: '瓯海区' }))
-    expect(quote.dropoff).toEqual(expect.objectContaining({ name: '福鼎' }))
+    expect(quote.dropoff).toEqual(expect.objectContaining({
+      name: '福鼎',
+      city: '宁德市',
+      district: '福鼎市',
+      latitude: 27.3245,
+      longitude: 120.216,
+    }))
   })
 
   it('rejects addresses outside Cangnan and Wenzhou', async () => {
