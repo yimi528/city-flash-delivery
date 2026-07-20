@@ -8,7 +8,7 @@ on:
       merchant_api_base_url:
         description: '运营后台使用的 API 地址，例如 https://api.example.cn/api'
         required: true
-        default: 'https://pvuhgoctjaup.sealosbja.site/api'
+        default: 'https://xian-api-img6c740.sealosbja.site/api'
 
 permissions:
   contents: read
@@ -20,7 +20,7 @@ jobs:
     env:
       IMAGE_ROOT: ghcr.io/${{ github.repository_owner }}
       VERSION: ${{ github.sha }}
-      MERCHANT_API_BASE_URL: ${{ github.event.inputs.merchant_api_base_url || 'https://pvuhgoctjaup.sealosbja.site/api' }}
+      MERCHANT_API_BASE_URL: ${{ github.event.inputs.merchant_api_base_url || 'https://xian-api-img6c740.sealosbja.site/api' }}
     steps:
       - uses: actions/checkout@v4
 

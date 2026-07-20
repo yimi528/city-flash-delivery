@@ -1,5 +1,7 @@
 # Sealos 生产环境清单
 
+生产环境文件需要设置 `DEPLOY_TARGET=sealos`；发布验收会使用平台 Ingress TLS，并跳过仅适用于本地 Compose 的证书文件检查。
+
 测试环境继续保留 `xian-test-api`、`xian-test-merchant` 及其测试数据库。生产环境使用独立项目/命名空间，建议资源名如下：
 
 - `xian-prod-api`：API Deployment，镜像必须是完整 Git SHA。

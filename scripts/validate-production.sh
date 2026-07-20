@@ -77,6 +77,9 @@ release_stage="$(value APP_RELEASE_STAGE)"
 
 payment_mode="$(value WECHAT_PAY_MODE)"
 payment_mode="${payment_mode:-mock}"
+deploy_target="$(value DEPLOY_TARGET)"
+deploy_target="${deploy_target:-compose}"
+[[ "$deploy_target" == "compose" || "$deploy_target" == "sealos" ]] || fail 'DEPLOY_TARGET 必须是 compose 或 sealos'
 case "$payment_mode" in
   mock)
     [[ "$release_stage" == "testing" ]] || fail '模拟支付仅允许 APP_RELEASE_STAGE=testing'
@@ -104,9 +107,13 @@ case "$payment_mode" in
   *) fail 'WECHAT_PAY_MODE 必须是 mock、disabled 或 wechat' ;;
 esac
 
-for file in "$ROOT_DIR/deploy/certs/fullchain.pem" "$ROOT_DIR/deploy/certs/privkey.pem"; do
-  [[ -s "$file" ]] || fail "缺少证书或密钥文件：${file#$ROOT_DIR/}"
-done
+if [[ "$deploy_target" == "sealos" ]]; then
+  pass 'Sealos 使用平台 Ingress TLS，不要求本地证书文件'
+else
+  for file in "$ROOT_DIR/deploy/certs/fullchain.pem" "$ROOT_DIR/deploy/certs/privkey.pem"; do
+    [[ -s "$file" ]] || fail "缺少证书或密钥文件：${file#$ROOT_DIR/}"
+  done
+fi
 
 printf '\n[生产验收] 小程序接口域名\n'
 api_domain="$(value API_DOMAIN)"
@@ -118,14 +125,18 @@ else
 fi
 
 printf '\n[生产验收] Compose 配置\n'
-compose_files=(-f "$ROOT_DIR/deploy/docker-compose.cloud.yml")
-if [[ "$payment_mode" == "wechat" ]]; then
-  compose_files+=(-f "$ROOT_DIR/deploy/docker-compose.wechat-pay.yml")
-fi
-if API_ENV_FILE="$ENV_FILE" docker compose --env-file "$ENV_FILE" "${compose_files[@]}" config --quiet; then
-  pass '生产 Compose 配置有效'
+if [[ "$deploy_target" == "sealos" ]]; then
+  pass 'Sealos 部署不使用本地 Compose'
 else
-  fail '生产 Compose 配置无效'
+  compose_files=(-f "$ROOT_DIR/deploy/docker-compose.cloud.yml")
+  if [[ "$payment_mode" == "wechat" ]]; then
+    compose_files+=(-f "$ROOT_DIR/deploy/docker-compose.wechat-pay.yml")
+  fi
+  if API_ENV_FILE="$ENV_FILE" docker compose --env-file "$ENV_FILE" "${compose_files[@]}" config --quiet; then
+    pass '生产 Compose 配置有效'
+  else
+    fail '生产 Compose 配置无效'
+  fi
 fi
 
 if (( failures > 0 )); then

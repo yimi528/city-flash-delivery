@@ -1,7 +1,7 @@
 const API_BASE_URLS = Object.freeze({
   develop: 'http://127.0.0.1:3000/api',
-  trial: 'https://api.example.com/api',
-  release: 'https://api.example.com/api'
+  trial: 'https://xian-api-img6c740.sealosbja.site/api',
+  release: 'https://xian-api-img6c740.sealosbja.site/api'
 })
 
 function environmentVersion(wxApi) {
