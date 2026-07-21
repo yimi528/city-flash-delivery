@@ -493,18 +493,25 @@ function normalizeReverseGeocode(result, point) {
 
 function getCurrentLocation() {
   const config = getConfig()
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     if (typeof wx === 'undefined' || !wx.getLocation) {
-      resolve(Object.assign({}, config.fallbackLocation, { source: 'fallback' }))
+      reject(new Error('当前环境不支持真实定位'))
       return
     }
     wx.getLocation({
       type: 'gcj02',
       isHighAccuracy: true,
+      highAccuracyExpireTime: 5000,
       success(res) {
+        const latitude = Number(res.latitude)
+        const longitude = Number(res.longitude)
+        if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+          reject(new Error('定位返回的坐标无效'))
+          return
+        }
         const location = {
-          latitude: res.latitude,
-          longitude: res.longitude,
+          latitude,
+          longitude,
           speed: res.speed,
           accuracy: res.accuracy,
           source: 'device'
@@ -513,10 +520,8 @@ function getCurrentLocation() {
         globalData.currentLocation = location
         resolve(location)
       },
-      fail() {
-        const fallback = Object.assign({}, config.fallbackLocation, { source: 'fallback' })
-        getGlobalData().currentLocation = fallback
-        resolve(fallback)
+      fail(error) {
+        reject(error || new Error('定位失败，请检查位置权限'))
       }
     })
   })
