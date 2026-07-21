@@ -718,8 +718,11 @@ Page({
 
   chooseRouteAddress(event) {
     const draft = app.globalData.draftOrder
-    if (draft.taskId !== 'carpool_ride') return
     const type = event.currentTarget.dataset.type
+    if (draft.taskId !== 'carpool_ride') {
+      wx.navigateTo({ url: `/pages/address/address?type=${type}` })
+      return
+    }
     const routeId = draft.selectedLine && draft.selectedLine.id || 'cangnan'
     wx.navigateTo({ url: `/pages/address/address?type=${type}&mode=carpool&route=${routeId}` })
   },

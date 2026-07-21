@@ -16,6 +16,12 @@ function getCarpoolRoutes() {
   return Object.keys(carpool.ROUTES).map((id) => carpool.ROUTES[id])
 }
 
+function defaultCustomerAddress() {
+  const addresses = Array.isArray(app.globalData.addresses) ? app.globalData.addresses : []
+  const selected = addresses.find((address) => address.isDefault) || addresses[0]
+  return selected ? Object.assign({}, selected) : null
+}
+
 function ensureDraftTask(taskId) {
   const draft = app.globalData.draftOrder
   const nextTaskId = taskId || draft.taskId || 'send_parcel'
@@ -26,6 +32,7 @@ function ensureDraftTask(taskId) {
   Object.assign(draft, patch)
   if (!isTaskChanged && previousSelectedLine) draft.selectedLine = previousSelectedLine
   if (isTaskChanged && previousTaskId === 'carpool_ride' && patch.taskId !== 'carpool_ride') {
+    draft.pickup = defaultCustomerAddress()
     draft.dropoff = null
     draft.routeDistanceKm = 0
     draft.routeDistanceSource = ''

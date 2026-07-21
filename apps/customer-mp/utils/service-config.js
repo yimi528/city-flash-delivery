@@ -237,6 +237,7 @@ function buildDraftService(taskId) {
     recommendedVehicleType: task.vehicleType,
     recommendedVehicleName: task.vehicleName,
     selectedLine: task.lines ? task.lines[0] : null,
+    remoteTaskLines: [],
     serviceLimits: task.limits || null,
     badWeather: false,
     servicePricing: {

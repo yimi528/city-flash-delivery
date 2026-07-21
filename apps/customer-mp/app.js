@@ -350,7 +350,7 @@ App({
         name: '华润便利店',
         detail: '福宁北路与梦龙路交叉口',
         contact: '门店前台',
-        phone: '0593-0000000',
+        phone: '13700000000',
         distance: '0.8km',
         distanceKm: 0.8,
         latitude: 26.6794,

@@ -309,9 +309,72 @@ test('switching from carpool to cargo clears the carpool-only destination', () =
   index.chooseTask(event({ task: 'cargo_haul' }))
 
   assert.equal(app.globalData.draftOrder.taskId, 'cargo_haul')
-  assert.equal(app.globalData.draftOrder.pickup.name, '福鼎')
+  assert.equal(app.globalData.draftOrder.pickup.id, app.globalData.addresses[0].id)
+  assert.equal(app.globalData.draftOrder.pickup.phone, app.globalData.addresses[0].phone)
   assert.equal(app.globalData.draftOrder.dropoff, null)
   assert.equal(index.data.draft.dropoff, null)
+})
+
+test('switching from a remote fixed route to handling clears stale route choices', () => {
+  const { app, event, loadPage } = createHarness()
+  app.globalData.appConfig = {
+    services: [{
+      id: 'send_parcel',
+      routes: [{ id: 'wenzhou_parcel', destinationName: '温州', unitPriceFen: 5800 }]
+    }],
+    pricing: {
+      rules: [{ serviceId: 'send_parcel', pricingMode: 'fixed_route', baseFeeFen: 5800 }]
+    }
+  }
+  app.globalData.remoteServices = app.globalData.appConfig.services
+  const index = loadPage('pages/index/index.js')
+  index.onShow()
+  assert.equal(app.globalData.draftOrder.remoteTaskLines.length, 1)
+
+  index.chooseTask(event({ task: 'moving_handling' }))
+  const createPage = loadPage('pages/order-create/order-create.js')
+  createPage.onShow()
+
+  assert.equal(app.globalData.draftOrder.remoteTaskLines.length, 0)
+  assert.equal(createPage.data.taskLines.length, 0)
+  assert.equal(createPage.data.draft.selectedLine, null)
+})
+
+test('handling confirmation can reopen the pickup address selector', () => {
+  const { calls, event, loadPage } = createHarness()
+  const index = loadPage('pages/index/index.js')
+  index.onShow()
+  index.chooseTask(event({ task: 'moving_handling' }))
+  const createPage = loadPage('pages/order-create/order-create.js')
+  createPage.onShow()
+
+  createPage.chooseRouteAddress(event({ type: 'pickup' }))
+
+  const navigation = calls.findLast((call) => call.type === 'navigateTo')
+  assert.equal(navigation.options.url, '/pages/address/address?type=pickup')
+})
+
+test('buy-for-me confirmation reopens the purchase address selector', () => {
+  const { calls, event, loadPage } = createHarness()
+  const index = loadPage('pages/index/index.js')
+  index.onShow()
+  index.chooseTask(event({ task: 'buy_for_me' }))
+  const createPage = loadPage('pages/order-create/order-create.js')
+  createPage.onShow()
+
+  createPage.chooseRouteAddress(event({ type: 'purchase' }))
+
+  const navigation = calls.findLast((call) => call.type === 'navigateTo')
+  assert.equal(navigation.options.url, '/pages/address/address?type=purchase')
+})
+
+test('all seeded customer addresses satisfy the order contact rules', () => {
+  const { app } = createHarness()
+
+  app.globalData.addresses.forEach((address) => {
+    assert.ok(String(address.contact || '').trim(), `${address.id} should have a contact`)
+    assert.match(String(address.phone || '').trim(), /^1[3-9]\d{9}$/, `${address.id} should have a valid mobile`)
+  })
 })
 
 test('carpool fare follows passenger count and return always ends in Fuding', () => {
