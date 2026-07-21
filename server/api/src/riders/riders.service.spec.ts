@@ -1,4 +1,4 @@
-import { OrderStatus, PaymentStatus, QuoteStatus, RiderStatus, RoleStatus, VehicleType } from '@prisma/client'
+import { OrderStatus, PaymentStatus, QuoteStatus, RiderStatus, RiderWorkStatus, RoleStatus, VehicleType } from '@prisma/client'
 import { RidersService } from './riders.service'
 
 describe('RidersService atomic claim', () => {
@@ -144,7 +144,7 @@ describe('RidersService atomic claim', () => {
     expect(update).not.toHaveBeenCalled()
   })
 
-  it('rejects an unconfirmed offline write', async () => {
+  it('rejects an offline write that did not come from the order hall confirmation', async () => {
     const rider = {
       id: 'rider-1',
       online: true,
@@ -156,8 +156,28 @@ describe('RidersService atomic claim', () => {
     const prisma = { riderProfile: { findUnique: jest.fn().mockResolvedValue(rider), update } }
     const service = new RidersService(prisma as never, { get: jest.fn() } as never)
 
-    await expect(service.setOnline(rider.id, false)).rejects.toThrow('本人确认')
+    await expect(service.setOnline(rider.id, false, 'manual_offline')).rejects.toThrow('订单大厅确认收工')
     expect(update).not.toHaveBeenCalled()
+  })
+
+  it('allows an explicitly confirmed shift end from the order hall', async () => {
+    const rider = {
+      id: 'rider-1',
+      online: true,
+      status: RiderStatus.APPROVED,
+      roleStatus: RoleStatus.ACTIVE,
+      qualifications: [],
+    }
+    const update = jest.fn().mockResolvedValue({ ...rider, online: false })
+    const prisma = { riderProfile: { findUnique: jest.fn().mockResolvedValue(rider), update } }
+    const service = new RidersService(prisma as never, { get: jest.fn() } as never)
+
+    await service.setOnline(rider.id, false, 'manual_offline', 'order_hall_shift_end')
+
+    expect(update).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: rider.id },
+      data: expect.objectContaining({ online: false, workStatus: RiderWorkStatus.OFFLINE }),
+    }))
   })
 
   it('creates a pending application under the existing customer identity', async () => {

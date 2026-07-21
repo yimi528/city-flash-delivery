@@ -112,7 +112,7 @@ Page({
       confirmColor: '#d4493f',
       success: (result) => {
         if (!result.confirm) return
-        api.setOnline(false).then((rider) => {
+        api.setOnline(false, 'order_hall_shift_end').then((rider) => {
           app.stopRiderPresence()
           app.updateRider(rider)
           this.setData({ rider, online: false, orders: [] })

@@ -292,11 +292,13 @@ export class RidersService {
     })
   }
 
-  async setOnline(riderId: string, online: boolean, intent?: 'manual_offline') {
+  async setOnline(riderId: string, online: boolean, intent?: 'manual_offline', source?: 'order_hall_shift_end') {
     const rider = await this.findRider(riderId)
     const roleActive = rider.roleStatus ? rider.roleStatus === RoleStatus.ACTIVE : rider.status === RiderStatus.APPROVED
     if (online && (!roleActive || rider.status !== RiderStatus.APPROVED)) throw new ForbiddenException('骑手审核通过且身份有效后才能上线')
-    if (!online && intent !== 'manual_offline') throw new BadRequestException('下线必须由骑手本人确认')
+    if (!online && (intent !== 'manual_offline' || source !== 'order_hall_shift_end')) {
+      throw new BadRequestException('下线必须由骑手在订单大厅确认收工')
+    }
     return this.prisma.riderProfile.update({
       where: { id: riderId },
       data: {

@@ -60,14 +60,14 @@ test('an expired rider token clears only the rider session', async () => {
   assert.equal(clearedRiderSession, true)
 })
 
-test('offline writes carry an explicit rider confirmation intent', async () => {
+test('offline writes carry an explicit order-hall confirmation source', async () => {
   requestHandler = (options) => {
     assert.match(options.url, /\/v1\/rider\/online$/)
-    assert.deepEqual(options.data, { online: false, intent: 'manual_offline' })
+    assert.deepEqual(options.data, { online: false, intent: 'manual_offline', source: 'order_hall_shift_end' })
     options.success({ statusCode: 200, data: { id: 'rider-1', online: false } })
   }
 
-  const rider = await riderApi.setOnline(false)
+  const rider = await riderApi.setOnline(false, 'order_hall_shift_end')
   assert.equal(rider.online, false)
 })
 
@@ -93,17 +93,21 @@ test('one mini program keeps customer and rider sessions isolated while switchin
   app.globalData.useBackend = false
   app.onLaunch()
   app.globalData.authToken = 'customer-token'
-  app.setRiderSession({ token: 'rider-token', rider: { id: 'rider-1' } })
+  app.setRiderSession({ token: 'rider-token', rider: { id: 'rider-1', online: true } })
 
   assert.equal(app.globalData.authToken, 'customer-token')
   assert.equal(app.globalData.riderAuthToken, 'rider-token')
   assert.equal(storage.customerAuthToken, undefined)
   assert.equal(storage.riderAuthToken, 'rider-token')
 
+  // The state assertion does not need to start the real location heartbeat.
+  app.riderPresenceTimer = {}
   app.setCustomerRoleSession({ token: 'new-customer-token' })
   assert.equal(app.globalData.authToken, 'new-customer-token')
   assert.equal(app.globalData.currentRole, 'customer')
   assert.equal(app.globalData.riderAuthToken, 'rider-token')
+  assert.equal(app.globalData.rider.online, true)
   assert.equal(storage.customerAuthToken, 'new-customer-token')
   assert.equal(storage.riderAuthToken, 'rider-token')
+  assert.equal(storage.currentRider.online, true)
 })

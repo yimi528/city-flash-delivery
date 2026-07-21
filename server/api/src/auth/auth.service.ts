@@ -124,7 +124,7 @@ export class AuthService {
     const [user, roles, rider, application] = await Promise.all([
       this.prisma.user.findUnique({ where: { id: userId }, select: { preferredRole: true } }),
       this.prisma.userRoleAssignment.findMany({ where: { userId }, orderBy: { createdAt: 'asc' } }),
-      this.prisma.riderProfile.findUnique({ where: { userId }, select: { id: true, status: true, roleStatus: true, workStatus: true, name: true, vehicleName: true } }),
+      this.prisma.riderProfile.findUnique({ where: { userId }, select: { id: true, status: true, roleStatus: true, workStatus: true, online: true, name: true, vehicleName: true } }),
       this.prisma.riderApplication.findFirst({ where: { userId }, orderBy: { createdAt: 'desc' } }),
     ])
     return {

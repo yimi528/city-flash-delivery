@@ -122,18 +122,24 @@ App({
   setRiderSession(payload) {
     const session = payload || {}
     this.globalData.riderAuthToken = session.token || ''
-    this.globalData.rider = session.rider || null
+    const rider = session.rider
+      ? Object.assign({}, this.globalData.rider || {}, session.rider)
+      : null
+    this.globalData.rider = rider
     this.globalData.currentRole = 'rider'
     try {
       if (session.token && wx.setStorageSync) wx.setStorageSync('riderAuthToken', session.token)
-      if (session.rider && wx.setStorageSync) wx.setStorageSync('currentRider', session.rider)
+      if (rider && wx.setStorageSync) wx.setStorageSync('currentRider', rider)
     } catch (error) {}
   },
 
   updateRider(rider) {
-    this.globalData.rider = rider || null
+    const nextRider = rider
+      ? Object.assign({}, this.globalData.rider || {}, rider)
+      : null
+    this.globalData.rider = nextRider
     try {
-      if (rider && wx.setStorageSync) wx.setStorageSync('currentRider', rider)
+      if (nextRider && wx.setStorageSync) wx.setStorageSync('currentRider', nextRider)
     } catch (error) {}
   },
 

@@ -8,6 +8,10 @@ export class RiderOnlineDto {
   @IsOptional()
   @IsIn(['manual_offline'])
   intent?: 'manual_offline'
+
+  @IsOptional()
+  @IsIn(['order_hall_shift_end'])
+  source?: 'order_hall_shift_end'
 }
 
 export class RiderLocationDto {

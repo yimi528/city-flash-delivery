@@ -37,9 +37,11 @@ function idempotencyKey(orderId) {
 module.exports = {
   me: () => request('/v1/rider/me'),
   updateVehicles: (vehicleTypes) => request('/v1/rider/vehicles', { method: 'PUT', data: { vehicleTypes } }),
-  setOnline: (online) => request('/v1/rider/online', {
+  setOnline: (online, source) => request('/v1/rider/online', {
     method: 'POST',
-    data: online ? { online: true } : { online: false, intent: 'manual_offline' }
+    data: online
+      ? { online: true }
+      : Object.assign({ online: false, intent: 'manual_offline' }, source ? { source } : {})
   }),
   updateLocation: (latitude, longitude) => request('/v1/rider/location', { method: 'POST', data: { latitude, longitude } }),
   heartbeat: (latitude, longitude) => request('/v1/rider/heartbeat', {

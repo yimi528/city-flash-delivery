@@ -1,4 +1,4 @@
-import { UserRole } from '@prisma/client'
+import { RoleStatus, UserRole } from '@prisma/client'
 import { scryptSync } from 'node:crypto'
 import { AuthService } from './auth.service'
 
@@ -15,19 +15,23 @@ function createService() {
     update: jest.fn(),
     create: jest.fn(),
   }
+  const user = { findFirst: jest.fn(), findUnique: jest.fn(), update: jest.fn(), create: jest.fn(), upsert: jest.fn() }
+  const userRoleAssignment = { upsert: jest.fn(), findMany: jest.fn(), findUnique: jest.fn() }
+  const riderProfile = { findUnique: jest.fn() }
+  const riderApplication = { findFirst: jest.fn() }
   const prisma = {
     operator,
-    user: { findFirst: jest.fn(), update: jest.fn(), create: jest.fn(), upsert: jest.fn() },
-    userRoleAssignment: { upsert: jest.fn(), findMany: jest.fn() },
-    riderProfile: { findUnique: jest.fn() },
-    riderApplication: { findFirst: jest.fn() },
+    user,
+    userRoleAssignment,
+    riderProfile,
+    riderApplication,
   }
   const values: Record<string, string> = { NODE_ENV: 'production' }
   const config = { get: (key: string) => values[key] }
   const tokens = { sign: jest.fn(() => 'signed-operator-token') }
   const audit = { record: jest.fn().mockResolvedValue(undefined) }
   const service = new AuthService(prisma as never, config as never, tokens as never, audit as never)
-  return { service, operator, tokens, audit }
+  return { service, operator, user, userRoleAssignment, riderProfile, riderApplication, tokens, audit }
 }
 
 function enabledOperator(overrides: Record<string, unknown> = {}) {
@@ -89,5 +93,33 @@ describe('AuthService operator password login', () => {
     })).rejects.toThrow('账号暂时锁定')
 
     expect(audit.record).toHaveBeenCalledWith(expect.objectContaining({ action: 'operator.login.locked' }))
+  })
+})
+
+describe('AuthService account roles', () => {
+  it('returns the rider online state in the customer role summary', async () => {
+    const { service, user, userRoleAssignment, riderProfile, riderApplication } = createService()
+    user.findUnique.mockResolvedValue({ preferredRole: UserRole.CUSTOMER })
+    userRoleAssignment.findMany.mockResolvedValue([
+      { role: UserRole.CUSTOMER, status: RoleStatus.ACTIVE },
+      { role: UserRole.RIDER, status: RoleStatus.ACTIVE },
+    ])
+    riderProfile.findUnique.mockResolvedValue({
+      id: 'rider-1',
+      status: 'APPROVED',
+      roleStatus: 'ACTIVE',
+      workStatus: 'ONLINE',
+      online: true,
+      name: '骑手',
+      vehicleName: '小车',
+    })
+    riderApplication.findFirst.mockResolvedValue(null)
+
+    const result = await service.accountRoles('user-1')
+
+    expect(result.rider).toEqual(expect.objectContaining({ online: true }))
+    expect(riderProfile.findUnique).toHaveBeenCalledWith(expect.objectContaining({
+      select: expect.objectContaining({ online: true }),
+    }))
   })
 })
