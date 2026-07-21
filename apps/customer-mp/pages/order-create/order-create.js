@@ -785,7 +785,8 @@ Page({
       wx.showToast({ title: '请先选择收货地址', icon: 'none' })
       return
     }
-    const pickupContactError = contactError(draft.pickup, draft.taskId === 'moving_handling' ? '上门服务' : '出发')
+    // 起点只需要地址；联系人和手机号仅属于终点的收货信息。
+    const pickupContactError = ''
     const dropoffContactError = draft.dropoff ? contactError(draft.dropoff, '目的地') : ''
     if (draft.taskId === 'carpool_ride' && pickupContactError && dropoffContactError) {
       wx.showToast({ title: '乘车地址缺少有效联系人或手机号，请返回修改', icon: 'none', duration: 2600 })

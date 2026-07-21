@@ -3,6 +3,7 @@ const api = require('../../utils/api')
 const map = require('../../utils/map')
 const carpool = require('../../utils/carpool')
 const addressParser = require('../../utils/address-parser')
+const addressBook = require('../../utils/address-book.js')
 
 function emptyForm() {
   return {
@@ -27,7 +28,7 @@ function draftKey(type) {
   return type === 'purchase' ? 'purchaseAddress' : type
 }
 
-function normalizeAddress(form) {
+function normalizeAddress(form, requiresContact) {
   const latitude = form.latitude === '' ? '' : Number(form.latitude)
   const longitude = form.longitude === '' ? '' : Number(form.longitude)
   return {
@@ -35,8 +36,8 @@ function normalizeAddress(form) {
     userId: app.globalData.userId,
     name: String(form.name || '').trim(),
     detail: String(form.detail || '').trim(),
-    contact: String(form.contact || '').trim(),
-    phone: String(form.phone || '').trim(),
+    contact: requiresContact ? String(form.contact || '').trim() : '',
+    phone: requiresContact ? String(form.phone || '').trim() : '',
     tag: form.tag || '',
     distanceKm: Number(form.distanceKm || 1),
     latitude,
@@ -76,6 +77,7 @@ Page({
     statusBarHeight: 24,
     title: '新增地址',
     type: 'dropoff',
+    requiresContact: true,
     isCarpool: false,
     routeId: '',
     routeName: '',
@@ -91,11 +93,12 @@ Page({
 
   onLoad(query) {
     const id = query.id || ''
-    const savedAddresses = Array.isArray(app.globalData.addresses) ? app.globalData.addresses : []
+    const savedAddresses = addressBook.mergeHistory(Array.isArray(app.globalData.addresses) ? app.globalData.addresses : [])
     const pendingMapAddress = query.from === 'map' ? app.globalData.pendingMapAddress : null
     const source = id ? savedAddresses.find((item) => item.id === id) : pendingMapAddress
     const isCarpool = query.mode === 'carpool'
     const type = query.type || 'dropoff'
+    const requiresContact = type === 'dropoff'
     const route = carpool.getRoute(query.route || (app.globalData.draftOrder.selectedLine && app.globalData.draftOrder.selectedLine.id))
     this.selectAfterSave = query.from === 'map'
     const initialForm = source
@@ -106,6 +109,7 @@ Page({
       statusBarHeight: app.globalData.statusBarHeight,
       title: formTitle(type, Boolean(id), isCarpool, route.name),
       type,
+      requiresContact,
       isCarpool,
       routeId: isCarpool ? route.id : '',
       routeName: isCarpool ? route.name : '',
@@ -149,8 +153,8 @@ Page({
       }
 
       const nextForm = Object.assign({}, this.data.form, {
-        contact: parsed.contact || this.data.form.contact,
-        phone: parsed.phone || this.data.form.phone,
+        contact: this.data.requiresContact ? (parsed.contact || this.data.form.contact) : '',
+        phone: this.data.requiresContact ? (parsed.phone || this.data.form.phone) : '',
         name: parsed.name || this.data.form.name,
         detail: parsed.address || this.data.form.detail
       })
@@ -172,8 +176,8 @@ Page({
       }).then((results) => {
         const selected = results && results[0]
         const recognizedForm = selected ? fillFromMapAddress(nextForm, selected) : nextForm
-        recognizedForm.contact = parsed.contact || recognizedForm.contact
-        recognizedForm.phone = parsed.phone || recognizedForm.phone
+        recognizedForm.contact = this.data.requiresContact ? (parsed.contact || recognizedForm.contact) : ''
+        recognizedForm.phone = this.data.requiresContact ? (parsed.phone || recognizedForm.phone) : ''
         recognizedForm.detail = parsed.address || recognizedForm.detail
         this.setData({
           form: recognizedForm,
@@ -267,16 +271,17 @@ Page({
     } else {
       app.globalData.addresses.unshift(address)
     }
+    addressBook.remember(address)
     return address
   },
 
   submit() {
-    const payload = normalizeAddress(this.data.form)
-    if (!payload.name || !payload.detail || !payload.contact || !payload.phone) {
-      wx.showToast({ title: '请完整填写地址和联系人信息', icon: 'none' })
+    const payload = normalizeAddress(this.data.form, this.data.requiresContact)
+    if (!payload.name || !payload.detail || (this.data.requiresContact && (!payload.contact || !payload.phone))) {
+      wx.showToast({ title: this.data.requiresContact ? '请完整填写地址和联系人信息' : '请完整填写地址信息', icon: 'none' })
       return
     }
-    if (!/^1[3-9]\d{9}$/.test(payload.phone)) {
+    if (this.data.requiresContact && !/^1[3-9]\d{9}$/.test(payload.phone)) {
       wx.showToast({ title: '请输入正确的11位手机号', icon: 'none' })
       return
     }
@@ -302,6 +307,13 @@ Page({
     }
 
     if (!app.globalData.useBackend) {
+      done(payload, payload.id ? '已保存地址' : '已新增地址')
+      return
+    }
+
+    // 起点地址不再提交联系人字段。当前地址接口仍按收货地址设计并要求联系人，
+    // 因此起点地址先保存在本地历史中，订单提交时直接使用该地址。
+    if (!this.data.requiresContact) {
       done(payload, payload.id ? '已保存地址' : '已新增地址')
       return
     }

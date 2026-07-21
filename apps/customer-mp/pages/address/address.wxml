@@ -46,6 +46,25 @@
     <view class="list-sub">按使用频率推荐</view>
   </view>
 
+  <view class="list-header" wx:if="{{recentAddresses.length}}">
+    <view>最近填写</view>
+    <view class="list-sub">一键选择刚刚保存的地址</view>
+  </view>
+
+  <view class="address-list recent-list" wx:if="{{recentAddresses.length}}">
+    <block wx:for="{{recentAddresses}}" wx:key="id">
+      <view class="address-item recent-item" data-id="{{item.id}}" bindtap="chooseAddress">
+        <view class="pin recent">新</view>
+        <view class="info">
+          <view class="name">{{item.name}} <text>{{item.distance}}</text></view>
+          <view class="detail">{{item.detail}}</view>
+          <view class="person" wx:if="{{type != 'pickup'}}">{{item.contact}}  {{item.phone}}</view>
+        </view>
+        <view class="use-map">选择</view>
+      </view>
+    </block>
+  </view>
+
   <view class="address-list frequent-list" wx:if="{{frequentAddresses.length}}">
     <block wx:for="{{frequentAddresses}}" wx:key="id">
       <view class="address-item frequent-item" data-id="{{item.id}}" bindtap="chooseAddress">
@@ -53,7 +72,7 @@
         <view class="info">
           <view class="name">{{item.name}} <text>{{item.distance}}</text> <text wx:if="{{item.isDefault}}" class="default-badge">默认</text></view>
           <view class="detail">{{item.detail}}</view>
-          <view class="person">{{item.contact}}  {{item.phone}}<text wx:if="{{item.usageCount}}" class="usage-copy"> · 已使用{{item.usageCount}}次</text></view>
+          <view class="person" wx:if="{{type != 'pickup'}}">{{item.contact}}  {{item.phone}}<text wx:if="{{item.usageCount}}" class="usage-copy"> · 已使用{{item.usageCount}}次</text></view>
         </view>
         <view class="item-actions">
           <view class="edit" data-id="{{item.id}}" catchtap="editAddress">编辑</view>
@@ -76,7 +95,7 @@
         <view class="info">
           <view class="name">{{item.name}} <text>{{item.distance}}</text> <text wx:if="{{item.isDefault}}" class="default-badge">默认</text></view>
           <view class="detail">{{item.detail}}</view>
-          <view class="person"><text wx:if="{{item.sourceLabel}}">[{{item.sourceLabel}}] </text>{{item.contact}}  {{item.phone}}</view>
+          <view class="person" wx:if="{{type != 'pickup'}}"><text wx:if="{{item.sourceLabel}}">[{{item.sourceLabel}}] </text>{{item.contact}}  {{item.phone}}</view>
         </view>
         <view class="use-map" wx:if="{{item.isMapResult}}">填写</view>
         <view class="item-actions" wx:else>
@@ -87,5 +106,5 @@
     </block>
   </view>
 
-  <view class="empty-card" wx:if="{{!addresses.length && !frequentAddresses.length && !isSearching}}" role="button" aria-label="手动填写地址" bindtap="addAddress">+</view>
+  <view class="empty-card" wx:if="{{!addresses.length && !frequentAddresses.length && !recentAddresses.length && !isSearching}}" role="button" aria-label="手动填写地址" bindtap="addAddress">+</view>
 </view>

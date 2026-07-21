@@ -7,7 +7,7 @@
   </view>
 
   <view class="smart-card">
-    <textarea class="smart-input" value="{{smartPasteText}}" bindinput="inputSmartPaste" maxlength="300" auto-height placeholder="粘贴姓名、手机号和完整地址" />
+    <textarea class="smart-input" value="{{smartPasteText}}" bindinput="inputSmartPaste" maxlength="300" auto-height placeholder="{{requiresContact ? '粘贴姓名、手机号和完整地址' : '粘贴完整地址'}}" />
     <button class="recognize-btn" bindtap="pasteAndRecognize" loading="{{recognizing}}" disabled="{{recognizing}}">{{recognizing ? '识别中' : '粘贴并识别'}}</button>
   </view>
 
@@ -39,12 +39,12 @@
       <input class="field-input" value="{{form.detail}}" placeholder="楼栋、单元、门牌号（必填）" data-field="detail" bindinput="inputField" />
     </view>
 
-    <view class="field-row">
+    <view class="field-row" wx:if="{{requiresContact}}">
       <view class="label">电话</view>
       <input class="field-input" value="{{form.phone}}" placeholder="11位手机号（必填）" type="number" maxlength="11" data-field="phone" bindinput="inputField" />
     </view>
 
-    <view class="field-row">
+    <view class="field-row" wx:if="{{requiresContact}}">
       <view class="label">联系人</view>
       <input class="field-input" value="{{form.contact}}" placeholder="姓名（必填）" data-field="contact" bindinput="inputField" />
     </view>
