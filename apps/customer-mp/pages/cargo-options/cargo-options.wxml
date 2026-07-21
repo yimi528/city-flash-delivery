@@ -1,21 +1,31 @@
 <view class="vehicle-page">
   <view class="map-backdrop">
-    <view class="road r1"></view>
-    <view class="road r2"></view>
-    <view class="road r3"></view>
-    <view class="map-point start">起</view>
-    <view class="map-point end">到</view>
-    <view class="car-dot">{{selectedVehicleName}}</view>
-  </view>
-
-  <view style="height: {{statusBarHeight}}px"></view>
-
-  <view class="page-nav">
-    <view class="left-actions">
-      <view class="back" bindtap="goBack">‹</view>
-      <view class="home" bindtap="goHome">⌂</view>
-    </view>
-    <view class="menu-pill"><text>•••</text><view class="pill-dot"></view></view>
+    <map
+      class="vehicle-map"
+      latitude="{{mapLatitude}}"
+      longitude="{{mapLongitude}}"
+      scale="{{mapScale}}"
+      markers="{{mapMarkers}}"
+      polyline="{{mapPolyline}}"
+      include-points="{{mapIncludePoints}}"
+      enable-zoom
+      enable-scroll
+      enable-rotate="{{false}}"
+      enable-overlooking="{{false}}"
+      bindmarkertap="onMapMarkerTap"
+    >
+      <cover-view class="map-page-nav" style="top: {{statusBarHeight + 12}}px">
+        <cover-view class="left-actions">
+          <cover-view class="back" bindtap="goBack">‹</cover-view>
+          <cover-view class="home" bindtap="goHome">⌂</cover-view>
+        </cover-view>
+        <cover-view class="menu-pill"><cover-view>•••</cover-view><cover-view class="pill-dot"></cover-view></cover-view>
+      </cover-view>
+      <cover-view class="map-top-badge">腾讯地图</cover-view>
+      <cover-view class="map-route-label">{{mapRouteText}}</cover-view>
+      <cover-view class="map-vehicle-label">{{selectedVehicleName}} · {{routeText}}</cover-view>
+      <cover-view class="map-empty-label" wx:if="{{!mapPointCount}}">订单地址暂无坐标，先显示福鼎市地图</cover-view>
+    </map>
   </view>
 
   <view class="vehicle-sheet">

@@ -66,6 +66,7 @@
   <view class="rider-nav">
     <view class="rider-nav-item active"><view class="rider-nav-glyph hall"></view><text class="rider-nav-label">抢单</text></view>
     <view class="rider-nav-item" data-page="tasks" bindtap="goRiderPage"><view class="rider-nav-glyph tasks"></view><text class="rider-nav-label">任务</text></view>
+    <view class="rider-nav-item" data-page="history" bindtap="goRiderPage"><view class="rider-nav-glyph history"></view><text class="rider-nav-label">历史</text></view>
     <view class="rider-nav-item" data-page="profile" bindtap="goRiderPage"><view class="rider-nav-glyph profile"></view><text class="rider-nav-label">我的</text></view>
   </view>
 </view>

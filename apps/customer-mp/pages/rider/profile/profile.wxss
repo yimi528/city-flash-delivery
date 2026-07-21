@@ -55,19 +55,6 @@
 .switch-copy { min-width: 0; flex: 1; margin-left: 17rpx; }
 .switch-copy text { display: block; color: #273142; font-size: 26rpx; font-weight: 850; line-height: 1.35; }
 .switch-arrow { margin-left: 14rpx; color: #a0a8b4; font-size: 40rpx; font-weight: 300; }
-.history-card { padding: 8rpx 24rpx; }
-.history-row { min-height: 92rpx; border-bottom: 2rpx solid #edf0f4; display: flex; align-items: center; justify-content: space-between; gap: 18rpx; }
-.history-row:last-child { border-bottom: 0; }
-.history-copy { min-width: 0; flex: 1; }
-.history-copy text { display: block; overflow: hidden; color: #282f3b; font-size: 24rpx; font-weight: 820; text-overflow: ellipsis; white-space: nowrap; }
-.history-copy text:last-child { margin-top: 6rpx; color: #9aa2af; font-size: 18rpx; font-weight: 550; }
-.history-status { padding: 8rpx 13rpx; border-radius: 999rpx; color: #11744d; background: #e7f7ef; font-size: 19rpx; font-weight: 800; }
-.history-empty { padding: 44rpx 20rpx 40rpx; color: #333b48; text-align: center; }
-.history-empty text { display: block; font-size: 24rpx; font-weight: 850; }
-.history-empty text:last-child { margin-top: 8rpx; color: #9fa7b3; font-size: 19rpx; font-weight: 550; }
-.history-empty-icon { position: relative; width: 60rpx; height: 60rpx; margin: 0 auto 18rpx; border: 3rpx solid #b8c1cd; border-radius: 19rpx; }
-.history-empty-icon::before { content: ''; position: absolute; left: 13rpx; top: 16rpx; width: 28rpx; height: 3rpx; border-radius: 999rpx; background: #b8c1cd; box-shadow: 0 10rpx 0 #b8c1cd, 0 20rpx 0 #b8c1cd; }
-
 @media (prefers-reduced-motion: reduce) {
   .vehicle-option, .save-vehicles, .switch-user { transition: opacity 120ms ease; }
   .vehicle-option:active, .save-vehicles:active, .switch-user:active { transform: none; }

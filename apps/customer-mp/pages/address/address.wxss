@@ -79,6 +79,45 @@
   box-shadow: 0 12rpx 32rpx rgba(18, 28, 52, 0.05);
 }
 
+.map-picker-card {
+  margin: 16rpx 30rpx 0;
+  padding: 24rpx 26rpx;
+  border-radius: 24rpx;
+  border: 2rpx solid rgba(255, 29, 22, 0.12);
+  background: linear-gradient(135deg, #fff, #fff6f3);
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+  box-shadow: 0 12rpx 32rpx rgba(255, 29, 22, 0.06);
+}
+
+.map-picker-icon {
+  position: relative;
+  width: 58rpx;
+  height: 58rpx;
+  flex: 0 0 auto;
+  border-radius: 50% 50% 50% 10rpx;
+  background: linear-gradient(145deg, #ff5a4f, #ef1c16);
+  transform: rotate(-45deg) scale(0.76);
+  box-shadow: 0 8rpx 18rpx rgba(239, 28, 22, 0.22);
+}
+
+.map-picker-dot {
+  position: absolute;
+  top: 16rpx;
+  left: 16rpx;
+  width: 26rpx;
+  height: 26rpx;
+  border-radius: 50%;
+  background: #fff;
+}
+
+.map-picker-arrow {
+  color: #ff1d16;
+  font-size: 48rpx;
+  line-height: 1;
+}
+
 .location-glyph {
   width: 58rpx;
   height: 58rpx;
@@ -295,10 +334,12 @@
 
 .nav-add:active,
 .location-card:active,
+.map-picker-card:active,
 .empty-card:active { transform: scale(0.98); opacity: 0.86; }
 
 @media (prefers-reduced-motion: reduce) {
   .nav-add:active,
   .location-card:active,
+  .map-picker-card:active,
   .empty-card:active { transform: none; }
 }

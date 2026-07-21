@@ -7,6 +7,7 @@ const SOUND_STORAGE_KEY = 'riderNewOrderSound'
 const RIDER_PAGES = {
   hall: '/pages/rider/order-hall/order-hall',
   tasks: '/pages/rider/tasks/tasks',
+  history: '/pages/rider/history/history',
   profile: '/pages/rider/profile/profile'
 }
 

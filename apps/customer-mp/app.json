@@ -6,6 +6,7 @@
     "pages/cargo-options/cargo-options",
     "pages/order-create/order-create",
     "pages/address/address",
+    "pages/map-picker/map-picker",
     "pages/address-edit/address-edit",
     "pages/order-detail/order-detail",
     "pages/orders/orders",
@@ -15,6 +16,7 @@
     "pages/rider-apply/rider-apply",
     "pages/rider/order-hall/order-hall",
     "pages/rider/tasks/tasks",
+    "pages/rider/history/history",
     "pages/rider/profile/profile"
   ],
   "window": {

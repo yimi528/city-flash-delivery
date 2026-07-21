@@ -6,74 +6,45 @@
 }
 
 .map-backdrop {
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 0;
-  height: 600rpx;
-  background:
-    radial-gradient(circle at 30% 22%, rgba(255, 255, 255, 0.38), transparent 150rpx),
-    linear-gradient(180deg, #9aa0a8 0%, #c2c6ce 56%, #eef1f6 100%);
+  position: relative;
+  height: 520rpx;
   overflow: hidden;
 }
 
-.road {
-  position: absolute;
-  height: 16rpx;
-  width: 980rpx;
-  border-radius: 16rpx;
-  background: rgba(67, 76, 91, 0.22);
+.vehicle-map {
+  width: 100%;
+  height: 100%;
 }
 
-.r1 { top: 120rpx; left: -260rpx; transform: rotate(28deg); }
-.r2 { top: 260rpx; left: -130rpx; transform: rotate(28deg); }
-.r3 { top: 330rpx; right: -300rpx; transform: rotate(-24deg); }
-
-.map-point {
+.map-page-nav {
   position: absolute;
-  width: 56rpx;
-  height: 56rpx;
-  border-radius: 20rpx;
-  color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 25rpx;
-  font-weight: 950;
-  box-shadow: 0 12rpx 26rpx rgba(16, 36, 66, 0.18);
-}
-
-.map-point.start { left: 150rpx; top: 230rpx; background: #ff1712; }
-.map-point.end { right: 154rpx; top: 318rpx; background: #10c779; }
-
-.car-dot {
-  position: absolute;
-  left: 50%;
-  top: 260rpx;
-  transform: translateX(-50%);
-  min-width: 142rpx;
-  height: 58rpx;
-  padding: 0 22rpx;
-  border-radius: 32rpx;
-  background: #111c34;
-  color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 25rpx;
-  font-weight: 950;
-  box-shadow: 0 16rpx 34rpx rgba(17, 28, 52, 0.22);
-}
-
-.page-nav {
-  position: relative;
-  z-index: 3;
-  height: 112rpx;
-  padding: 20rpx 30rpx;
+  left: 30rpx;
+  right: 30rpx;
+  height: 76rpx;
   display: flex;
   align-items: center;
   justify-content: space-between;
 }
+
+.map-top-badge,
+.map-route-label,
+.map-vehicle-label,
+.map-empty-label {
+  position: absolute;
+  left: 24rpx;
+  border-radius: 999rpx;
+  padding: 8rpx 16rpx;
+  color: #111c34;
+  background: rgba(255, 255, 255, 0.92);
+  font-size: 19rpx;
+  font-weight: 800;
+  box-shadow: 0 8rpx 20rpx rgba(20, 28, 50, 0.12);
+}
+
+.map-top-badge { top: 112rpx; color: #ff3b30; }
+.map-route-label { top: 112rpx; left: auto; right: 24rpx; }
+.map-vehicle-label { bottom: 24rpx; right: 24rpx; overflow: hidden; max-width: 82%; text-overflow: ellipsis; white-space: nowrap; }
+.map-empty-label { left: 50%; top: 52%; transform: translate(-50%, -50%); white-space: nowrap; color: #6f7c91; }
 
 .left-actions {
   height: 66rpx;
@@ -124,7 +95,7 @@
 .vehicle-sheet {
   position: relative;
   z-index: 2;
-  margin: 260rpx 24rpx 0;
+  margin: 0 24rpx;
   padding: 18rpx 22rpx 28rpx;
   border-radius: 38rpx;
   background: rgba(255, 255, 255, 0.98);

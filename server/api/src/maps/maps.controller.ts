@@ -58,6 +58,23 @@ export class MapsController {
     )
   }
 
+  @Get('route')
+  route(
+    @Query('fromLat') fromLat?: string,
+    @Query('fromLng') fromLng?: string,
+    @Query('toLat') toLat?: string,
+    @Query('toLng') toLng?: string,
+    @Query('mode') mode = 'bicycling',
+  ) {
+    return this.tencentMapService.route(
+      requiredNumber(fromLat, 'fromLat'),
+      requiredNumber(fromLng, 'fromLng'),
+      requiredNumber(toLat, 'toLat'),
+      requiredNumber(toLng, 'toLng'),
+      mode,
+    )
+  }
+
   @Get('weather-risk')
   weatherRisk(
     @Query('city') city = '宁德市',

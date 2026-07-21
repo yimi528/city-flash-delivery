@@ -19,12 +19,25 @@
   </view>
 
   <view class="mini-map card">
-    <view class="route-road road-one"></view>
-    <view class="route-road road-two"></view>
-    <view class="point start">发</view>
-    <view class="point end">收</view>
-    <view class="bike">骑</view>
-    <view class="map-mask">{{order.pickupName}} → {{order.dropoffName}}</view>
+    <map
+      class="order-map"
+      latitude="{{mapLatitude}}"
+      longitude="{{mapLongitude}}"
+      scale="{{mapScale}}"
+      markers="{{mapMarkers}}"
+      polyline="{{mapPolyline}}"
+      include-points="{{mapIncludePoints}}"
+      enable-zoom
+      enable-scroll
+      enable-rotate="{{false}}"
+      enable-overlooking="{{false}}"
+      bindmarkertap="onMapMarkerTap"
+    >
+      <cover-view class="map-top-badge">腾讯地图</cover-view>
+      <cover-view class="map-route-label">{{mapRouteText}}</cover-view>
+      <cover-view class="map-address-label">{{order.pickupName}} → {{order.dropoffName}}</cover-view>
+      <cover-view class="map-empty-label" wx:if="{{!mapPointCount}}">订单暂无完整坐标，先显示福鼎市地图</cover-view>
+    </map>
   </view>
 
   <view class="card timeline-card">

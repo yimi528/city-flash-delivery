@@ -47,17 +47,10 @@
     <text class="switch-arrow">›</text>
   </button>
 
-  <view class="section-heading history-heading" wx:if="{{rider}}"><text>历史订单</text><text class="section-count">{{historyItems.length}}</text></view>
-  <view class="rider-card history-card" wx:if="{{rider}}">
-    <block wx:for="{{historyItems}}" wx:key="id">
-      <view class="history-row"><view class="history-copy"><text>{{item.serviceName}}</text><text>{{item.dateText}}</text></view><text class="history-status">{{item.statusText}}</text></view>
-    </block>
-    <view class="history-empty" wx:if="{{!historyItems.length}}"><view class="history-empty-icon"></view><text>暂无历史订单</text><text>完成的配送任务会保存在这里</text></view>
-  </view>
-
   <view class="rider-nav">
     <view class="rider-nav-item" data-page="hall" bindtap="goRiderPage"><view class="rider-nav-glyph hall"></view><text class="rider-nav-label">抢单</text></view>
     <view class="rider-nav-item" data-page="tasks" bindtap="goRiderPage"><view class="rider-nav-glyph tasks"></view><text class="rider-nav-label">任务</text></view>
+    <view class="rider-nav-item" data-page="history" bindtap="goRiderPage"><view class="rider-nav-glyph history"></view><text class="rider-nav-label">历史</text></view>
     <view class="rider-nav-item active"><view class="rider-nav-glyph profile"></view><text class="rider-nav-label">我的</text></view>
   </view>
 </view>

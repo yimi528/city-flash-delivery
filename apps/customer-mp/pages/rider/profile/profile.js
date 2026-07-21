@@ -5,6 +5,7 @@ const riderApi = require('../../../utils/rider-api')
 const RIDER_PAGES = {
   hall: '/pages/rider/order-hall/order-hall',
   tasks: '/pages/rider/tasks/tasks',
+  history: '/pages/rider/history/history',
   profile: '/pages/rider/profile/profile'
 }
 
@@ -17,26 +18,6 @@ function workStatusLabel(status, online) {
   if (online) return '在线接单'
   const labels = { OFFLINE: '当前下线', ONLINE: '在线接单', BUSY: '配送任务中' }
   return labels[String(status || '').toUpperCase()] || '当前下线'
-}
-
-function orderStatusLabel(status) {
-  const labels = { COMPLETED: '已完成', CANCELLED: '已取消' }
-  return labels[String(status || '').toUpperCase()] || status || '已归档'
-}
-
-function formatDate(value) {
-  if (!value) return ''
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return ''
-  const pad = (item) => String(item).padStart(2, '0')
-  return `${date.getMonth() + 1}月${pad(date.getDate())}日 ${pad(date.getHours())}:${pad(date.getMinutes())}`
-}
-
-function normalizeHistory(history) {
-  return (history || []).map((item) => Object.assign({}, item, {
-    statusText: orderStatusLabel(item.status),
-    dateText: formatDate(item.updatedAt || item.createdAt)
-  }))
 }
 
 const VEHICLE_OPTIONS = [
@@ -68,7 +49,6 @@ Page({
     statusText: '',
     workStatusText: '',
     income: { completedOrders: 0, grossAmountFen: 0 },
-    historyItems: [],
     switchingRole: false,
     vehicleOptions: VEHICLE_OPTIONS,
     vehicleSummary: '',
@@ -96,7 +76,7 @@ Page({
   },
 
   load() {
-    return Promise.all([riderApi.me(), riderApi.income(), riderApi.history()]).then(([rider, income, history]) => {
+    return Promise.all([riderApi.me(), riderApi.income()]).then(([rider, income]) => {
       app.updateRider(rider)
       this.setData({
         rider,
@@ -104,8 +84,7 @@ Page({
         workStatusText: workStatusLabel(rider.workStatus, rider.online),
         vehicleOptions: vehicleOptionsFor(rider),
         vehicleSummary: vehicleSummaryFor(rider),
-        income,
-        historyItems: normalizeHistory(history)
+        income
       })
     }).catch((error) => wx.showToast({ title: error.message || '骑手资料读取失败', icon: 'none' }))
   },

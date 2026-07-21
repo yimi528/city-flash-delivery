@@ -202,6 +202,11 @@ Page({
     this.openMapAddress(this.data.currentAddress)
   },
 
+  openMapPicker() {
+    const mode = this.data.isCarpool ? `&mode=carpool&route=${this.data.routeId}` : ''
+    wx.navigateTo({ url: `/pages/map-picker/map-picker?type=${this.data.type}${mode}` })
+  },
+
   chooseAddress(event) {
     const id = event.currentTarget.dataset.id
     const selected = this.data.frequentAddresses.find((item) => item.id === id) || this.data.addresses.find((item) => item.id === id) || app.globalData.addresses.find((item) => item.id === id)

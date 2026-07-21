@@ -1,5 +1,6 @@
 const app = getApp()
 const api = require('../../utils/api')
+const map = require('../../utils/map')
 
 const SYNC_INTERVAL_MS = 2000
 const fulfillmentStatusFlow = ['待商家接单', '待骑手接单', '取货中', '配送中', '已完成']
@@ -74,6 +75,37 @@ function syncTimeText() {
   return `已同步 ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`
 }
 
+function orderPoint(order, name) {
+  if (!order) return null
+  const nested = map.normalizePoint(order[name])
+  if (nested) return nested
+  return map.normalizePoint({
+    latitude: order[`${name}Lat`],
+    longitude: order[`${name}Lng`]
+  })
+}
+
+function mapDataForOrder(order) {
+  const pickup = orderPoint(order, 'pickup')
+  const dropoff = orderPoint(order, 'dropoff')
+  const view = map.buildMapView(pickup, dropoff, {
+    startTitle: '发货点',
+    endTitle: '收货点'
+  })
+  return {
+    mapLatitude: view.latitude,
+    mapLongitude: view.longitude,
+    mapScale: view.scale,
+    mapMarkers: view.markers,
+    mapIncludePoints: view.includePoints,
+    mapPolyline: view.polyline,
+    mapHasRoute: view.hasRoute,
+    mapPointCount: view.pointCount,
+    mapStartPoint: pickup,
+    mapEndPoint: dropoff
+  }
+}
+
 Page({
   data: {
     statusBarHeight: 24,
@@ -95,7 +127,16 @@ Page({
     shouldPay: false,
     isLoggedIn: false,
     paymentStatusText: '待支付',
-    syncText: '等待同步'
+    syncText: '等待同步',
+    mapLatitude: 27.3245,
+    mapLongitude: 120.216,
+    mapScale: 13,
+    mapMarkers: [],
+    mapIncludePoints: [],
+    mapPolyline: [],
+    mapHasRoute: false,
+    mapPointCount: 0,
+    mapRouteText: '正在准备腾讯地图'
   },
 
   onLoad(query) {
@@ -164,6 +205,7 @@ Page({
 
   applyOrder(order) {
     order = order ? api.normalizeOrder(order) : order
+    const mapData = mapDataForOrder(order)
     if (order && order.isManualQuote) {
       const quoteStatus = order.quoteStatus || 'PENDING'
       const isTerminal = order.status === '已完成' || order.status === '已取消'
@@ -197,8 +239,54 @@ Page({
       canAutoRefundCancellation: Boolean(order && order.paymentStatus === 'PAID' && order.status === '待接单'),
       requiresRefundCancellation: Boolean(order && order.paymentStatus === 'PAID' && order.status !== '待接单'),
       isLoggedIn: Boolean(app.globalData.isLoggedIn && app.globalData.authToken),
-      paymentStatusText: paymentStatusText(order)
+      paymentStatusText: paymentStatusText(order),
+      ...mapData,
+      mapRouteText: mapData.mapHasRoute ? '正在加载腾讯地图路线' : '订单尚未同步完整坐标'
     })
+    this.loadTencentRoute(mapData)
+  },
+
+  loadTencentRoute(mapData) {
+    if (!mapData.mapHasRoute || !mapData.mapStartPoint || !mapData.mapEndPoint) return
+    const routeKey = [
+      mapData.mapStartPoint.latitude,
+      mapData.mapStartPoint.longitude,
+      mapData.mapEndPoint.latitude,
+      mapData.mapEndPoint.longitude
+    ].join(',')
+    if (this.mapRouteKey === routeKey) return
+    this.mapRouteKey = routeKey
+    const routeSeq = (this.mapRouteSeq || 0) + 1
+    this.mapRouteSeq = routeSeq
+    map.route(mapData.mapStartPoint, mapData.mapEndPoint, {
+      mode: app.globalData.mapConfig && app.globalData.mapConfig.distanceMode || 'bicycling'
+    }).then((result) => {
+      if (this.mapRouteSeq !== routeSeq) return
+      const route = result && result.route
+      if (!route || !Array.isArray(route.polyline) || route.polyline.length < 2) {
+        this.setData({ mapRouteText: '腾讯地图已显示起终点' })
+        return
+      }
+      this.setData({
+        mapPolyline: [{
+          points: route.polyline,
+          color: '#ff3b30',
+          width: 6,
+          borderColor: '#ffffff',
+          borderWidth: 2,
+          arrowLine: true,
+          dottedLine: false
+        }],
+        mapRouteText: `腾讯地图路线 · ${route.distanceKm}km`
+      })
+    }).catch(() => {
+      if (this.mapRouteSeq === routeSeq) this.setData({ mapRouteText: '腾讯地图已显示起终点' })
+    })
+  },
+
+  onMapMarkerTap(event) {
+    const markerId = event.detail && event.detail.markerId
+    wx.showToast({ title: markerId === 1 ? '发货点' : '收货点', icon: 'none' })
   },
 
   manualSync() {

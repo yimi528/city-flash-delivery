@@ -1,0 +1,51 @@
+<view class="picker-page">
+  <view class="map-shell">
+    <map
+      id="pickerMap"
+      class="picker-map"
+      latitude="{{latitude}}"
+      longitude="{{longitude}}"
+      scale="{{scale}}"
+      show-location
+      enable-zoom
+      enable-scroll
+      enable-rotate="{{false}}"
+      enable-overlooking="{{false}}"
+      bindregionchange="onRegionChange"
+    ></map>
+
+    <cover-view class="map-nav" style="top: {{statusBarHeight + 12}}px">
+      <cover-view class="back" bindtap="goBack">‹</cover-view>
+      <cover-view class="nav-title">{{title}}</cover-view>
+      <cover-view class="nav-space"></cover-view>
+    </cover-view>
+
+    <cover-view class="center-pin {{moving ? 'moving' : ''}}">
+      <cover-view class="pin-core"></cover-view>
+    </cover-view>
+    <cover-view class="pin-shadow"></cover-view>
+
+    <cover-view class="locate-button" bindtap="useCurrentLocation">
+      <cover-view class="locate-glyph">⌖</cover-view>
+      <cover-view class="locate-text">{{locating ? '定位中' : '当前位置'}}</cover-view>
+    </cover-view>
+  </view>
+
+  <view class="result-panel">
+    <view class="drag-handle"></view>
+    <view class="result-kicker">红色图钉所在位置</view>
+    <view class="result-row">
+      <view class="result-pin">{{type === 'pickup' ? '发' : (type === 'purchase' ? '买' : '收')}}</view>
+      <view class="result-copy">
+        <view class="result-name" wx:if="{{selectedAddress && !resolving}}">{{selectedAddress.name}}</view>
+        <view class="result-name muted" wx:else>{{moving ? '正在移动图钉…' : '正在识别地址…'}}</view>
+        <view class="result-detail" wx:if="{{selectedAddress && !resolving}}">{{selectedAddress.detail}}</view>
+        <view class="result-detail" wx:else>拖动地图，红色图钉会固定在地图中心</view>
+      </view>
+    </view>
+
+    <view class="coordinate" wx:if="{{selectedAddress && !resolving}}">腾讯地图坐标 · {{latitude}}, {{longitude}}</view>
+    <view class="error-message" wx:if="{{errorMessage}}">{{errorMessage}}</view>
+    <button class="confirm-button" disabled="{{resolving || moving || !selectedAddress || errorMessage}}" bindtap="confirmLocation">确认此位置</button>
+  </view>
+</view>

@@ -84,6 +84,9 @@ page {
 .rider-nav-glyph.hall::after { content: ''; position: absolute; left: 5rpx; top: 5rpx; width: 18rpx; height: 18rpx; border-top: 3rpx solid currentColor; border-right: 3rpx solid currentColor; border-radius: 0 14rpx 0 0; }
 .rider-nav-glyph.tasks { width: 28rpx; height: 34rpx; border: 3rpx solid currentColor; border-radius: 7rpx; }
 .rider-nav-glyph.tasks::before { content: ''; position: absolute; left: 6rpx; top: 8rpx; width: 12rpx; height: 3rpx; border-radius: 999rpx; background: currentColor; box-shadow: 0 8rpx 0 currentColor, 0 16rpx 0 currentColor; }
+.rider-nav-glyph.history { border: 3rpx solid currentColor; border-radius: 50%; }
+.rider-nav-glyph.history::before { content: ''; position: absolute; left: 14rpx; top: 7rpx; width: 3rpx; height: 11rpx; border-radius: 999rpx; background: currentColor; }
+.rider-nav-glyph.history::after { content: ''; position: absolute; left: 14rpx; top: 16rpx; width: 9rpx; height: 3rpx; border-radius: 999rpx; background: currentColor; transform: rotate(32deg); transform-origin: left center; }
 .rider-nav-glyph.profile::before { content: ''; position: absolute; left: 10rpx; top: 1rpx; width: 14rpx; height: 14rpx; border: 3rpx solid currentColor; border-radius: 50%; }
 .rider-nav-glyph.profile::after { content: ''; position: absolute; left: 3rpx; bottom: 0; width: 28rpx; height: 14rpx; border: 3rpx solid currentColor; border-bottom: 0; border-radius: 18rpx 18rpx 0 0; }
 

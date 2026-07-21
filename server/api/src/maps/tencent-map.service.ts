@@ -31,6 +31,10 @@ type TencentDistanceResult = {
   rows?: Array<{ elements?: Array<{ distance?: number; duration?: number }> }>
 }
 
+type TencentDirectionResult = {
+  routes?: Array<{ distance?: number; duration?: number; polyline?: number[] }>
+}
+
 @Injectable()
 export class TencentMapService {
   constructor(private readonly config: ConfigService) {}
@@ -97,6 +101,42 @@ export class TencentMapService {
     }
   }
 
+  async route(
+    fromLatitude: number,
+    fromLongitude: number,
+    toLatitude: number,
+    toLongitude: number,
+    mode = 'bicycling',
+  ) {
+    if (!this.isConfigured()) {
+      return { provider: 'tencent-map', configured: false, route: null }
+    }
+    const endpoint = mode === 'walking'
+      ? '/ws/direction/v1/walking'
+      : mode === 'driving'
+        ? '/ws/direction/v1/driving'
+        : '/ws/direction/v1/bicycling'
+    const result = await this.request<TencentDirectionResult>(endpoint, {
+      from: `${fromLatitude},${fromLongitude}`,
+      to: `${toLatitude},${toLongitude}`,
+    })
+    const firstRoute = result.routes?.[0]
+    const polyline = this.decodePolyline(firstRoute?.polyline)
+    if (!firstRoute || polyline.length < 2) {
+      return { provider: 'tencent-map', configured: true, route: null }
+    }
+    return {
+      provider: 'tencent-map',
+      configured: true,
+      route: {
+        distanceKm: Math.max(0.1, Math.round((Number(firstRoute.distance || 0) / 1000) * 10) / 10),
+        duration: firstRoute.duration ? Math.max(1, Math.round(Number(firstRoute.duration) / 60)) : null,
+        source: '腾讯地图',
+        polyline,
+      },
+    }
+  }
+
   private async request<T>(path: string, params: Record<string, string | number | undefined>) {
     const url = new URL(`${TENCENT_MAP_API}${path}`)
     Object.entries({ ...params, key: this.getKey(), output: 'json' }).forEach(([key, value]) => {
@@ -124,5 +164,22 @@ export class TencentMapService {
   private formatOptionalPoint(latitude?: number, longitude?: number) {
     if (latitude === undefined || longitude === undefined) return undefined
     return `${latitude},${longitude}`
+  }
+
+  private decodePolyline(encoded?: number[]) {
+    if (!Array.isArray(encoded) || encoded.length < 2) return []
+    const points: Array<{ latitude: number; longitude: number }> = []
+    let latitude = Number(encoded[0])
+    let longitude = Number(encoded[1])
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return []
+    points.push({ latitude, longitude })
+    for (let index = 2; index + 1 < encoded.length; index += 2) {
+      latitude += Number(encoded[index]) / 1000000
+      longitude += Number(encoded[index + 1]) / 1000000
+      if (Number.isFinite(latitude) && Number.isFinite(longitude)) {
+        points.push({ latitude: latitude, longitude: longitude })
+      }
+    }
+    return points
   }
 }

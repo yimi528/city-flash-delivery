@@ -20,6 +20,17 @@
     <view class="location-action">{{isLocating ? '定位中' : (currentAddress ? '重新定位' : '定位')}}</view>
   </view>
 
+  <view class="map-picker-card" role="button" aria-label="打开腾讯地图拖动图钉选点" bindtap="openMapPicker">
+    <view class="map-picker-icon">
+      <view class="map-picker-dot"></view>
+    </view>
+    <view class="location-copy">
+      <view class="location-title">地图选点</view>
+      <view class="location-sub">拖动腾讯地图，用红色图钉精确选择位置</view>
+    </view>
+    <view class="map-picker-arrow">›</view>
+  </view>
+
   <view class="current-card" wx:if="{{currentAddress && !isCarpool}}" bindtap="chooseCurrent">
     <view class="pin current">定</view>
     <view class="info">

@@ -228,6 +228,85 @@ function normalizePoint(source) {
   return { latitude, longitude, lat: latitude, lng: longitude }
 }
 
+function buildMapView(from, to, options) {
+  const config = getConfig()
+  const settings = options || {}
+  const start = normalizePoint(from)
+  const end = normalizePoint(to)
+  const fallback = normalizePoint(settings.fallbackLocation || config.fallbackLocation) || DEFAULT_LOCATION
+  const points = [start, end].filter(Boolean)
+  const center = points.length === 2
+    ? {
+        latitude: (start.latitude + end.latitude) / 2,
+        longitude: (start.longitude + end.longitude) / 2
+      }
+    : (points[0] || fallback)
+  const iconPath = settings.iconPath || '/assets/tab/home_active.png'
+  const markers = []
+  if (start) {
+    markers.push({
+      id: 1,
+      latitude: start.latitude,
+      longitude: start.longitude,
+      iconPath,
+      width: 30,
+      height: 30,
+      anchor: { x: 0.5, y: 1 },
+      callout: {
+        content: settings.startTitle || '发货点',
+        display: 'ALWAYS',
+        padding: 8,
+        borderRadius: 8,
+        bgColor: '#ffffff',
+        color: '#111c34',
+        fontSize: 11,
+        borderWidth: 1,
+        borderColor: '#e7ebf2'
+      }
+    })
+  }
+  if (end) {
+    markers.push({
+      id: 2,
+      latitude: end.latitude,
+      longitude: end.longitude,
+      iconPath,
+      width: 30,
+      height: 30,
+      anchor: { x: 0.5, y: 1 },
+      callout: {
+        content: settings.endTitle || '收货点',
+        display: 'ALWAYS',
+        padding: 8,
+        borderRadius: 8,
+        bgColor: '#ffffff',
+        color: '#111c34',
+        fontSize: 11,
+        borderWidth: 1,
+        borderColor: '#e7ebf2'
+      }
+    })
+  }
+  return {
+    latitude: center.latitude,
+    longitude: center.longitude,
+    scale: points.length > 1 ? 12 : 15,
+    markers,
+    includePoints: points,
+    polyline: points.length > 1 ? [{
+      points,
+      color: '#ff3b30',
+      width: 5,
+      borderColor: '#ffffff',
+      borderWidth: 2,
+      arrowLine: true,
+      dottedLine: false
+    }] : [],
+    hasRoute: points.length > 1,
+    pointCount: points.length
+  }
+}
+
 function formatLocation(point) {
   const normalized = normalizePoint(point)
   if (!normalized) return ''
@@ -496,8 +575,70 @@ function estimateDistance(from, to, options) {
   }).catch(() => fallback)
 }
 
+function decodeTencentPolyline(encoded) {
+  if (!Array.isArray(encoded) || encoded.length < 2) return []
+  const points = []
+  let latitude = Number(encoded[0])
+  let longitude = Number(encoded[1])
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return []
+  points.push({ latitude, longitude })
+  for (let index = 2; index + 1 < encoded.length; index += 2) {
+    latitude += Number(encoded[index]) / 1000000
+    longitude += Number(encoded[index + 1]) / 1000000
+    if (Number.isFinite(latitude) && Number.isFinite(longitude)) {
+      points.push({ latitude, longitude })
+    }
+  }
+  return points
+}
+
+function route(from, to, options) {
+  const start = normalizePoint(from)
+  const end = normalizePoint(to)
+  if (!start || !end) return Promise.resolve({ configured: false, route: null })
+  const config = getConfig()
+  const mode = (options && options.mode) || config.distanceMode || 'bicycling'
+  if (shouldUseBackendMap() && !(options && options.skipBackendMap)) {
+    return requestBackendMap('/maps/route', {
+      fromLat: start.latitude,
+      fromLng: start.longitude,
+      toLat: end.latitude,
+      toLng: end.longitude,
+      mode
+    }).then((body) => {
+      if (body && body.route) return body
+      return route(from, to, Object.assign({}, options, { skipBackendMap: true }))
+    }).catch(() => route(from, to, Object.assign({}, options, { skipBackendMap: true })))
+  }
+  if (!hasMapKey()) return Promise.resolve({ configured: false, route: null })
+  const endpoint = mode === 'walking'
+    ? '/ws/direction/v1/walking'
+    : mode === 'driving'
+      ? '/ws/direction/v1/driving'
+      : '/ws/direction/v1/bicycling'
+  return requestMap(endpoint, {
+    from: formatLocation(start),
+    to: formatLocation(end)
+  }).then((body) => {
+    const firstRoute = body.result && body.result.routes && body.result.routes[0]
+    const polyline = decodeTencentPolyline(firstRoute && firstRoute.polyline)
+    if (!firstRoute || polyline.length < 2) return { configured: true, route: null }
+    return {
+      configured: true,
+      route: {
+        distanceKm: roundDistance(Number(firstRoute.distance || 0) / 1000),
+        duration: firstRoute.duration ? Math.max(1, Math.round(Number(firstRoute.duration) / 60)) : null,
+        source: '腾讯地图',
+        polyline
+      }
+    }
+  }).catch(() => ({ configured: true, route: null }))
+}
+
 module.exports = {
   hasMapKey,
+  buildMapView,
+  route,
   searchAddress,
   reverseGeocode,
   getCurrentLocation,

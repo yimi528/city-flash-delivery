@@ -23,6 +23,10 @@ function emptyForm() {
   }
 }
 
+function draftKey(type) {
+  return type === 'purchase' ? 'purchaseAddress' : type
+}
+
 function normalizeAddress(form) {
   const latitude = form.latitude === '' ? '' : Number(form.latitude)
   const longitude = form.longitude === '' ? '' : Number(form.longitude)
@@ -93,6 +97,7 @@ Page({
     const isCarpool = query.mode === 'carpool'
     const type = query.type || 'dropoff'
     const route = carpool.getRoute(query.route || (app.globalData.draftOrder.selectedLine && app.globalData.draftOrder.selectedLine.id))
+    this.selectAfterSave = query.from === 'map'
     const initialForm = source
       ? Object.assign(emptyForm(), source, { distanceKm: source.distanceKm || Number(String(source.distance || '1').replace('km', '')) || 1 })
       : Object.assign(emptyForm(), isCarpool ? carpool.addressDefaults(route.id) : {})
@@ -281,9 +286,19 @@ Page({
     }
 
     const done = (address, title) => {
-      this.saveLocal(address)
+      const savedAddress = this.saveLocal(address)
+      if (this.selectAfterSave) {
+        if (this.data.isCarpool) {
+          carpool.applySelectedAddress(app.globalData.draftOrder, savedAddress, this.data.type, this.data.routeId)
+        } else {
+          app.globalData.draftOrder[draftKey(this.data.type)] = Object.assign({}, savedAddress)
+          app.globalData.draftOrder.routeDistanceKm = 0
+          app.globalData.draftOrder.routeDistanceSource = ''
+          app.globalData.draftOrder.routeDuration = ''
+        }
+      }
       wx.showToast({ title, icon: 'success' })
-      setTimeout(() => wx.navigateBack(), 350)
+      setTimeout(() => wx.navigateBack({ delta: this.selectAfterSave ? 2 : 1 }), 350)
     }
 
     if (!app.globalData.useBackend) {

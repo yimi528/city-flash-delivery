@@ -1,0 +1,233 @@
+page {
+  overflow: hidden;
+  background: #eef1f5;
+}
+
+.picker-page {
+  height: 100vh;
+  overflow: hidden;
+  background: #eef1f5;
+}
+
+.map-shell {
+  position: relative;
+  height: calc(100vh - 470rpx);
+  min-height: 690rpx;
+  overflow: hidden;
+}
+
+.picker-map {
+  width: 100%;
+  height: 100%;
+}
+
+.map-nav {
+  position: absolute;
+  left: 24rpx;
+  right: 24rpx;
+  height: 76rpx;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.back,
+.nav-space {
+  width: 76rpx;
+  height: 76rpx;
+}
+
+.back {
+  border-radius: 38rpx;
+  background: rgba(255, 255, 255, 0.96);
+  color: #111c34;
+  font-size: 58rpx;
+  line-height: 68rpx;
+  text-align: center;
+  box-shadow: 0 10rpx 30rpx rgba(17, 28, 52, 0.16);
+}
+
+.nav-title {
+  height: 68rpx;
+  padding: 0 28rpx;
+  border-radius: 34rpx;
+  background: rgba(255, 255, 255, 0.96);
+  color: #111c34;
+  font-size: 28rpx;
+  font-weight: 900;
+  line-height: 68rpx;
+  box-shadow: 0 10rpx 30rpx rgba(17, 28, 52, 0.12);
+}
+
+.center-pin {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 64rpx;
+  height: 64rpx;
+  margin-top: -74rpx;
+  margin-left: -32rpx;
+  border: 5rpx solid #fff;
+  border-radius: 50% 50% 50% 10rpx;
+  background: linear-gradient(145deg, #ff5c52, #ed1711);
+  transform: rotate(-45deg);
+  box-shadow: 0 10rpx 24rpx rgba(211, 27, 20, 0.3);
+}
+
+.center-pin.moving {
+  margin-top: -90rpx;
+}
+
+.pin-core {
+  width: 24rpx;
+  height: 24rpx;
+  margin: 17rpx;
+  border-radius: 50%;
+  background: #fff;
+}
+
+.pin-shadow {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 38rpx;
+  height: 14rpx;
+  margin-top: 1rpx;
+  margin-left: -19rpx;
+  border-radius: 50%;
+  background: rgba(49, 32, 29, 0.2);
+}
+
+.locate-button {
+  position: absolute;
+  right: 24rpx;
+  bottom: 28rpx;
+  height: 68rpx;
+  padding: 0 22rpx;
+  border-radius: 34rpx;
+  background: rgba(255, 255, 255, 0.96);
+  display: flex;
+  align-items: center;
+  box-shadow: 0 10rpx 30rpx rgba(17, 28, 52, 0.16);
+}
+
+.locate-glyph {
+  color: #ff1d16;
+  font-size: 32rpx;
+  font-weight: 900;
+}
+
+.locate-text {
+  margin-left: 10rpx;
+  color: #111c34;
+  font-size: 24rpx;
+  font-weight: 800;
+}
+
+.result-panel {
+  position: relative;
+  z-index: 2;
+  min-height: 430rpx;
+  margin-top: -24rpx;
+  padding: 18rpx 30rpx calc(28rpx + env(safe-area-inset-bottom));
+  border-radius: 34rpx 34rpx 0 0;
+  background: #fff;
+  box-shadow: 0 -12rpx 40rpx rgba(17, 28, 52, 0.09);
+}
+
+.drag-handle {
+  width: 76rpx;
+  height: 8rpx;
+  margin: 0 auto 20rpx;
+  border-radius: 6rpx;
+  background: #dfe3eb;
+}
+
+.result-kicker {
+  color: #8a94a8;
+  font-size: 23rpx;
+  font-weight: 700;
+}
+
+.result-row {
+  margin-top: 18rpx;
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+}
+
+.result-pin {
+  width: 56rpx;
+  height: 56rpx;
+  flex: 0 0 auto;
+  border-radius: 18rpx;
+  background: linear-gradient(145deg, #ff5a4f, #ef1c16);
+  color: #fff;
+  font-size: 24rpx;
+  font-weight: 900;
+  line-height: 56rpx;
+  text-align: center;
+}
+
+.result-copy {
+  min-width: 0;
+  flex: 1;
+}
+
+.result-name {
+  overflow: hidden;
+  color: #111c34;
+  font-size: 32rpx;
+  font-weight: 900;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.result-name.muted {
+  color: #8a94a8;
+}
+
+.result-detail {
+  margin-top: 8rpx;
+  overflow: hidden;
+  color: #6f7b91;
+  font-size: 24rpx;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.coordinate {
+  margin-top: 20rpx;
+  color: #a0a8b7;
+  font-size: 21rpx;
+}
+
+.error-message {
+  margin-top: 14rpx;
+  color: #d93025;
+  font-size: 23rpx;
+  font-weight: 700;
+}
+
+.confirm-button {
+  height: 88rpx;
+  margin-top: 24rpx;
+  border: 0;
+  border-radius: 44rpx;
+  background: linear-gradient(90deg, #ff4b31, #e92318);
+  color: #fff;
+  font-size: 30rpx;
+  font-weight: 900;
+  line-height: 88rpx;
+  box-shadow: 0 14rpx 28rpx rgba(233, 35, 24, 0.22);
+}
+
+.confirm-button::after {
+  border: 0;
+}
+
+.confirm-button[disabled] {
+  background: #d8dce4;
+  color: #fff;
+  box-shadow: none;
+}

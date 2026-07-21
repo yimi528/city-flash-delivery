@@ -1,0 +1,51 @@
+<view class="rider-page history-page">
+  <view class="history-hero">
+    <view class="history-kicker">配送记录</view>
+    <view class="history-title">历史订单</view>
+    <view class="history-sub">每一次完成，都是你可靠履约的记录</view>
+    <view class="history-summary">
+      <view class="summary-item"><text class="summary-value">{{summary.total}}</text><text>全部订单</text></view>
+      <view class="summary-divider"></view>
+      <view class="summary-item"><text class="summary-value green">{{summary.completed}}</text><text>已完成</text></view>
+      <view class="summary-divider"></view>
+      <view class="summary-item"><text class="summary-value muted-value">{{summary.cancelled}}</text><text>已取消</text></view>
+    </view>
+  </view>
+
+  <view class="history-filter-card">
+    <view class="history-filter {{filter === 'ALL' ? 'active' : ''}}" data-filter="ALL" bindtap="chooseFilter">全部</view>
+    <view class="history-filter {{filter === 'COMPLETED' ? 'active' : ''}}" data-filter="COMPLETED" bindtap="chooseFilter">已完成</view>
+    <view class="history-filter {{filter === 'CANCELLED' ? 'active' : ''}}" data-filter="CANCELLED" bindtap="chooseFilter">已取消</view>
+  </view>
+
+  <view class="history-list-head"><view><text>订单记录</text><text>按最近完成时间排序</text></view><text class="history-count">{{visibleHistory.length}} 单</text></view>
+
+  <block wx:for="{{visibleHistory}}" wx:key="id">
+    <view class="rider-card history-order-card" data-id="{{item.id}}" bindtap="openOrder" hover-class="history-order-card-pressed">
+      <view class="history-order-head">
+        <view class="history-order-title"><text>{{item.serviceName}}</text><text>{{item.orderNo}}</text></view>
+        <text class="history-status {{item.statusClass}}">{{item.statusText}}</text>
+      </view>
+      <view class="history-order-meta"><text>{{item.dateText}}</text><text wx:if="{{item.vehicleName}}">{{item.vehicleName}}</text></view>
+      <view class="history-route">
+        <view class="history-route-line"><text class="history-route-dot pickup">取</text><text>{{item.pickupName}}</text></view>
+        <view class="history-route-connector"></view>
+        <view class="history-route-line"><text class="history-route-dot dropoff">送</text><text>{{item.dropoffName}}</text></view>
+      </view>
+      <view class="history-order-foot"><text>订单已归档</text><text class="history-fee" wx:if="{{item.totalFeeFen}}">¥{{item.totalFeeText}}</text></view>
+    </view>
+  </block>
+
+  <view class="rider-empty history-empty" wx:if="{{!loading && !visibleHistory.length}}">
+    <view class="history-empty-icon"><view></view></view>
+    <view class="empty-title">{{filter === 'ALL' ? '暂无历史订单' : '暂无对应订单'}}</view>
+    <view>{{filter === 'ALL' ? '完成的配送任务会在这里沉淀' : '切换其他筛选条件试试看'}}</view>
+  </view>
+
+  <view class="rider-nav">
+    <view class="rider-nav-item" data-page="hall" bindtap="goRiderPage"><view class="rider-nav-glyph hall"></view><text class="rider-nav-label">抢单</text></view>
+    <view class="rider-nav-item" data-page="tasks" bindtap="goRiderPage"><view class="rider-nav-glyph tasks"></view><text class="rider-nav-label">任务</text></view>
+    <view class="rider-nav-item active"><view class="rider-nav-glyph history"></view><text class="rider-nav-label">历史</text></view>
+    <view class="rider-nav-item" data-page="profile" bindtap="goRiderPage"><view class="rider-nav-glyph profile"></view><text class="rider-nav-label">我的</text></view>
+  </view>
+</view>
