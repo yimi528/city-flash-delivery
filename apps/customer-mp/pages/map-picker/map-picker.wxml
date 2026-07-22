@@ -22,7 +22,7 @@
 
     <cover-image
       class="center-pin {{moving ? 'moving' : ''}}"
-      src="../../assets/map-pin.svg"
+      src="../../assets/map-pin.png"
     ></cover-image>
 
     <cover-view class="locate-button" bindtap="useCurrentLocation">

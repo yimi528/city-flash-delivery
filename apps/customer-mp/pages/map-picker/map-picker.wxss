@@ -74,19 +74,6 @@ page {
   margin-top: -117rpx;
 }
 
-.pin-shadow {
-  position: absolute;
-  z-index: 7;
-  top: 50%;
-  left: 50%;
-  width: 26rpx;
-  height: 8rpx;
-  margin-top: 5rpx;
-  margin-left: -13rpx;
-  border-radius: 50%;
-  background: rgba(49, 32, 29, 0.18);
-}
-
 .locate-button {
   position: absolute;
   right: 24rpx;
