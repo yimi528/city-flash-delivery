@@ -87,7 +87,10 @@ Page({
   },
 
   onShow() {
-    this.loadAddresses()
+    const loginReady = app.globalData.useBackend && !app.globalData.isLoggedIn && app.loginReady
+      ? app.loginReady
+      : Promise.resolve()
+    loginReady.then(() => this.loadAddresses())
   },
 
   loadAddresses() {
@@ -103,9 +106,15 @@ Page({
       const visibleAddresses = addresses.filter((item) => !this.pendingDeleteIds[item.id] && !this.deletedAddressIds[item.id])
       app.globalData.addresses = visibleAddresses
       this.applySearch(visibleAddresses)
-    }).catch(() => {
+    }).catch((error) => {
       this.applySearch(savedAddresses)
-      wx.showToast({ title: '后端未启动，使用本地地址', icon: 'none' })
+      const message = String(error && (error.message || error.errMsg) || '')
+      const title = /401|请先登录|登录凭证|未授权/.test(message)
+        ? '请先完成微信登录'
+        : /url not in domain list|合法域名/.test(message)
+          ? '当前开发包未配置合法域名'
+          : '无法连接服务，暂时使用本地地址'
+      wx.showToast({ title, icon: 'none' })
     })
   },
 

@@ -59,3 +59,39 @@ test('the mini program silently exchanges wx.login code without changing the rid
   assert.equal(storage.customerAuthToken, 'customer-wechat-token')
   assert.equal(storage.riderAuthToken, 'rider-token')
 })
+
+test('app exposes a login-ready promise for pages that need authenticated data', async () => {
+  const storage = {}
+  let app = null
+  const wx = {
+    getSystemInfoSync: () => ({ statusBarHeight: 24, windowWidth: 375 }),
+    getStorageSync: (key) => storage[key] || '',
+    setStorageSync: (key, value) => { storage[key] = value },
+    removeStorageSync: (key) => { delete storage[key] },
+    login: ({ success }) => success({ code: 'wx-session-code' })
+  }
+  const miniApi = {
+    wechatLogin: async () => ({
+      token: 'customer-wechat-token',
+      roles: [{ role: 'customer', status: 'active' }],
+      user: { id: 'wechat-user-2', nickname: '微信用户' }
+    })
+  }
+  const appPath = path.resolve(__dirname, '../app.js')
+  vm.runInNewContext(fs.readFileSync(appPath, 'utf8'), {
+    App: (definition) => { app = definition },
+    wx,
+    require: (request) => request === './utils/api' ? miniApi : require(request),
+    setInterval,
+    clearInterval,
+    Promise,
+    Error
+  }, { filename: appPath })
+
+  app.globalData.useBackend = true
+  app.onLaunch()
+  await app.loginReady
+
+  assert.equal(app.globalData.isLoggedIn, true)
+  assert.equal(app.globalData.userId, 'wechat-user-2')
+})

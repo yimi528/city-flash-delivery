@@ -26,7 +26,7 @@ App({
     } catch (error) {}
     if (this.globalData.useBackend) {
       this.refreshAppConfig()
-      this.ensureWechatLogin().catch(() => {})
+      this.loginReady = this.ensureWechatLogin().catch(() => null)
     }
   },
 
