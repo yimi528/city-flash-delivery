@@ -60,11 +60,13 @@ App({
     })
   },
 
-  ensureWechatLogin() {
-    if (this.globalData.isLoggedIn && this.globalData.authToken) {
+  ensureWechatLogin(userInfo) {
+    const profile = userInfo || {}
+    const hasProfile = Boolean(profile.nickName || profile.nickname || profile.avatarUrl)
+    if (this.globalData.isLoggedIn && this.globalData.authToken && !hasProfile) {
       return Promise.resolve({ user: this.globalData.currentUser, token: this.globalData.authToken })
     }
-    if (this.wechatLoginPromise) return this.wechatLoginPromise
+    if (this.wechatLoginPromise && !hasProfile) return this.wechatLoginPromise
     if (!this.globalData.useBackend || !wx.login) return Promise.reject(new Error('当前环境不支持微信登录'))
     const api = require('./utils/api')
     this.wechatLoginPromise = new Promise((resolve, reject) => {
@@ -72,7 +74,7 @@ App({
         success: (result) => result && result.code ? resolve(result.code) : reject(new Error('微信登录凭证为空')),
         fail: () => reject(new Error('无法获取微信登录凭证'))
       })
-    }).then((code) => api.wechatLogin({ code, userInfo: { nickName: '微信用户' } }))
+    }).then((code) => api.wechatLogin({ code, userInfo: profile }))
       .then((session) => {
         this.setCurrentUser(Object.assign({}, session.user, {
           roles: session.roles,
