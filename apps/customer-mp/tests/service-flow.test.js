@@ -461,6 +461,37 @@ test('cancelling a manual quote order keeps it cancelled and stops quoting', () 
   assert.equal(calls.some((call) => call.type === 'showModal'), true)
 })
 
+test('order detail preserves a user-adjusted map viewport during order refresh', () => {
+  const { app, event, loadPage } = createHarness()
+  const index = loadPage('pages/index/index.js')
+  index.onShow()
+  index.chooseTask(event({ task: 'send_parcel' }))
+  app.globalData.draftOrder.pickup = app.globalData.addresses[0]
+  app.globalData.draftOrder.dropoff = app.globalData.addresses[1]
+
+  const createPage = loadPage('pages/order-create/order-create.js')
+  createPage.onShow()
+  createPage.submitOrder()
+  const detail = loadPage('pages/order-detail/order-detail.js')
+  detail.onLoad({ id: app.globalData.orders[0].id })
+  detail.onShow()
+
+  const patches = []
+  const originalSetData = detail.setData
+  detail.setData = function captureSetData(patch, callback) {
+    patches.push(patch)
+    originalSetData.call(this, patch, callback)
+  }
+  detail.onMapRegionChange({ type: 'begin', causedBy: 'gesture' })
+  detail.onMapRegionChange({ type: 'end', causedBy: 'gesture' })
+  detail.applyOrder(detail.data.order)
+
+  const refreshPatch = patches[patches.length - 1]
+  assert.equal('mapLatitude' in refreshPatch, false)
+  assert.equal('mapLongitude' in refreshPatch, false)
+  assert.equal('mapScale' in refreshPatch, false)
+})
+
 test('all services expose cancellation before payment', () => {
   const taskIds = [
     'carpool_ride',

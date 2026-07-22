@@ -30,6 +30,7 @@
       enable-scroll
       enable-rotate="{{false}}"
       enable-overlooking="{{false}}"
+      bindregionchange="onMapRegionChange"
       bindmarkertap="onMapMarkerTap"
     >
       <cover-view class="map-top-badge">腾讯地图</cover-view>

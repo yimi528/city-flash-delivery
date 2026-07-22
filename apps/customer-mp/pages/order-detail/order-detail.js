@@ -106,6 +106,13 @@ function mapDataForOrder(order) {
   }
 }
 
+function mapRouteKey(mapData) {
+  const start = mapData && mapData.mapStartPoint
+  const end = mapData && mapData.mapEndPoint
+  if (!start || !end) return ''
+  return [start.latitude, start.longitude, end.latitude, end.longitude].join(',')
+}
+
 Page({
   data: {
     statusBarHeight: 24,
@@ -142,6 +149,9 @@ Page({
   onLoad(query) {
     this.orderId = query.id
     this.isMerchantMode = app.globalData.appRole === 'merchant' && query.mode === 'merchant'
+    this.mapViewportTouched = false
+    this.mapGestureActive = false
+    this.mapViewportRouteKey = ''
   },
 
   onShow() {
@@ -206,6 +216,11 @@ Page({
   applyOrder(order) {
     order = order ? api.normalizeOrder(order) : order
     const mapData = mapDataForOrder(order)
+    const nextMapRouteKey = mapRouteKey(mapData)
+    const sameMapRoute = this.mapViewportRouteKey === nextMapRouteKey
+    const preserveMapViewport = sameMapRoute && (this.mapViewportTouched || this.mapGestureActive)
+    if (!sameMapRoute) this.mapViewportTouched = false
+    this.mapViewportRouteKey = nextMapRouteKey
     if (order && order.isManualQuote) {
       const quoteStatus = order.quoteStatus || 'PENDING'
       const isTerminal = order.status === '已完成' || order.status === '已取消'
@@ -224,6 +239,11 @@ Page({
     } else if (order && !order.feeText) {
       order.feeText = `￥${order.fee}`
     }
+    const mapUpdate = preserveMapViewport
+      ? {}
+      : Object.assign({}, mapData, {
+          mapRouteText: mapData.mapHasRoute ? '正在加载腾讯地图路线' : '订单尚未同步完整坐标'
+        })
     const merchantStatus = getMerchantStatus(order)
     this.setData({
       statusBarHeight: app.globalData.statusBarHeight,
@@ -240,20 +260,14 @@ Page({
       requiresRefundCancellation: Boolean(order && order.paymentStatus === 'PAID' && order.status !== '待接单'),
       isLoggedIn: Boolean(app.globalData.isLoggedIn && app.globalData.authToken),
       paymentStatusText: paymentStatusText(order),
-      ...mapData,
-      mapRouteText: mapData.mapHasRoute ? '正在加载腾讯地图路线' : '订单尚未同步完整坐标'
+      ...mapUpdate,
     })
     this.loadTencentRoute(mapData)
   },
 
   loadTencentRoute(mapData) {
     if (!mapData.mapHasRoute || !mapData.mapStartPoint || !mapData.mapEndPoint) return
-    const routeKey = [
-      mapData.mapStartPoint.latitude,
-      mapData.mapStartPoint.longitude,
-      mapData.mapEndPoint.latitude,
-      mapData.mapEndPoint.longitude
-    ].join(',')
+    const routeKey = mapRouteKey(mapData)
     if (this.mapRouteKey === routeKey) return
     this.mapRouteKey = routeKey
     const routeSeq = (this.mapRouteSeq || 0) + 1
@@ -287,6 +301,26 @@ Page({
   onMapMarkerTap(event) {
     const markerId = event.detail && event.detail.markerId
     wx.showToast({ title: markerId === 1 ? '发货点' : '收货点', icon: 'none' })
+  },
+
+  onMapRegionChange(event) {
+    const detail = (event && event.detail) || {}
+    const type = event && (event.type === 'begin' || event.type === 'end')
+      ? event.type
+      : detail.type
+    const causedBy = (event && event.causedBy) || detail.causedBy || ''
+    const isGesture = !causedBy || causedBy === 'gesture' || causedBy === 'drag'
+    if (type === 'begin') {
+      this.mapGestureActive = isGesture
+      return
+    }
+    if (type !== 'end' || !this.mapGestureActive) return
+    this.mapGestureActive = false
+    this.mapViewportTouched = true
+    this.mapViewportRouteKey = mapRouteKey({
+      mapStartPoint: this.data.mapStartPoint,
+      mapEndPoint: this.data.mapEndPoint
+    })
   },
 
   manualSync() {
