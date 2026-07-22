@@ -90,7 +90,8 @@ test('map picker is registered and uses the native Tencent map center pin flow',
 
   assert.ok(appConfig.pages.includes('pages/map-picker/map-picker'))
   assert.match(template, /<map[\s\S]*bindregionchange="onRegionChange"/)
-  assert.match(template, /class="center-pin/)
+  assert.match(template, /<cover-image[\s\S]*class="center-pin/)
+  assert.match(template, /src="\.\.\/\.\.\/assets\/map-pin\.svg"/)
   assert.match(addressTemplate, /bindtap="openMapPicker"/)
   assert.match(addressEdit, /this\.selectAfterSave = query\.from === 'map'/)
   assert.match(addressEdit, /draftOrder\[draftKey\(this\.data\.type\)\]/)
