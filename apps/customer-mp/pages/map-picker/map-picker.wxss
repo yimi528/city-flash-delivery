@@ -64,29 +64,43 @@ page {
   z-index: 8;
   top: 50%;
   left: 50%;
-  width: 64rpx;
-  height: 78rpx;
-  margin-top: -78rpx;
-  margin-left: -32rpx;
+  width: 76rpx;
+  height: 90rpx;
+  margin-top: -88rpx;
+  margin-left: -38rpx;
 }
 
 .center-pin.moving {
-  margin-top: -84rpx;
+  margin-top: -94rpx;
+}
+
+.pin-halo {
+  position: absolute;
+  top: 2rpx;
+  left: 2rpx;
+  width: 68rpx;
+  height: 68rpx;
+  border: 2rpx solid rgba(242, 73, 59, 0.24);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.12);
 }
 
 .pin-head {
+  position: absolute;
+  z-index: 2;
+  top: 7rpx;
+  left: 7rpx;
   width: 56rpx;
   height: 56rpx;
-  margin-left: 4rpx;
-  border: 4rpx solid #fff;
+  border: 5rpx solid #fff;
   border-radius: 50%;
-  background: #f04432;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  background: #f2493b;
 }
 
 .pin-core {
+  position: absolute;
+  top: 17rpx;
+  left: 17rpx;
   width: 18rpx;
   height: 18rpx;
   border-radius: 50%;
@@ -95,13 +109,14 @@ page {
 
 .pin-tail {
   position: absolute;
+  z-index: 1;
   top: 52rpx;
-  left: 22rpx;
+  left: 28rpx;
   width: 0;
   height: 0;
   border-left: 10rpx solid transparent;
   border-right: 10rpx solid transparent;
-  border-top: 22rpx solid #f04432;
+  border-top: 24rpx solid #f2493b;
 }
 
 .pin-shadow {
