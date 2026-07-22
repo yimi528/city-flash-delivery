@@ -143,7 +143,7 @@ Page({
       return
     }
     this.setData({ isLoggingIn: true })
-    this.requestWechatProfile().then((userInfo) => app.ensureWechatLogin(userInfo)).then(() => {
+    app.ensureWechatLogin().then(() => {
         this.syncUserState()
         this.loadRiderState()
         wx.showToast({ title: '登录成功', icon: 'success' })
@@ -152,17 +152,6 @@ Page({
       }).finally(() => {
         this.setData({ isLoggingIn: false })
       })
-  },
-
-  requestWechatProfile() {
-    if (!wx.getUserProfile) return Promise.resolve({})
-    return new Promise((resolve) => {
-      wx.getUserProfile({
-        desc: '用于完善用户资料和订单联系人信息',
-        success: (result) => resolve((result && result.userInfo) || {}),
-        fail: () => resolve({})
-      })
-    })
   },
 
   logout() {

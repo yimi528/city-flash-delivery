@@ -57,7 +57,7 @@
       <view class="wechat-symbol">微</view>
       <view class="account-action-copy">
         <view class="account-action-title login-action-title">{{isLoggingIn ? '正在登录' : '微信一键登录'}}</view>
-        <view class="account-action-note">登录后管理订单、地址与支付</view>
+        <view class="account-action-note">使用微信账号登录，不需要手机号</view>
       </view>
       <view class="account-chevron">›</view>
     </button>
