@@ -1,5 +1,6 @@
 const API_BASE_URLS = Object.freeze({
   develop: 'http://127.0.0.1:3000/api',
+  developDevice: 'http://192.168.1.6:3000/api',
   trial: 'https://xian-api-img6c740.sealosbja.site/api',
   release: 'https://xian-api-img6c740.sealosbja.site/api'
 })
@@ -15,6 +16,15 @@ function environmentVersion(wxApi) {
   }
 }
 
+function isRealDevice(wxApi) {
+  try {
+    const systemInfo = wxApi && wxApi.getSystemInfoSync ? wxApi.getSystemInfoSync() : null
+    return Boolean(systemInfo && (systemInfo.platform === 'ios' || systemInfo.platform === 'android'))
+  } catch (error) {
+    return false
+  }
+}
+
 function resolveApiBaseUrl(wxApi) {
   const version = environmentVersion(wxApi)
   if (version === 'develop') {
@@ -22,6 +32,7 @@ function resolveApiBaseUrl(wxApi) {
       const override = wxApi && wxApi.getStorageSync ? wxApi.getStorageSync('developerApiBaseUrl') : ''
       if (override && /^https?:\/\//.test(String(override))) return String(override).replace(/\/$/, '')
     } catch (error) {}
+    if (isRealDevice(wxApi)) return API_BASE_URLS.developDevice
   }
   return API_BASE_URLS[version] || API_BASE_URLS.release
 }
@@ -29,5 +40,6 @@ function resolveApiBaseUrl(wxApi) {
 module.exports = {
   API_BASE_URLS,
   environmentVersion,
+  isRealDevice,
   resolveApiBaseUrl
 }
