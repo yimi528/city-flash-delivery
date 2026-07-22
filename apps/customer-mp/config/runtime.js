@@ -1,6 +1,7 @@
 const API_BASE_URLS = Object.freeze({
   develop: 'http://127.0.0.1:3000/api',
-  developDevice: 'http://192.168.1.6:3000/api',
+  // 真机默认走 Sealos HTTPS API，避免依赖开发者电脑的局域网 IP。
+  developDevice: 'https://xian-api-img6c740.sealosbja.site/api',
   trial: 'https://xian-api-img6c740.sealosbja.site/api',
   release: 'https://xian-api-img6c740.sealosbja.site/api'
 })

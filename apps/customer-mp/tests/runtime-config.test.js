@@ -17,14 +17,15 @@ test('development uses local API and allows a developer-only override', () => {
   assert.equal(runtime.resolveApiBaseUrl(wxFor('develop', 'https://dev.example.com/api/')), 'https://dev.example.com/api')
 })
 
-test('development on a real device uses the computer LAN address', () => {
+test('development on a real device uses the deployed HTTPS API', () => {
   const deviceWx = {
     getAccountInfoSync: () => ({ miniProgram: { envVersion: 'develop' } }),
     getSystemInfoSync: () => ({ platform: 'ios' }),
     getStorageSync: () => ''
   }
 
-  assert.equal(runtime.resolveApiBaseUrl(deviceWx), runtime.API_BASE_URLS.developDevice)
+  assert.equal(runtime.resolveApiBaseUrl(deviceWx), 'https://xian-api-img6c740.sealosbja.site/api')
+  assert.match(runtime.resolveApiBaseUrl(deviceWx), /^https:\/\//)
 })
 
 test('trial and release builds never use local or temporary tunnel addresses', () => {
