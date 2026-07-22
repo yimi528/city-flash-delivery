@@ -26,7 +26,6 @@
       scale="{{mapScale}}"
       markers="{{mapMarkers}}"
       polyline="{{mapPolyline}}"
-      include-points="{{mapIncludePoints}}"
       enable-zoom
       enable-scroll
       enable-rotate="{{false}}"

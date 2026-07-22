@@ -61,33 +61,52 @@ page {
 
 .center-pin {
   position: absolute;
+  z-index: 8;
   top: 50%;
   left: 50%;
   width: 64rpx;
-  height: 64rpx;
-  margin-top: -74rpx;
+  height: 78rpx;
+  margin-top: -78rpx;
   margin-left: -32rpx;
-  border: 5rpx solid #fff;
-  border-radius: 50% 50% 50% 10rpx;
-  background: linear-gradient(145deg, #ff5c52, #ed1711);
-  transform: rotate(-45deg);
-  box-shadow: 0 10rpx 24rpx rgba(211, 27, 20, 0.3);
 }
 
 .center-pin.moving {
-  margin-top: -90rpx;
+  margin-top: -84rpx;
+}
+
+.pin-head {
+  width: 56rpx;
+  height: 56rpx;
+  margin-left: 4rpx;
+  border: 4rpx solid #fff;
+  border-radius: 50%;
+  background: #f04432;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .pin-core {
-  width: 24rpx;
-  height: 24rpx;
-  margin: 17rpx;
+  width: 18rpx;
+  height: 18rpx;
   border-radius: 50%;
   background: #fff;
 }
 
+.pin-tail {
+  position: absolute;
+  top: 52rpx;
+  left: 22rpx;
+  width: 0;
+  height: 0;
+  border-left: 10rpx solid transparent;
+  border-right: 10rpx solid transparent;
+  border-top: 22rpx solid #f04432;
+}
+
 .pin-shadow {
   position: absolute;
+  z-index: 7;
   top: 50%;
   left: 50%;
   width: 38rpx;

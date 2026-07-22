@@ -21,7 +21,10 @@
     </cover-view>
 
     <cover-view class="center-pin {{moving ? 'moving' : ''}}">
-      <cover-view class="pin-core"></cover-view>
+      <cover-view class="pin-head">
+        <cover-view class="pin-core"></cover-view>
+      </cover-view>
+      <cover-view class="pin-tail"></cover-view>
     </cover-view>
     <cover-view class="pin-shadow"></cover-view>
 
