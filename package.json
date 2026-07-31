@@ -6,10 +6,15 @@
     "dev": "bash scripts/dev.sh",
     "start:dev": "bash scripts/start-dev.sh",
     "dev:stop": "bash scripts/stop-dev.sh",
+    "miniprogram:preview": "WECHAT_ACTION=preview node scripts/miniprogram-ci.cjs",
+    "miniprogram:upload": "WECHAT_ACTION=upload node scripts/miniprogram-ci.cjs",
     "test:start-stop": "bash scripts/check-start-stop.sh",
     "test:mvp": "bash scripts/check-mvp.sh",
     "test:security": "npm --prefix server/api audit --omit=dev && npm --prefix apps/merchant-web audit --omit=dev",
     "test:containers": "bash scripts/check-containers.sh",
     "release:check": "bash scripts/validate-production.sh"
+  },
+  "devDependencies": {
+    "miniprogram-ci": "^2.1.31"
   }
 }

@@ -9,6 +9,7 @@ node_modules/
 miniprogram_npm/
 dist/
 build/
+mini-program-preview.jpg
 *.tsbuildinfo
 apps/merchant-web/vite.config.js
 apps/merchant-web/vite.config.d.ts
@@ -16,6 +17,7 @@ apps/merchant-web/vite.config.d.ts
 .env.*
 !.env.example
 !.env.*.example
+*.key
 
 # Cloud deployment secrets and certificates
 deploy/env.production
