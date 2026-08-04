@@ -1,8 +1,8 @@
 const VEHICLES = [
   {
     id: 'business_van',
-    name: '7座商务车',
-    shortName: '商务车',
+    name: '小车',
+    shortName: '小车',
     icon: '🚐',
     desc: '拼车固定车型',
     capacity: '最多6名乘客',
@@ -61,7 +61,7 @@ const VEHICLES = [
     tag: '拉货推荐',
     baseFee: 28,
     vehicleFee: 0,
-    distanceRate: 2.8,
+    distanceRate: 3,
     linePriceMultiplier: 0.85,
     maxDeliveryFee: 138,
     weightRate: 0,
@@ -118,6 +118,23 @@ const VEHICLES = [
     weightRate: 0,
     maxWeight: 0,
     priceText: '38元起'
+  },
+  {
+    id: 'forklift_service',
+    name: '叉车服务',
+    shortName: '叉车',
+    icon: '🚜',
+    desc: '适合重物装卸和搬运',
+    capacity: '叉车作业服务',
+    tag: '电话预约',
+    baseFee: 48,
+    vehicleFee: 0,
+    distanceRate: 0,
+    linePriceMultiplier: 1,
+    maxDeliveryFee: 48,
+    weightRate: 0,
+    maxWeight: 0,
+    priceText: '电话预约'
   }
 ]
 

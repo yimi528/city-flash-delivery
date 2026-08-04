@@ -17,8 +17,10 @@ export class PricingService {
     const linePriceMultiplier = Number(dto.linePriceMultiplier ?? rule.linePriceMultiplier)
     const serviceSurcharge = Number(dto.serviceSurcharge || 0)
     const maxDeliveryFee = Number(dto.maxDeliveryFee ?? rule.maxDeliveryFee)
+    const badWeatherSurcharge = Number(dto.badWeatherSurcharge ?? 5)
     const isBuyForMe = dto.serviceType === 'BUY_FOR_ME' || dto.serviceName === '帮买'
     const productFee = isBuyForMe ? Number(dto.productFee ?? dto.budget ?? 0) : 0
+    const isParcelCategory = pricingMode === 'parcel_category' || (!dto.pricingMode && (dto.serviceName === '寄货' || dto.serviceName === '寄货/配送'))
     const isFixedLine = pricingMode === 'fixed_line_parcel' || pricingMode === 'fixed_line_ride'
     const isManualQuote = pricingMode === 'manual_quote'
     let baseFee = 0
@@ -27,7 +29,10 @@ export class PricingService {
     let serviceFee = 0
     let discountFee = 0
 
-    if (isFixedLine) {
+    if (isParcelCategory) {
+      baseFee = dto.item === '宠物' ? 120 : (weightKg <= 10 ? 38 : 58)
+      serviceFee = baseFee
+    } else if (isFixedLine) {
       baseFee = (linePrice || basePrice) * linePriceMultiplier + serviceSurcharge
       serviceFee = Math.min(baseFee, maxDeliveryFee)
       discountFee = Math.max(baseFee - serviceFee, 0)
@@ -35,10 +40,9 @@ export class PricingService {
       baseFee = basePrice + serviceSurcharge
       distanceFee = Math.max(distanceKm - baseDistanceKm, 0) * extraPerKm
       const subtotal = baseFee + distanceFee
-      const multiplier = !isManualQuote && pricingMode === 'distance_weather' && dto.badWeather
-        ? Number(dto.badWeatherMultiplier || 1.15)
-        : 1
-      weatherFee = subtotal * (multiplier - 1)
+      weatherFee = !isManualQuote && pricingMode === 'distance_weather' && dto.badWeather
+        ? badWeatherSurcharge
+        : 0
       const uncappedServiceFee = subtotal + weatherFee
       serviceFee = Math.min(uncappedServiceFee, maxDeliveryFee)
       discountFee = Math.max(uncappedServiceFee - serviceFee, 0)
@@ -78,7 +82,7 @@ export class PricingService {
   }
 
   private inferPricingMode(serviceType?: string, serviceName?: string) {
-    if (serviceName === '寄货') return 'fixed_line_parcel'
+    if (serviceName === '寄货' || serviceName === '寄货/配送') return 'parcel_category'
     if (serviceName === '拼车' || serviceName === '顺风车') return 'fixed_line_ride'
     if (['搬运装卸', '搬家', '搬家/搬店', '装货', '卸货'].includes(serviceName || '')) return 'handling_fixed'
     if (['DELIVERY', 'PICKUP', 'BUY_FOR_ME'].includes(serviceType || '')) return 'distance_weather'

@@ -10,10 +10,10 @@ const HANDLING_TYPES = serviceConfig.HANDLING_TYPES
 const FIELD_PRESETS = {
   send_parcel: {
     sectionTitle: '货物信息',
-    sectionHint: '30kg内，小于1立方米',
-    itemTypes: ['文件/小件', '快递包裹', '食品饮料', '数码配件'],
+    sectionHint: '选择货物类型与重量',
+    itemTypes: ['普通货物', '宠物'],
     showWeight: true,
-    limitText: '寄货限制：30kg以内，体积小于1立方米',
+    limitText: '普通货物：10kg内38元，30kg内58元 · 宠物：120元',
     remarkPlaceholder: '备注：货物尺寸、件数、取件码、是否易碎'
   },
   carpool_ride: {
@@ -116,7 +116,7 @@ function formatMoney(value) {
 function inferPricingMode(draft) {
   if (draft && draft.pricingMode) return draft.pricingMode
   if (!draft) return 'distance_weather'
-  if (draft.service === '寄货') return 'fixed_line_parcel'
+  if (draft.service === '寄货' || draft.service === '寄货/配送') return 'parcel_category'
   if (draft.service === '拼车' || draft.service === '顺风车') return 'fixed_line_ride'
   if (draft.service === '搬运装卸' || draft.service === '装货' || draft.service === '卸货') return 'handling_fixed'
   if (draft.service === '急送' || draft.service === '帮取' || draft.service === '帮买' || draft.service === '帮送' || draft.service === '1对1急送') return 'distance_weather'
@@ -134,6 +134,7 @@ function getPricingRule(draft) {
     basePrice: hasVehicleRule ? Number(vehicle.baseFee || 0) : (hasServiceRule ? Number(servicePricing.basePrice) : 10),
     extraPerKm: hasVehicleRule ? Number(vehicle.distanceRate || 0) : (hasServiceRule ? Number(servicePricing.extraPerKm || 0) : 1.6),
     badWeatherMultiplier: Number(servicePricing.badWeatherMultiplier || 1.15),
+    badWeatherSurcharge: Number(servicePricing.badWeatherSurcharge || (hasRemoteRule ? 0 : 5)),
     serviceSurcharge: Number(servicePricing.serviceSurcharge || 0),
     linePriceMultiplier: Number(vehicle.linePriceMultiplier || servicePricing.linePriceMultiplier || 1),
     maxDeliveryFee: Number(vehicle.maxDeliveryFee || servicePricing.maxDeliveryFee || 168)
@@ -165,7 +166,14 @@ function estimateFee(draft) {
   let distanceFeeTitle = `超出${rule.baseDistanceKm}公里费用`
   let pricingNote = (draft && draft.priceSummary) || '按甲方规则计价'
 
-  if (isFixedLine) {
+  if (draft && (draft.taskId === 'send_parcel' || pricingMode === 'parcel_category')) {
+    const isPet = draft.item === '宠物'
+    const weight = Number(draft.weight || 1)
+    serviceFee = isPet ? 120 : (weight <= 10 ? 38 : 58)
+    base = serviceFee
+    baseTitle = isPet ? '宠物配送费' : (weight <= 10 ? '普通货物（10kg内）' : '普通货物（30kg内）')
+    pricingNote = isPet ? '宠物配送固定120元' : (weight <= 10 ? '普通货物10kg内38元' : '普通货物30kg内58元')
+  } else if (isFixedLine) {
     const passengerCount = pricingMode === 'fixed_line_ride' ? Number((draft && draft.passengerCount) || 1) : 1
     base = (linePrice || rule.basePrice) * rule.linePriceMultiplier + rule.serviceSurcharge
     if (pricingMode === 'fixed_line_ride') base *= passengerCount
@@ -194,13 +202,15 @@ function estimateFee(draft) {
     distanceFee = extraKm * rule.extraPerKm
     const subtotal = base + distanceFee
     const multiplier = pricingMode === 'distance_weather' && badWeather ? rule.badWeatherMultiplier : 1
-    weatherFee = subtotal * (multiplier - 1)
+    weatherFee = pricingMode === 'distance_weather' && badWeather
+      ? rule.badWeatherSurcharge
+      : subtotal * (multiplier - 1)
     const uncappedServiceFee = subtotal + weatherFee
     serviceFee = Math.min(uncappedServiceFee, rule.maxDeliveryFee)
     capDiscount = Math.max(uncappedServiceFee - serviceFee, 0)
     baseTitle = rule.serviceSurcharge > 0 ? `${rule.baseDistanceKm}公里内（含服务费）` : `${rule.baseDistanceKm}公里内`
     if (pricingMode === 'distance_weather') {
-      pricingNote = badWeather ? `天气预报触发恶劣天气 ×${rule.badWeatherMultiplier}` : `超出${rule.baseDistanceKm}公里按${rule.extraPerKm}元/公里，配送费封顶${rule.maxDeliveryFee}元`
+      pricingNote = badWeather ? `恶劣天气在原价基础上加${rule.badWeatherSurcharge}元` : `超出${rule.baseDistanceKm}公里按${rule.extraPerKm}元/公里，配送费封顶${rule.maxDeliveryFee}元`
     } else if (isManualQuote) {
       pricingNote = '系统预估价，仅供下单参考；商家报价后需再次确认'
     } else {
@@ -401,6 +411,7 @@ function requestBackendQuote(draft) {
     direction: draft.direction || 'OUTBOUND',
     passengerCount: Number(draft.passengerCount || 1),
     requiresDelivery: Boolean(draft.requiresDelivery),
+    item: draft.item || '',
     pickup: point(pickup),
     dropoff: point(dropoff),
     weightKg: Math.round(Number(draft.weight || 1)),
@@ -440,8 +451,8 @@ Page({
     statusBarHeight: 24,
     draft: {},
     estimate: {},
-    itemTypes: ['文件/小件', '鲜花蛋糕', '饮料日用', '数码配件', '家具家纺', '快递包裹'],
-    weights: [1, 3, 5, 10, 15],
+    itemTypes: ['普通货物', '宠物'],
+    weights: [1, 3, 5, 10, 15, 30],
     taskLines: [],
     selectedLineId: '',
     fieldConfig: FIELD_PRESETS.urgent_delivery,
@@ -660,6 +671,11 @@ Page({
     }
     this.refreshLocalEstimate()
     this.refreshWeatherRisk()
+  },
+
+  callHandlingPhone(event) {
+    const phone = String(event.currentTarget.dataset.phone || '').trim()
+    if (phone) wx.makePhoneCall({ phoneNumber: phone })
   },
 
   selectLine(event) {

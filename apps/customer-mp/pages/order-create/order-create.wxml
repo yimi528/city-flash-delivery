@@ -26,6 +26,7 @@
           <view class="handling-copy">
             <view class="handling-name">{{item.name}}</view>
             <view class="handling-desc">{{item.desc}}</view>
+            <view class="handling-phone" wx:if="{{item.phone}}" data-phone="{{item.phone}}" catchtap="callHandlingPhone">拨打 {{item.phone}}</view>
           </view>
           <view class="handling-check">{{selectedItem === item.name ? '✓' : ''}}</view>
         </view>
@@ -103,7 +104,7 @@
   <view class="card passenger-card" wx:if="{{draft.taskId === 'carpool_ride'}}">
     <view>
       <view class="section-title">乘车人数</view>
-      <view class="muted">7座商务车，最多6名乘客</view>
+        <view class="muted">小车，最多6名乘客</view>
     </view>
     <view class="passenger-stepper">
       <button data-step="-1" bindtap="changePassenger" disabled="{{passengerCount <= 1}}">−</button>

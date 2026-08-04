@@ -1,6 +1,7 @@
 const ROUTES = {
   cangnan: { id: 'cangnan', name: '苍南', price: 40 },
-  wenzhou: { id: 'wenzhou', name: '温州', price: 150 }
+  wenzhou: { id: 'wenzhou', name: '温州', price: 150 },
+  fuzhou: { id: 'fuzhou', name: '福州', price: 0 }
 }
 
 const FUDING_STOP = {
@@ -28,10 +29,12 @@ function getRouteIdForAddress(address) {
   if (adcode) {
     if (adcode === '330327') return 'cangnan'
     if (adcode.indexOf('3303') === 0) return 'wenzhou'
+    if (adcode.indexOf('3501') === 0) return 'fuzhou'
     return ''
   }
   if (/苍南县|苍南/.test(text)) return 'cangnan'
   if (/温州市|温州/.test(text)) return 'wenzhou'
+  if (/福州市|福州/.test(text)) return 'fuzhou'
   return ''
 }
 
@@ -58,7 +61,7 @@ function placeholder(route) {
     id: `carpool-${route.id}-placeholder`,
     name: `请选择${route.name}境内地址`,
     detail: '地址簿将优先推荐可用地点',
-    city: '温州市',
+    city: route.id === 'fuzhou' ? '福州市' : '温州市',
     district: route.id === 'cangnan' ? '苍南县' : '',
     needsAddressSelection: true
   }
@@ -67,7 +70,7 @@ function placeholder(route) {
 function addressDefaults(routeId) {
   const route = getRoute(routeId)
   return {
-    city: '温州市',
+    city: route.id === 'fuzhou' ? '福州市' : '温州市',
     district: route.id === 'cangnan' ? '苍南县' : '',
     adcode: route.id === 'cangnan' ? '330327' : ''
   }

@@ -22,6 +22,7 @@ const STATUS_FLOW = ['待支付', '待商家接单', '待骑手接单', '前往�
 
 const SERVICE_VALUES = {
   寄货: 'CARGO',
+  '寄货/配送': 'CARGO',
   拼车: 'CARPOOL',
   顺风车: 'CARPOOL',
   拉货: 'CARGO',
@@ -370,6 +371,7 @@ function buildNestPricePayload(payload) {
     serviceSurcharge: firstNumber(source.serviceSurcharge, servicePricing.serviceSurcharge, 0),
     maxDeliveryFee: firstNumber(source.maxDeliveryFee, cargoOptions.maxDeliveryFee, servicePricing.maxDeliveryFee, 168),
     badWeatherMultiplier: Number(source.badWeatherMultiplier || servicePricing.badWeatherMultiplier || 1.15),
+    badWeatherSurcharge: firstNumber(source.badWeatherSurcharge, servicePricing.badWeatherSurcharge, 5),
     badWeather: !!(source.badWeather || source.isBadWeather || weatherRisk.isBadWeather || weatherRisk.badWeather),
     distanceKm: Number(source.distanceKm || source.distance || 2.6),
     weightKg: Number(source.weightKg || source.weight || cargoOptions.weight || 1),
@@ -407,6 +409,7 @@ function buildNestOrderPayload(payload) {
     serviceSurcharge: firstNumber(source.serviceSurcharge, servicePricing.serviceSurcharge, 0),
     maxDeliveryFee: firstNumber(source.maxDeliveryFee, cargoOptions.maxDeliveryFee, servicePricing.maxDeliveryFee, 168),
     badWeatherMultiplier: Number(source.badWeatherMultiplier || servicePricing.badWeatherMultiplier || 1.15),
+    badWeatherSurcharge: firstNumber(source.badWeatherSurcharge, servicePricing.badWeatherSurcharge, 5),
     badWeather: !!(source.badWeather || source.isBadWeather || weatherRisk.isBadWeather || weatherRisk.badWeather),
     pickupName: source.pickupName || pickup.name || '取货地址',
     pickupDetail: source.pickupDetail || pickup.detail || '',

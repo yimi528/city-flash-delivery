@@ -259,6 +259,7 @@ model PricingRule {
   serviceSurchargeFen    Int      @default(0)
   maxFeeFen              Int      @default(0)
   weatherMultiplierBps   Int      @default(10000)
+  weatherSurchargeFen    Int      @default(0)
   version                Int      @default(1)
   enabled                Boolean  @default(true)
   createdAt              DateTime @default(now())

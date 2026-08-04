@@ -94,7 +94,7 @@ Buy-for-me orders persist `productFee` and `deliveryFee` separately. Their payab
 
 Bad-weather pricing should be system-driven, not user-selected. The mini program calls `GET /api/maps/weather-risk` on the order confirmation page and applies the returned `isBadWeather` result to the estimate. The endpoint reads forecast data by coordinate, applies keyword/weather-code/wind/rain thresholds, and supports `BAD_WEATHER_OVERRIDE=true|false` for local demos.
 
-Set `TENCENT_MAP_KEY` in `.env` to enable real address suggestions, reverse geocoding, and route matrix distance. The key stays on the server; the mini program calls the NestJS map endpoints and falls back to local suggestions and straight-line distance when the provider is unavailable. `BAD_WEATHER_MULTIPLIER` defaults to `1.15`.
+Set `TENCENT_MAP_KEY` in `.env` to enable real address suggestions, reverse geocoding, and route matrix distance. The key stays on the server; the mini program calls the NestJS map endpoints and falls back to local suggestions and straight-line distance when the provider is unavailable. Published distance-weather rules use a fixed 5 yuan bad-weather surcharge.
 
 Core delivery flow:
 

@@ -113,7 +113,7 @@ test('all services create an order with their fixed vehicle', () => {
 
   const cases = [
     { id: 'carpool_ride', service: '顺风车', vehicle: 'business_van', alternate: 'ebike' },
-    { id: 'send_parcel', service: '寄货', vehicle: 'small_car', alternate: 'ebike' },
+    { id: 'send_parcel', service: '寄货/配送', vehicle: 'small_car', alternate: 'ebike' },
     { id: 'cargo_haul', service: '运货', vehicle: 'cargo_tricycle', alternate: 'small_car' },
     { id: 'moving_handling', service: '搬运装卸', vehicle: 'manual_labor', alternate: 'small_car' },
     { id: 'urgent_delivery', service: '急送', vehicle: 'ebike', alternate: 'small_car' },
@@ -199,11 +199,10 @@ test('all eight services keep their form choices selectable', () => {
     {
       id: 'send_parcel',
       select(page, event) {
-        page.selectLine(event({ id: 'cangnan_parcel' }))
-        page.selectItem(event({ item: '数码配件' }))
+        page.selectItem(event({ item: '普通货物' }))
         page.selectWeight(event({ weight: 5 }))
-        assert.equal(page.data.selectedLineId, 'cangnan_parcel')
-        assert.equal(page.data.selectedItem, '数码配件')
+        assert.equal(page.data.selectedLineId, '')
+        assert.equal(page.data.selectedItem, '普通货物')
         assert.equal(page.data.selectedWeight, 5)
       }
     },
@@ -258,7 +257,7 @@ test('published pricing is merged into the customer draft and route prices', () 
       {
         id: 'send_parcel',
         priceSummary: '温州66元',
-        routes: [{ id: 'wenzhou_parcel', destinationName: '温州', unitPriceFen: 6600 }]
+        routes: []
       },
       {
         id: 'carpool_ride',
@@ -268,7 +267,7 @@ test('published pricing is merged into the customer draft and route prices', () 
     pricing: {
       version: 42,
       rules: [
-        { serviceId: 'send_parcel', pricingMode: 'fixed_route', baseFeeFen: 1200, perKmFen: 350, maxFeeFen: 50000 },
+        { serviceId: 'send_parcel', pricingMode: 'parcel_category', baseFeeFen: 1200, perKmFen: 350, maxFeeFen: 50000 },
         { serviceId: 'carpool_ride', pricingMode: 'fixed_route', baseFeeFen: 0, perKmFen: 0, maxFeeFen: 50000 }
       ]
     }
@@ -276,14 +275,14 @@ test('published pricing is merged into the customer draft and route prices', () 
   app.globalData.remoteServices = app.globalData.appConfig.services
   const index = loadPage('pages/index/index.js')
   index.onShow()
-  assert.equal(index.data.draft.taskName, '寄货')
+  assert.equal(index.data.draft.taskName, '寄货/配送')
   assert.equal(index.data.draft.priceSummary, '温州66元')
   assert.equal(index.data.allTasks[0].id, 'send_parcel')
 
   const orderPage = loadPage('pages/order-create/order-create.js')
   orderPage.onShow()
   assert.equal(orderPage.data.draft.pricingVersion, 42)
-  assert.equal(orderPage.data.draft.selectedLine.price, 66)
+  assert.equal(orderPage.data.draft.selectedLine || null, null)
   assert.equal(orderPage.data.draft.servicePricing.basePrice, 12)
 })
 
@@ -397,7 +396,7 @@ test('carpool fare follows passenger count and return always ends in Fuding', ()
   assert.equal(Number(page.data.estimate.total), 450)
 })
 
-test('carpool address selection only accepts Cangnan or Wenzhou and matches the route', async () => {
+test('carpool address selection accepts configured cities and matches the route', async () => {
   const { app, calls, event, loadPage } = createHarness()
   const index = loadPage('pages/index/index.js')
   index.onShow()

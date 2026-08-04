@@ -23,7 +23,7 @@ export const VEHICLE_PRICING: Record<VehicleType, {
   ETRIKE: {
     label: '货三轮车',
     baseFee: 28,
-    distanceRate: 2.8,
+    distanceRate: 3,
     linePriceMultiplier: 0.85,
     maxDeliveryFee: 138,
     weightRate: 0,

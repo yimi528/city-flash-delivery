@@ -36,7 +36,7 @@ Page({
     vehicles: vehicleConfig.VEHICLES,
     selectedVehicle: 'small_car',
     selectedVehicleName: '小车',
-    taskName: '寄货',
+    taskName: '寄货/配送',
     routeText: '按当前任务推荐车型',
     from: '',
     mapLatitude: 27.3245,
@@ -59,7 +59,7 @@ Page({
       from: query.from || '',
       selectedVehicle,
       selectedVehicleName: vehicleConfig.findVehicle(selectedVehicle).name,
-      taskName: draft.taskName || draft.service || '寄货',
+      taskName: draft.taskName || draft.service || '寄货/配送',
       routeText: formatLine(draft),
       ...mapData
     })

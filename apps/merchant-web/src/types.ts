@@ -168,6 +168,7 @@ export type PricingRuleConfig = {
   serviceSurchargeFen: number
   maxFeeFen: number
   weatherMultiplierBps: number
+  weatherSurchargeFen: number
   enabled: boolean
   version: number
 }

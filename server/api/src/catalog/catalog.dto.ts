@@ -46,6 +46,10 @@ export class CarpoolQuoteDto {
 }
 
 export class HandlingQuoteDto {
+  @IsOptional()
+  @IsString()
+  item?: string
+
   @IsBoolean()
   requiresDelivery!: boolean
 

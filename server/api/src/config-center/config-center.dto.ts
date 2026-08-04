@@ -62,6 +62,10 @@ export class PricingQuoteDto {
   weightKg?: number
 
   @IsOptional()
+  @IsString()
+  item?: string
+
+  @IsOptional()
   @Min(0)
   productFeeFen?: number
 

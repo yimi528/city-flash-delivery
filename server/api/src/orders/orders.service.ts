@@ -33,7 +33,7 @@ type PersistedOrder = Prisma.OrderGetPayload<{ include: { vehicle: true } }>
 type Decimalish = Prisma.Decimal | number | string | null | undefined
 
 const TASK_VEHICLES: Record<string, { type: PrismaVehicleType; name: string }> = {
-  carpool_ride: { type: PrismaVehicleType.VAN, name: '7座商务车' },
+  carpool_ride: { type: PrismaVehicleType.VAN, name: '小车' },
   cargo_haul: { type: PrismaVehicleType.ETRIKE, name: '货三轮车' },
   moving_handling: { type: PrismaVehicleType.MANUAL, name: '人力服务' },
   send_parcel: { type: PrismaVehicleType.VAN, name: '小车' },
@@ -156,8 +156,10 @@ export class OrdersService {
       extraPerKm: pricingInput.extraPerKm,
       serviceSurcharge: pricingInput.serviceSurcharge,
       maxDeliveryFee: pricingInput.maxDeliveryFee,
-      badWeatherMultiplier: 1.15,
+      badWeatherMultiplier: 1,
+      badWeatherSurcharge: pricingInput.badWeatherSurcharge,
       badWeather: authoritative.badWeather,
+      item: dto.item,
       productFee: dto.productFee,
       budget: dto.budget,
     })
@@ -692,6 +694,7 @@ export class OrdersService {
             Number(configuredRule.maxFeeFen || 0) > 0
               ? Number(configuredRule.maxFeeFen) / 100
               : fallback.maxDeliveryFee,
+          badWeatherSurcharge: Number(configuredRule.weatherSurchargeFen || 0) / 100,
           pricingMode: configuredRule.pricingMode || 'distance',
         }
       : {
@@ -700,6 +703,7 @@ export class OrdersService {
           extraPerKm: fallback.distanceRate,
           serviceSurcharge: 0,
           maxDeliveryFee: fallback.maxDeliveryFee,
+          badWeatherSurcharge: 5,
           pricingMode: 'distance',
         }
     const common = {
@@ -718,11 +722,10 @@ export class OrdersService {
       return {
         ...common,
         serviceType: 'CARGO',
-        serviceName: '寄货',
-        pricingMode: 'fixed_line_parcel',
-        linePrice: configuredRoute?.unitPriceFen
-          ? Number(configuredRoute.unitPriceFen) / 100
-          : PARCEL_LINE_PRICES[dto.routeId || ''] || 58,
+        serviceName: '寄货/配送',
+        pricingMode: 'parcel_category',
+        linePrice: 0,
+        badWeatherSurcharge: 0,
       }
     }
     if (taskId === 'cargo_haul')
@@ -855,7 +858,7 @@ export class OrdersService {
   private serviceNameForTask(taskId: string) {
     const labels: Record<string, string> = {
       carpool_ride: '顺风车',
-      send_parcel: '寄货',
+      send_parcel: '寄货/配送',
       cargo_haul: '运货',
       urgent_delivery: '急送',
       pickup: '帮取',

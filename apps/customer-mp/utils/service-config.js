@@ -1,21 +1,16 @@
 const PRIMARY_TASKS = [
   {
     id: 'send_parcel',
-    name: '寄货',
+    name: '寄货/配送',
     icon: '📦',
-    subtitle: '拼小车寄货',
-    desc: '30kg内，小于1立方米',
+    subtitle: '普通货物 · 宠物',
+    desc: '普通货物10kg内38元，30kg内58元；宠物120元',
     vehicleType: 'small_car',
     vehicleName: '小车',
-    priceSummary: '温州58 / 苍南20 / 秦屿30 / 龙安30',
-    pricingMode: 'fixed_line_parcel',
+    priceSummary: '普通货物10kg内38元 · 30kg内58元 · 宠物120元',
+    pricingMode: 'parcel_category',
     serviceSurcharge: 0,
-    lines: [
-      { id: 'wenzhou_parcel', name: '温州', price: 58 },
-      { id: 'cangnan_parcel', name: '苍南', price: 20 },
-      { id: 'qinyu_parcel', name: '秦屿', price: 30 },
-      { id: 'longan_parcel', name: '龙安', price: 30 }
-    ],
+    lines: [],
     limits: { maxWeightKg: 30, maxVolumeM3: 1 }
   },
   {
@@ -25,13 +20,14 @@ const PRIMARY_TASKS = [
     subtitle: '固定线路顺风车',
     desc: '固定线路顺风车',
     vehicleType: 'business_van',
-    vehicleName: '7座商务车',
-    priceSummary: '苍南40元/人 · 温州150元/人',
+    vehicleName: '小车',
+    priceSummary: '往返线路及价格由商家端配置',
     pricingMode: 'fixed_line_ride',
     serviceSurcharge: 0,
     lines: [
       { id: 'cangnan', name: '苍南', price: 40 },
-      { id: 'wenzhou', name: '温州', price: 150 }
+      { id: 'wenzhou', name: '温州', price: 150 },
+      { id: 'fuzhou', name: '福州', price: 0 }
     ]
   },
   {
@@ -46,7 +42,7 @@ const PRIMARY_TASKS = [
     pricingMode: 'distance',
     baseDistanceKm: 4,
     basePrice: 28,
-    extraPerKm: 2.8,
+    extraPerKm: 3,
     serviceSurcharge: 5
   },
   {
@@ -63,6 +59,7 @@ const PRIMARY_TASKS = [
     basePrice: 10,
     extraPerKm: 1.6,
     badWeatherMultiplier: 1.15,
+    badWeatherSurcharge: 5,
     serviceSurcharge: 3
   }
 ]
@@ -94,6 +91,16 @@ const HANDLING_TYPES = [
     vehicleName: '人力服务',
     serviceSurcharge: 10,
     priceSummary: '上门卸货固定48元'
+  },
+  {
+    name: '叉车',
+    icon: '🚜',
+    desc: '叉车作业服务，电话 18705939528',
+    phone: '18705939528',
+    vehicleId: 'forklift_service',
+    vehicleName: '叉车服务',
+    serviceSurcharge: 10,
+    priceSummary: '叉车服务请致电 18705939528'
   }
 ]
 
@@ -112,6 +119,7 @@ const COMMON_TASKS = [
     basePrice: 10,
     extraPerKm: 1.6,
     badWeatherMultiplier: 1.15,
+    badWeatherSurcharge: 5,
     serviceSurcharge: 0
   },
   {
@@ -128,6 +136,7 @@ const COMMON_TASKS = [
     basePrice: 10,
     extraPerKm: 1.6,
     badWeatherMultiplier: 1.15,
+    badWeatherSurcharge: 5,
     serviceSurcharge: 2
   },
   {
@@ -179,7 +188,7 @@ const ALL_TASKS = [
 ].map((id) => TASKS_BY_ID[id])
 
 const DEFAULT_ITEMS = {
-  send_parcel: '文件/小件',
+  send_parcel: '普通货物',
   carpool_ride: '1人',
   cargo_haul: '门店补货',
   urgent_delivery: '文件/小件',
@@ -245,6 +254,7 @@ function buildDraftService(taskId) {
       basePrice: task.basePrice || 0,
       extraPerKm: task.extraPerKm || 0,
       badWeatherMultiplier: task.badWeatherMultiplier || 1,
+      badWeatherSurcharge: task.badWeatherSurcharge || 0,
       serviceSurcharge: task.serviceSurcharge || 0
     }
   }
@@ -276,7 +286,8 @@ function applyRemoteConfigToDraft(draft, config) {
     deliveryStartFee: Number(remoteRule.deliveryStartFeeFen || 0) / 100,
     minimumFee: Number(remoteRule.minimumFeeFen || 0) / 100,
     maxDeliveryFee,
-    badWeatherMultiplier: Number(remoteRule.weatherMultiplierBps || 10000) / 10000
+    badWeatherMultiplier: Number(remoteRule.weatherMultiplierBps || 10000) / 10000,
+    badWeatherSurcharge: remoteRule.weatherSurchargeFen === undefined ? 5 : Number(remoteRule.weatherSurchargeFen || 0) / 100
   })
   if (draft.cargoOptions) {
     draft.cargoOptions.baseFee = basePrice

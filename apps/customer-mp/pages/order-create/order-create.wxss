@@ -221,6 +221,17 @@
   font-size: 22rpx;
 }
 
+.handling-phone {
+  display: inline-flex;
+  margin-top: 8rpx;
+  padding: 6rpx 12rpx;
+  border-radius: 999rpx;
+  color: #a93425;
+  background: #fff0e6;
+  font-size: 20rpx;
+  font-weight: 800;
+}
+
 .handling-check {
   width: 40rpx;
   height: 40rpx;

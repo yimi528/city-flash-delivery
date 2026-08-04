@@ -72,6 +72,12 @@ export class EstimatePriceDto {
   badWeatherMultiplier?: number
 
   @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  badWeatherSurcharge?: number
+
+  @IsOptional()
   @IsBoolean()
   badWeather?: boolean
 
@@ -86,6 +92,10 @@ export class EstimatePriceDto {
   @IsNumber()
   @Min(0)
   weightKg?: number
+
+  @IsOptional()
+  @IsString()
+  item?: string
 
   @IsOptional()
   @Type(() => Number)

@@ -74,7 +74,7 @@ export class ConfigCenterService implements OnModuleInit {
     return {
       version,
       pricingVersion,
-      pricing: { version: pricingVersion, rules: rules.map((rule) => ({ serviceId: rule.serviceId, pricingMode: rule.pricingMode, baseFeeFen: rule.baseFeeFen, deliveryStartFeeFen: rule.deliveryStartFeeFen, includedDistanceMeters: rule.includedDistanceMeters, perKmFen: rule.perKmFen, minimumFeeFen: rule.minimumFeeFen, maxDistanceMeters: rule.maxDistanceMeters, serviceSurchargeFen: rule.serviceSurchargeFen, maxFeeFen: rule.maxFeeFen, weatherMultiplierBps: rule.weatherMultiplierBps })) },
+      pricing: { version: pricingVersion, rules: rules.map((rule) => ({ serviceId: rule.serviceId, pricingMode: rule.pricingMode, baseFeeFen: rule.baseFeeFen, deliveryStartFeeFen: rule.deliveryStartFeeFen, includedDistanceMeters: rule.includedDistanceMeters, perKmFen: rule.perKmFen, minimumFeeFen: rule.minimumFeeFen, maxDistanceMeters: rule.maxDistanceMeters, serviceSurchargeFen: rule.serviceSurchargeFen, maxFeeFen: rule.maxFeeFen, weatherMultiplierBps: rule.weatherMultiplierBps, weatherSurchargeFen: rule.weatherSurchargeFen })) },
       operating: { acceptingOrders: current.acceptingOrders, openNow: Boolean(current.acceptingOrders && open), reason: current.acceptingOrders && open ? '' : (current.closureReason || (open ? '平台暂时停止接单' : '当前不在营业时间')) },
       timeZone: current.timeZone,
       customerService: { phone: current.customerServicePhone },
@@ -149,11 +149,18 @@ export class ConfigCenterService implements OnModuleInit {
     const coverage = await this.checkServiceArea({ serviceId: dto.taskId, pickup: pickup || undefined, dropoff: requiresDropoff ? (dropoff || undefined) : undefined })
     if (!coverage.available) throw new BadRequestException(coverage.reason || '地址超出当前服务范围')
     const route = dto.routeId ? await this.prisma.serviceRoute.findFirst({ where: { id: dto.routeId, serviceId: dto.taskId, enabled: true } }) : null
+    if (dto.taskId === 'send_parcel' || rule.pricingMode === 'parcel_category') {
+      const item = String(dto.item || '普通货物')
+      const weightKg = Math.max(1, Number(dto.weightKg || 1))
+      if (item !== '宠物' && weightKg > 30) throw new BadRequestException('普通货物重量不能超过30kg')
+      const totalFen = item === '宠物' ? 12000 : (weightKg <= 10 ? 3800 : 5800)
+      return this.createQuote(userId, dto, rule.version, { route: null, distanceMeters: 0, baseFeeFen: totalFen, distanceFeeFen: 0, weatherFeeFen: 0, productFeeFen: 0, totalFen, vehicleName: '小车' })
+    }
     if (rule.pricingMode === 'fixed_route') {
       if (!route) throw new BadRequestException('线路不存在或已停用')
       const passengers = route.priceUnit === RoutePriceUnit.PER_PERSON ? Math.max(1, dto.passengerCount || 1) : 1
       const totalFen = route.unitPriceFen * passengers
-      return this.createQuote(userId, dto, rule.version, { route, distanceMeters: 0, baseFeeFen: route.unitPriceFen, distanceFeeFen: 0, weatherFeeFen: 0, productFeeFen: 0, totalFen, vehicleName: dto.taskId === 'carpool_ride' ? '7座商务车' : '小车' })
+      return this.createQuote(userId, dto, rule.version, { route, distanceMeters: 0, baseFeeFen: route.unitPriceFen, distanceFeeFen: 0, weatherFeeFen: 0, productFeeFen: 0, totalFen, vehicleName: dto.taskId === 'carpool_ride' ? '小车' : '小车' })
     }
     if (!pickup || (requiresDropoff && !dropoff)) throw new BadRequestException('报价需要有效的取送地址坐标')
     let distanceMeters = 0
@@ -166,12 +173,12 @@ export class ConfigCenterService implements OnModuleInit {
     const excessKm = Math.ceil(Math.max(0, distanceMeters - rule.includedDistanceMeters) / 1000)
     const rawDistanceFen = rule.deliveryStartFeeFen + excessKm * rule.perKmFen
     const weatherRisk = rule.pricingMode === 'distance_weather' && dropoff ? await this.weather.resolve({ latitude: dropoff.latitude, longitude: dropoff.longitude }) : { isBadWeather: false }
-    const weatherFeeFen = weatherRisk.isBadWeather ? Math.round((rule.baseFeeFen + rule.serviceSurchargeFen + rawDistanceFen) * (rule.weatherMultiplierBps / 10000 - 1)) : 0
+    const weatherFeeFen = weatherRisk.isBadWeather ? rule.weatherSurchargeFen : 0
     const distanceFeeFen = rawDistanceFen
     const deliveryFen = Math.max(rule.minimumFeeFen, rule.baseFeeFen + rule.serviceSurchargeFen + distanceFeeFen + weatherFeeFen)
     const cappedDeliveryFen = rule.maxFeeFen > 0 ? Math.min(deliveryFen, rule.maxFeeFen) : deliveryFen
     const productFeeFen = Math.max(0, Math.round(numberValue(dto.productFeeFen)))
-    return this.createQuote(userId, dto, rule.version, { route: null, distanceMeters, baseFeeFen: rule.baseFeeFen + rule.serviceSurchargeFen, distanceFeeFen, weatherFeeFen, productFeeFen, totalFen: cappedDeliveryFen + productFeeFen, vehicleName: this.vehicleName(dto.taskId) })
+    return this.createQuote(userId, dto, rule.version, { route: null, distanceMeters, baseFeeFen: rule.baseFeeFen + rule.serviceSurchargeFen, distanceFeeFen, weatherFeeFen, productFeeFen, totalFen: cappedDeliveryFen + productFeeFen, vehicleName: this.vehicleName(dto.taskId, dto.item) })
   }
 
   private async createQuote(userId: string, dto: PricingQuoteDto, version: number, input: { route: any; distanceMeters: number; baseFeeFen: number; distanceFeeFen: number; weatherFeeFen: number; productFeeFen: number; totalFen: number; vehicleName: string }) {
@@ -220,8 +227,9 @@ export class ConfigCenterService implements OnModuleInit {
     if (category === 'PRICING') {
       const rules = Array.isArray(payload.rules) ? payload.rules : []
       for (const rule of rules) {
-        for (const key of ['baseFeeFen', 'deliveryStartFeeFen', 'includedDistanceMeters', 'perKmFen', 'minimumFeeFen', 'maxDistanceMeters', 'serviceSurchargeFen', 'maxFeeFen']) {
-          if (numberValue(rule[key], -1) < 0 || !Number.isInteger(numberValue(rule[key], -1))) throw new BadRequestException(`价格规则字段 ${key} 必须是非负整数`)
+        for (const key of ['baseFeeFen', 'deliveryStartFeeFen', 'includedDistanceMeters', 'perKmFen', 'minimumFeeFen', 'maxDistanceMeters', 'serviceSurchargeFen', 'maxFeeFen', 'weatherSurchargeFen']) {
+          const fallback = key === 'weatherSurchargeFen' ? 0 : -1
+          if (numberValue(rule[key], fallback) < 0 || !Number.isInteger(numberValue(rule[key], fallback))) throw new BadRequestException(`价格规则字段 ${key} 必须是非负整数`)
         }
         if (numberValue(rule.maxDistanceMeters) < numberValue(rule.includedDistanceMeters)) throw new BadRequestException('最大服务距离不能小于起步距离')
         if (numberValue(rule.weatherMultiplierBps, 10000) < 10000 || numberValue(rule.weatherMultiplierBps, 10000) > 30000) throw new BadRequestException('天气倍率必须在 1.00 到 3.00 之间')
@@ -247,7 +255,7 @@ export class ConfigCenterService implements OnModuleInit {
 
   private async publishPricing(tx: any, payload: JsonRecord, version: number) {
     for (const rule of payload.rules || []) {
-      await tx.pricingRule.update({ where: { serviceId: rule.serviceId }, data: { baseFeeFen: rule.baseFeeFen, deliveryStartFeeFen: rule.deliveryStartFeeFen, includedDistanceMeters: rule.includedDistanceMeters, perKmFen: rule.perKmFen, minimumFeeFen: rule.minimumFeeFen, maxDistanceMeters: rule.maxDistanceMeters, pricingMode: rule.pricingMode || 'distance', serviceSurchargeFen: rule.serviceSurchargeFen || 0, maxFeeFen: rule.maxFeeFen || 0, weatherMultiplierBps: rule.weatherMultiplierBps || 10000, enabled: rule.enabled !== false, version } })
+      await tx.pricingRule.update({ where: { serviceId: rule.serviceId }, data: { baseFeeFen: rule.baseFeeFen, deliveryStartFeeFen: rule.deliveryStartFeeFen, includedDistanceMeters: rule.includedDistanceMeters, perKmFen: rule.perKmFen, minimumFeeFen: rule.minimumFeeFen, maxDistanceMeters: rule.maxDistanceMeters, pricingMode: rule.pricingMode || 'distance', serviceSurchargeFen: rule.serviceSurchargeFen || 0, maxFeeFen: rule.maxFeeFen || 0, weatherMultiplierBps: rule.weatherMultiplierBps || 10000, weatherSurchargeFen: rule.weatherSurchargeFen || 0, enabled: rule.enabled !== false, version } })
     }
     for (const route of payload.routes || []) {
       await tx.serviceRoute.upsert({ where: { id: route.id }, update: { serviceId: route.serviceId, originName: route.originName || '福鼎', destinationName: route.destinationName, priceUnit: route.priceUnit === 'PER_PERSON' ? RoutePriceUnit.PER_PERSON : RoutePriceUnit.PER_ORDER, unitPriceFen: route.unitPriceFen, enabled: route.enabled !== false, sortOrder: route.sortOrder || 0, version }, create: { id: route.id, serviceId: route.serviceId, originName: route.originName || '福鼎', destinationName: route.destinationName, priceUnit: route.priceUnit === 'PER_PERSON' ? RoutePriceUnit.PER_PERSON : RoutePriceUnit.PER_ORDER, unitPriceFen: route.unitPriceFen, enabled: route.enabled !== false, sortOrder: route.sortOrder || 0, version } })
@@ -286,13 +294,15 @@ export class ConfigCenterService implements OnModuleInit {
     return Boolean(result[0]?.covered)
   }
 
-  private vehicleName(taskId: string) {
-    const labels: Record<string, string> = { carpool_ride: '7座商务车', send_parcel: '小车', cargo_haul: '货三轮车', urgent_delivery: '二轮车', pickup: '二轮车', buy_for_me: '二轮车', pedicab_delivery: '人力三轮车', moving_handling: '人力服务' }
+  private vehicleName(taskId: string, item?: string) {
+    if (taskId === 'moving_handling' && item === '叉车') return '叉车服务'
+    const labels: Record<string, string> = { carpool_ride: '小车', send_parcel: '小车', cargo_haul: '货三轮车', urgent_delivery: '二轮车', pickup: '二轮车', buy_for_me: '二轮车', pedicab_delivery: '人力三轮车', moving_handling: '人力服务' }
     return labels[taskId] || '配送车辆'
   }
 
   private priceSummary(rule: any, routes: any[]) {
     if (!rule) return '按平台规则计价'
+    if (rule.serviceId === 'send_parcel' || rule.pricingMode === 'parcel_category') return '普通货物10kg内38元 · 30kg内58元 · 宠物120元'
     if (rule.pricingMode === 'fixed_route') return routes.map((route) => `${route.destinationName}${(Number(route.unitPriceFen || 0) / 100).toFixed(0)}元${route.priceUnit === 'PER_PERSON' ? '/人' : ''}`).join(' · ') || '线路价格待配置'
     const start = (Number(rule.baseFeeFen || 0) + Number(rule.serviceSurchargeFen || 0)) / 100
     return `${start.toFixed(0)}元起 · ${Number(rule.includedDistanceMeters || 0) / 1000}公里内`

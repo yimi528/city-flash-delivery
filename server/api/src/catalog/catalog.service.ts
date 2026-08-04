@@ -1,15 +1,15 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { BadRequestException, Injectable, OnModuleInit, Optional, ServiceUnavailableException } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
-import { Prisma, VehicleType } from '@prisma/client'
+import { Prisma, RoutePriceUnit, VehicleType } from '@prisma/client'
 import { PrismaService } from '../common/prisma/prisma.service'
 import { TencentMapService } from '../maps/tencent-map.service'
 import { CarpoolQuoteDto, HandlingQuoteDto, UpdatePricingRuleDto, UpdateServiceConfigDto } from './catalog.dto'
 import { ConfigCenterService } from '../config-center/config-center.service'
 
 const DEFAULT_SERVICES = [
-  { id: 'send_parcel', name: '寄货', sortOrder: 10, vehicleType: VehicleType.VAN, vehicleName: '小车', passengerCapacity: 0 },
-  { id: 'carpool_ride', name: '顺风车', sortOrder: 20, vehicleType: VehicleType.VAN, vehicleName: '7座商务车', passengerCapacity: 6 },
+  { id: 'send_parcel', name: '寄货/配送', sortOrder: 10, vehicleType: VehicleType.VAN, vehicleName: '小车', passengerCapacity: 0 },
+  { id: 'carpool_ride', name: '顺风车', sortOrder: 20, vehicleType: VehicleType.VAN, vehicleName: '小车', passengerCapacity: 6 },
   { id: 'cargo_haul', name: '运货', sortOrder: 30, vehicleType: VehicleType.ETRIKE, vehicleName: '货三轮车', passengerCapacity: 0 },
   { id: 'moving_handling', name: '搬运装卸', sortOrder: 40, vehicleType: VehicleType.MANUAL, vehicleName: '人力服务', passengerCapacity: 0 },
   { id: 'urgent_delivery', name: '急送', sortOrder: 50, vehicleType: VehicleType.EBIKE, vehicleName: '二轮车', passengerCapacity: 0 },
@@ -31,7 +31,7 @@ export class CatalogService implements OnModuleInit {
     try {
       await Promise.all(DEFAULT_SERVICES.map((service) => this.prisma.serviceCatalog.upsert({
         where: { id: service.id },
-        update: {},
+        update: { name: service.name, vehicleName: service.vehicleName },
         create: service,
       })))
       await Promise.all([
@@ -48,6 +48,11 @@ export class CatalogService implements OnModuleInit {
           where: { id: 'wenzhou' },
           update: {},
           create: { id: 'wenzhou', city: '温州', unitPriceFen: 15000 },
+        }),
+        this.prisma.serviceRoute.upsert({
+          where: { id: 'fuzhou' },
+          update: { serviceId: 'carpool_ride', originName: '福鼎', destinationName: '福州', priceUnit: RoutePriceUnit.PER_PERSON, enabled: true, sortOrder: 30 },
+          create: { id: 'fuzhou', serviceId: 'carpool_ride', originName: '福鼎', destinationName: '福州', priceUnit: RoutePriceUnit.PER_PERSON, unitPriceFen: 0, sortOrder: 30 },
         }),
         this.prisma.pricingRule.upsert({
           where: { serviceId: 'moving_handling' },
@@ -86,7 +91,7 @@ export class CatalogService implements OnModuleInit {
       : await this.prisma.carpoolRoute.findMany({ where: { enabled: true }, orderBy: { unitPriceFen: 'asc' } })
     return routes.map((route: any) => ({
       ...route,
-      origin: '福鼎',
+      origin: route.originName || '福鼎',
       destination: route.destinationName || route.city,
       unitPrice: route.unitPriceFen / 100,
       returnDestination: '福鼎',
@@ -140,10 +145,12 @@ export class CatalogService implements OnModuleInit {
     if (adcode) {
       if (adcode === '330327') return 'cangnan'
       if (adcode.startsWith('3303')) return 'wenzhou'
+      if (adcode.startsWith('3501')) return 'fuzhou'
       return ''
     }
     if (/苍南县|苍南/.test(text)) return 'cangnan'
     if (/温州市|温州/.test(text)) return 'wenzhou'
+    if (/福州市|福州/.test(text)) return 'fuzhou'
     return ''
   }
 
@@ -182,8 +189,9 @@ export class CatalogService implements OnModuleInit {
       distanceFeeFen = rule.deliveryStartFeeFen + excessKm * rule.perKmFen
     }
     const totalFen = Math.max(rule.minimumFeeFen, rule.baseFeeFen + distanceFeeFen)
+    const isForklift = dto.item === '叉车'
     const vehicleType = dto.requiresDelivery ? VehicleType.ETRIKE : VehicleType.MANUAL
-    const vehicleName = dto.requiresDelivery ? '货三轮车' : '人力服务'
+    const vehicleName = isForklift ? '叉车服务' : (dto.requiresDelivery ? '货三轮车' : '人力服务')
     return this.prisma.quote.create({
       data: {
         userId,
