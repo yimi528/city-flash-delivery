@@ -13,7 +13,7 @@ function wxFor(envVersion, override = '') {
 }
 
 test('development uses local API and allows a developer-only override', () => {
-  assert.equal(runtime.resolveApiBaseUrl(wxFor('develop')), 'http://127.0.0.1:3000/api')
+  assert.equal(runtime.resolveApiBaseUrl(wxFor('develop')), 'http://192.168.2.105:3000/api')
   assert.equal(runtime.resolveApiBaseUrl(wxFor('develop', 'https://dev.example.com/api/')), 'https://dev.example.com/api')
 })
 
