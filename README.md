@@ -368,6 +368,65 @@ npm run dev:stop
 - 模拟器开发默认访问 `127.0.0.1`；真机开发默认访问 Sealos HTTPS API，不依赖开发者电脑的局域网 IP；如需访问本地后端，可在小程序存储中设置 `developerApiBaseUrl` 为同一局域网内电脑的地址。
 - 朋友使用独立预览/体验包时，需要在微信公众平台将 `xian-api-img6c740.sealosbja.site` 加入 request 合法域名；仅开发者工具真机调试可以在“本地设置”勾选“不校验合法域名”。
 
+#### 局域网真机调试注意事项
+
+如果使用 Windows 电脑上的本地后端，例如：
+
+```text
+http://192.168.2.105:3000/api
+```
+
+运行微信开发者工具的电脑和真机必须能够访问 Windows 的局域网 IP 与 3000 端口。不要求一定连接同一个 Wi-Fi，但网络必须互通；最简单的方式是让 Windows、Mac 和手机连接同一个普通 Wi-Fi，不要使用访客网络。
+
+Windows PowerShell 检查命令：
+
+```powershell
+ipconfig
+Get-NetTCPConnection -LocalPort 3000 -State Listen
+curl.exe http://127.0.0.1:3000/api/health
+curl.exe http://<Windows局域网IPv4>:3000/api/health
+```
+
+正常情况下，API 应监听在 `0.0.0.0:3000`，健康检查应返回 `status: ok`，且 `database` 为 `true`。如果 Windows 本机访问正常、其他设备访问失败，可在管理员 PowerShell 中执行：
+
+```powershell
+Set-NetConnectionProfile -InterfaceAlias "WLAN" -NetworkCategory Private
+New-NetFirewallRule -DisplayName "City Flash API 3000" -Direction Inbound -Protocol TCP -LocalPort 3000 -Action Allow
+```
+
+Mac 或朋友电脑可执行：
+
+```bash
+nc -vz <Windows局域网IPv4> 3000
+curl http://<Windows局域网IPv4>:3000/api/health
+```
+
+如果 `nc` 超时，检查 Windows 防火墙、路由器的无线客户端隔离、访客网络，以及 Windows IPv4 是否发生变化。不要把开发用的 3000 端口直接暴露到公网。
+
+微信开发者工具运行在哪台电脑，就要检查哪台电脑的代理和 VPN。Mac 上的 iKuuu、Clash 或系统 HTTP/HTTPS/SOCKS 代理可能导致：
+
+```text
+ERR_PROXY_CONNECTION_FAILED
+ERR_CONNECTION_TIMED_OUT
+request:fail timeout
+```
+
+排查时应完全退出代理/VPN，并在 macOS“系统设置 → 网络 → Wi-Fi → 代理”中关闭 HTTP、HTTPS 和 SOCKS 代理，然后重启微信开发者工具。可以用下面的命令检查：
+
+```bash
+scutil --proxy
+```
+
+`HTTPEnable`、`HTTPSEnable` 和 `SOCKSEnable` 应为 `0`。
+
+如果 Windows 的局域网 IPv4 发生变化，需要同步修改 `apps/customer-mp/config/runtime.js` 的开发地址，或在开发者工具控制台设置：
+
+```js
+wx.setStorageSync('developerApiBaseUrl', 'http://<Windows局域网IPv4>:3000/api')
+```
+
+使用公网 HTTPS 后端时，朋友不需要和 Windows 在同一个网络，只需要能够上网，并在微信公众平台配置 request 合法域名。真机调试时，手机本身也必须能够访问 API。
+
 ### 地图搜索没有真实结果
 
 在 `server/api/.env` 中配置 `TENCENT_MAP_KEY`。未配置或地图服务不可用时，项目会使用本地建议和距离估算降级逻辑。
