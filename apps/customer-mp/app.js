@@ -43,6 +43,7 @@ App({
       wx.request({
         url: `${this.globalData.apiBaseUrl}/v1/app-config`,
         method: 'GET',
+        timeout: 10000,
         header: this.globalData.authToken ? { Authorization: `Bearer ${this.globalData.authToken}` } : {},
         success: (response) => {
           if (response.statusCode < 200 || response.statusCode >= 300 || !response.data) { resolve(null); return }

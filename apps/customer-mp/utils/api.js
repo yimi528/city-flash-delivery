@@ -124,7 +124,7 @@ function request(path, options) {
       url: `${getBaseUrl()}${path}`,
       method: config.method || 'GET',
       data: config.data || {},
-      timeout: config.timeout || 5000,
+      timeout: config.timeout || 10000,
       header: buildHeaders(),
       success(res) {
         if (res.statusCode >= 200 && res.statusCode < 300) {
