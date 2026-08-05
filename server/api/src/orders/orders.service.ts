@@ -43,13 +43,6 @@ const TASK_VEHICLES: Record<string, { type: PrismaVehicleType; name: string }> =
   pedicab_delivery: { type: PrismaVehicleType.ETRIKE, name: '人力三轮车' },
 }
 
-const PARCEL_LINE_PRICES: Record<string, number> = {
-  wenzhou_parcel: 58,
-  cangnan_parcel: 20,
-  qinyu_parcel: 30,
-  longan_parcel: 30,
-}
-
 @Injectable()
 export class OrdersService {
   constructor(
@@ -678,11 +671,6 @@ export class OrdersService {
     const configuredRule = await (this.prisma as any).pricingRule?.findFirst?.({
       where: { serviceId: taskId, enabled: true },
     })
-    const configuredRoute = dto.routeId
-      ? await (this.prisma as any).serviceRoute?.findFirst?.({
-          where: { id: dto.routeId, serviceId: taskId, enabled: true },
-        })
-      : null
     const fallback = VEHICLE_PRICING[vehicle.type]
     const configured = configuredRule
       ? {
