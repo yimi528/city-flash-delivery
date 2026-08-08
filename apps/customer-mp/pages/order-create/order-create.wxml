@@ -139,11 +139,11 @@
         <view class="chip {{selectedItem === item ? 'active' : ''}}" data-item="{{item}}" bindtap="selectItem">{{item}}</view>
       </block>
     </view>
-    <view class="weight-row" wx:if="{{fieldConfig.showWeight}}">
+    <view class="weight-row" wx:if="{{fieldConfig.showWeight && !(draft.taskId === 'send_parcel' && selectedItem === '宠物')}}">
       <text>重量</text>
       <view class="weight-list">
         <block wx:for="{{weights}}" wx:key="*this">
-          <view class="weight {{selectedWeight === item ? 'active' : ''}}" data-weight="{{item}}" bindtap="selectWeight">{{item}}kg</view>
+          <view class="weight {{selectedWeight === item ? 'active' : ''}}" data-weight="{{item}}" bindtap="selectWeight">{{item}}{{draft.taskId === 'send_parcel' ? 'kg内' : 'kg'}}</view>
         </block>
       </view>
     </view>
@@ -159,7 +159,12 @@
       <view class="cargo-emoji">{{draft.cargoOptions.icon}}</view>
       <view class="cargo-info">
         <view class="cargo-name">{{draft.cargoOptions.vehicleName}}</view>
-        <view class="cargo-desc">{{draft.cargoOptions.categoryName}} · {{draft.taskId === 'moving_handling' ? '按服务类型固定' : draft.cargoOptions.weightLabel}} · {{draft.cargoOptions.vehicleCapacity}}</view>
+        <view class="cargo-desc">
+          <text>{{draft.cargoOptions.categoryName}}</text>
+          <text wx:if="{{draft.taskId === 'moving_handling'}}"> · 按服务类型固定</text>
+          <text wx:elif="{{draft.service !== '帮买' && draft.item !== '宠物'}}"> · {{draft.cargoOptions.weightLabel}}</text>
+          <text> · {{draft.cargoOptions.vehicleCapacity}}</text>
+        </view>
       </view>
       <view class="cargo-fee" wx:if="{{draft.cargoOptions.vehicleFee}}">+￥{{draft.cargoOptions.vehicleFee}}</view>
       <view class="cargo-fee" wx:else>基础</view>
@@ -187,13 +192,6 @@
         <view class="weather-meta">{{weatherRisk.weatherText}}</view>
       </view>
       <view class="weather-badge {{draft.badWeather ? 'bad' : ''}}">{{isWeatherLoading ? '同步中' : (draft.badWeather ? '已触发' : '正常')}}</view>
-    </view>
-    <view class="guarantee" wx:if="{{!estimate.isManualQuote && draft.taskId !== 'carpool_ride'}}" bindtap="toggleGuarantee">
-      <view class="check {{guarantee ? 'checked' : ''}}">✓</view>
-      <view>
-        <view class="guarantee-title">购买保价服务</view>
-        <view class="guarantee-sub">保障范围及赔付标准以平台公示规则为准。</view>
-      </view>
     </view>
   </view>
 

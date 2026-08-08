@@ -844,45 +844,6 @@ textarea {
   box-shadow: 0 6rpx 14rpx rgba(42, 52, 74, 0.16);
 }
 
-.guarantee {
-  margin-top: 20rpx;
-  padding: 20rpx;
-  border-radius: 20rpx;
-  background: #f3fffa;
-  display: flex;
-  gap: 18rpx;
-  align-items: center;
-}
-
-.check {
-  width: 42rpx;
-  height: 42rpx;
-  border-radius: 50%;
-  border: 3rpx solid #c8d0df;
-  color: transparent;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.check.checked {
-  border-color: #10c779;
-  color: #fff;
-  background: #10c779;
-}
-
-.guarantee-title {
-  color: #111c34;
-  font-size: 27rpx;
-  font-weight: 850;
-}
-
-.guarantee-sub {
-  margin-top: 6rpx;
-  color: #6c778d;
-  font-size: 23rpx;
-}
-
 .submit-bar {
   position: fixed;
   left: 0;

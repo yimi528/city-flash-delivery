@@ -17,13 +17,13 @@ const serviceConfigs = {
     id: 'file',
     title: '取送文件',
     kicker: '合同票据 · 证件材料 · 小件资料',
-    subtitle: '适合文件、证件、票据等重要资料，支持保价和当面交接。',
+    subtitle: '适合文件、证件、票据等重要资料，支持当面交接。',
     icon: '文',
     service: '帮送',
     defaultItem: '文件/证件',
     placeholder: '例如：取一份合同，交给 A 座 18 楼前台',
     options: ['合同票据', '证件材料', '小件资料', '同城文件'],
-    tips: ['建议封袋密封', '重要证件请开启保价', '可备注取件码或联系人']
+    tips: ['建议封袋密封', '可备注取件码或联系人']
   },
   digital: {
     id: 'digital',
@@ -35,7 +35,7 @@ const serviceConfigs = {
     defaultItem: '数码配件',
     placeholder: '例如：取一个手机壳和充电器，送到公司前台',
     options: ['手机配件', '相机镜头', '电脑小件', '维修取送'],
-    tips: ['易碎贵重建议保价', '写清型号规格', '外包装请尽量完整']
+    tips: ['写清型号规格', '外包装请尽量完整']
   },
   queue: {
     id: 'queue',
@@ -59,7 +59,7 @@ const serviceConfigs = {
     defaultItem: '同城跑腿',
     placeholder: '例如：取一束鲜花，送到万达 2 号门',
     options: ['鲜花蛋糕', '宠物用品', '药品保健', '临时跑腿'],
-    tips: ['写清物品规格', '贵重物品建议保价', '特殊要求可写在备注']
+    tips: ['写清物品规格', '特殊要求可写在备注']
   }
 }
 

@@ -66,6 +66,9 @@ const FIELD_PRESETS = {
   }
 }
 
+const DEFAULT_WEIGHT_OPTIONS = [1, 3, 5, 10, 15, 30]
+const PARCEL_WEIGHT_OPTIONS = [10, 30]
+
 function getFieldPreset(draft) {
   if (draft && ['manual_quote', 'handling_fixed'].includes(inferPricingMode(draft))) return FIELD_PRESETS.manual_quote
   return FIELD_PRESETS[(draft && draft.taskId) || ''] || FIELD_PRESETS.urgent_delivery
@@ -260,6 +263,14 @@ function getWeightLabel(weight) {
   return `${weight}公斤以上`
 }
 
+function getWeightOptions(draft) {
+  return draft && draft.taskId === 'send_parcel' ? PARCEL_WEIGHT_OPTIONS : DEFAULT_WEIGHT_OPTIONS
+}
+
+function getParcelWeightLabel(weight) {
+  return Number(weight) > 10 ? '30kg内' : '10kg内'
+}
+
 function ensureDraftVehicle(draft) {
   if (!draft || draft.service === '帮买') return 'ebike'
   const target = draft.recommendedVehicleType || (draft.cargoOptions && draft.cargoOptions.vehicleId) || 'ebike'
@@ -296,14 +307,26 @@ function prepareFormState(draft) {
       ? draft.service
       : fieldConfig.itemTypes[0]
   }
+  const weightOptions = getWeightOptions(draft)
+  const rawWeight = Number((draft && draft.weight) || weightOptions[0] || 1)
+  const selectedWeight = task.id === 'send_parcel' ? (rawWeight > 10 ? 30 : 10) : rawWeight
+  if (draft && task.id === 'send_parcel') {
+    draft.weight = selectedWeight
+    draft.weightLabel = draft.item === '宠物' ? '' : getParcelWeightLabel(selectedWeight)
+    if (draft.cargoOptions) {
+      draft.cargoOptions.weight = selectedWeight
+      draft.cargoOptions.weightLabel = draft.weightLabel
+    }
+  }
   return {
     taskLines,
     selectedLineId: draft && draft.selectedLine ? draft.selectedLine.id : '',
     fieldConfig,
     itemTypes: fieldConfig.itemTypes,
+    weights: weightOptions,
     handlingTypes: HANDLING_TYPES,
     selectedItem: (draft && draft.item) || '',
-    selectedWeight: Number((draft && draft.weight) || 1)
+    selectedWeight
   }
 }
 
@@ -452,17 +475,16 @@ Page({
     draft: {},
     estimate: {},
     itemTypes: ['普通货物', '宠物'],
-    weights: [1, 3, 5, 10, 15, 30],
+    weights: DEFAULT_WEIGHT_OPTIONS,
     taskLines: [],
     selectedLineId: '',
     fieldConfig: FIELD_PRESETS.urgent_delivery,
     handlingTypes: HANDLING_TYPES,
     selectedItem: '',
-    selectedWeight: 1,
+    selectedWeight: 10,
     vehicles: vehicleConfig.VEHICLES,
     selectedVehicle: 'ebike',
     isVehicleSelectorOpen: false,
-    guarantee: true,
     routeSource: '地址簿距离',
     routeDuration: '',
     isRouteLoading: false,
@@ -491,6 +513,7 @@ Page({
       selectedLineId: formState.selectedLineId,
       fieldConfig: formState.fieldConfig,
       itemTypes: formState.itemTypes,
+      weights: formState.weights,
       handlingTypes: formState.handlingTypes,
       selectedItem: formState.selectedItem,
       selectedWeight: formState.selectedWeight,
@@ -667,7 +690,14 @@ Page({
       this.setData({ selectedItem: handlingType.name, 'draft.item': handlingType.name, isVehicleSelectorOpen: false })
     } else {
       draft.item = item
-      this.setData({ selectedItem: item, 'draft.item': item })
+      const updates = { selectedItem: item, 'draft.item': item }
+      if (draft.taskId === 'send_parcel') {
+        draft.weightLabel = item === '宠物' ? '' : getParcelWeightLabel(Number(draft.weight || 10))
+        if (draft.cargoOptions) draft.cargoOptions.weightLabel = draft.weightLabel
+        updates['draft.weightLabel'] = draft.weightLabel
+        updates['draft.cargoOptions.weightLabel'] = draft.weightLabel
+      }
+      this.setData(updates)
     }
     this.refreshLocalEstimate()
     this.refreshWeatherRisk()
@@ -697,9 +727,22 @@ Page({
     app.globalData.draftOrder.weight = weight
     if (app.globalData.draftOrder.cargoOptions) {
       app.globalData.draftOrder.cargoOptions.weight = weight
-      app.globalData.draftOrder.cargoOptions.weightLabel = getWeightLabel(weight)
+      app.globalData.draftOrder.cargoOptions.weightLabel = app.globalData.draftOrder.item === '宠物'
+        ? ''
+        : (app.globalData.draftOrder.taskId === 'send_parcel' ? getParcelWeightLabel(weight) : getWeightLabel(weight))
     }
-    this.setData({ selectedWeight: weight, 'draft.weight': weight })
+    app.globalData.draftOrder.weightLabel = app.globalData.draftOrder.item === '宠物'
+      ? ''
+      : (app.globalData.draftOrder.taskId === 'send_parcel' ? getParcelWeightLabel(weight) : getWeightLabel(weight))
+    this.setData({
+      selectedWeight: weight,
+      'draft.weight': weight,
+      'draft.weightLabel': app.globalData.draftOrder.weightLabel,
+      'draft.cargoOptions.weight': weight,
+      'draft.cargoOptions.weightLabel': app.globalData.draftOrder.cargoOptions
+        ? app.globalData.draftOrder.cargoOptions.weightLabel
+        : ''
+    })
     this.refreshLocalEstimate()
   },
 
@@ -768,10 +811,6 @@ Page({
   inputBudget(event) {
     app.globalData.draftOrder.budget = Number(event.detail.value || 0)
     this.refreshLocalEstimate()
-  },
-
-  toggleGuarantee() {
-    this.setData({ guarantee: !this.data.guarantee })
   },
 
   toggleBadWeather() {

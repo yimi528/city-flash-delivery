@@ -245,6 +245,7 @@ function getServiceProgressText(service, status) {
 function normalizeOrder(order) {
   const status = normalizeStatus(order.status)
   const service = order.serviceName || toServiceLabel(order.serviceType || order.service)
+  const item = order.item || order.itemName || '同城配送物品'
   const weight = Number(order.weightKg || order.weight || 1)
   const vehicleType = order.vehicleType || (order.cargoOptions && order.cargoOptions.vehicleId)
   const quoteStatus = order.quoteStatus || (order.isManualQuote || order.pricingMode === 'manual_quote' ? 'PENDING' : 'NONE')
@@ -288,9 +289,13 @@ function normalizeOrder(order) {
     pickupDetail: order.pickupDetail || (order.pickup && order.pickup.detail) || '',
     dropoffName: order.dropoffName || (order.dropoff && order.dropoff.name) || '收货地址',
     dropoffDetail: order.dropoffDetail || (order.dropoff && order.dropoff.detail) || '',
-    item: order.item || order.itemName || '同城配送物品',
+    item,
     vehicleName: toVehicleLabel(vehicleType, order.vehicleName),
-    weightLabel: order.weightLabel || getWeightLabel(weight),
+    weightLabel: item === '宠物'
+      ? ''
+      : (order.weightLabel || (order.taskId === 'send_parcel' || service === '寄货/配送'
+        ? (weight > 10 ? '30kg内' : '10kg内')
+        : getWeightLabel(weight))),
     fee,
     estimatedFee,
     feeText,
