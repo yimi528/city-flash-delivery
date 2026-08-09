@@ -481,7 +481,7 @@ function merchantLogin(payload) {
   return request('/auth/operator-login', {
     method: 'POST',
     data: {
-      username: (payload && payload.username) || 'operator-demo',
+      username: (payload && payload.username) || 'admin',
       password: (payload && payload.password) || ''
     }
   })

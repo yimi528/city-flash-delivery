@@ -57,13 +57,43 @@ function isSelectedCityAddress(address, routeId) {
 }
 
 function placeholder(route) {
+  const defaults = {
+    cangnan: {
+      name: '苍南默认测试点',
+      detail: '苍南县城区默认测试地址',
+      city: '温州市',
+      district: '苍南县',
+      adcode: '330327',
+      latitude: 27.5186,
+      longitude: 120.4257
+    },
+    wenzhou: {
+      name: '温州默认测试点',
+      detail: '温州市区默认测试地址',
+      city: '温州市',
+      district: '鹿城区',
+      adcode: '330302',
+      latitude: 28.0006,
+      longitude: 120.6994
+    },
+    fuzhou: {
+      name: '福州默认测试点',
+      detail: '福州市区默认测试地址',
+      city: '福州市',
+      district: '鼓楼区',
+      adcode: '350102',
+      latitude: 26.0745,
+      longitude: 119.2965
+    }
+  }
+  const selected = defaults[route.id] || defaults.cangnan
   return {
-    id: `carpool-${route.id}-placeholder`,
-    name: `请选择${route.name}境内地址`,
-    detail: '地址簿将优先推荐可用地点',
-    city: route.id === 'fuzhou' ? '福州市' : '温州市',
-    district: route.id === 'cangnan' ? '苍南县' : '',
-    needsAddressSelection: true
+    id: `carpool-${route.id}-default`,
+    contact: '测试联系人',
+    phone: '13800000000',
+    carpoolRouteId: route.id,
+    isDefaultTestAddress: true,
+    ...selected
   }
 }
 

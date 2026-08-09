@@ -157,12 +157,14 @@ Page({
     app.globalData.draftOrder.taskId = config.service === '帮取' ? 'pickup' : 'urgent_delivery'
     app.globalData.draftOrder.taskName = config.service
     app.globalData.draftOrder.pricingMode = 'distance_weather'
-    app.globalData.draftOrder.priceSummary = '二轮车4公里内10元，超出1.6元/公里'
+    const startPrice = config.service === '帮取' ? 10 : 13
+    app.globalData.draftOrder.priceSummary = `${config.service === '帮取' ? '帮取' : '急送'} · 二轮车${startPrice}元起，超出1.6元/公里；恶劣天气每单加5元`
     app.globalData.draftOrder.servicePricing = {
       baseDistanceKm: 4,
-      basePrice: 10,
+      basePrice: startPrice,
       extraPerKm: 1.6,
-      badWeatherMultiplier: 1.15,
+      badWeatherMultiplier: 1,
+      badWeatherSurcharge: 5,
       serviceSurcharge: 0
     }
     app.globalData.draftOrder.recommendedVehicleType = 'ebike'
@@ -188,10 +190,10 @@ Page({
       vehicleShortName: '二轮',
       vehicleCapacity: '小件快速送达',
       vehicleFee: 0,
-      baseFee: 10,
+      baseFee: startPrice,
       distanceRate: 1.6,
       linePriceMultiplier: 0.55,
-      maxDeliveryFee: 68,
+      maxDeliveryFee: 0,
       weightRate: 0,
       maxWeight: 10,
       weight: this.data.weight,

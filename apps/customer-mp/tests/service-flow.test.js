@@ -60,7 +60,8 @@ function createHarness() {
     navigateTo: (options) => calls.push({ type: 'navigateTo', options }),
     navigateBack: (options = {}) => calls.push({ type: 'navigateBack', options }),
     redirectTo: (options) => calls.push({ type: 'redirectTo', options }),
-    switchTab: (options) => calls.push({ type: 'switchTab', options })
+    switchTab: (options) => calls.push({ type: 'switchTab', options }),
+    makePhoneCall: (options) => calls.push({ type: 'makePhoneCall', options })
   }
   let app = null
 
@@ -105,6 +106,16 @@ function createHarness() {
   }
 }
 
+function configureParcelPrice(draft) {
+  draft.selectedLine = { id: 'test-parcel-route', name: '温州', price: 42 }
+  draft.remoteTaskLines = [draft.selectedLine]
+  draft.parcelPricing = [
+    { routeId: 'test-parcel-route', itemType: 'NORMAL', weightBand: 'UP_TO_10', priceFen: 4200, enabled: true },
+    { routeId: 'test-parcel-route', itemType: 'NORMAL', weightBand: 'UP_TO_30', priceFen: 5800, enabled: true },
+    { routeId: 'test-parcel-route', itemType: 'PET', weightBand: 'ANY', priceFen: 12000, enabled: true }
+  ]
+}
+
 test('all services create an order with their fixed vehicle', () => {
   const harness = createHarness()
   const { app, event, loadPage } = harness
@@ -147,6 +158,9 @@ test('all services create an order with their fixed vehicle', () => {
       draft.buyItems = '测试商品'
       draft.budget = 50
     }
+    if (flow.id === 'send_parcel') {
+      configureParcelPrice(draft)
+    }
 
     const page = loadPage('pages/order-create/order-create.js')
     page.onShow()
@@ -171,13 +185,13 @@ test('all services create an order with their fixed vehicle', () => {
   })
 })
 
-test('all eight services keep their form choices selectable', () => {
+test('all eight services keep their primary form interactions', () => {
   const cases = [
     {
       id: 'carpool_ride',
       select(page, event) {
         page.selectLine(event({ id: 'wenzhou' }))
-        assert.equal(page.data.selectedLineId, 'cangnan')
+        assert.equal(page.data.selectedLineId, 'wenzhou')
       }
     },
     {
@@ -192,18 +206,18 @@ test('all eight services keep their form choices selectable', () => {
     {
       id: 'moving_handling',
       select(page, event) {
-        page.selectItem(event({ item: '卸货' }))
-        assert.equal(page.data.selectedItem, '卸货')
+        page.selectItem(event({ item: '搬运装卸' }))
+        assert.equal(page.data.selectedItem, '搬运装卸')
       }
     },
     {
       id: 'send_parcel',
       select(page, event) {
         page.selectItem(event({ item: '普通货物' }))
-        page.selectWeight(event({ weight: 5 }))
+        page.selectWeight(event({ weight: 10 }))
         assert.equal(page.data.selectedLineId, '')
         assert.equal(page.data.selectedItem, '普通货物')
-        assert.equal(page.data.selectedWeight, 5)
+        assert.equal(page.data.selectedWeight, 10)
       }
     },
     {
@@ -247,6 +261,70 @@ test('all eight services keep their form choices selectable', () => {
     flow.select(page, event)
     assert.equal(app.globalData.draftOrder.taskId, flow.id)
   })
+})
+
+test('forklift is a phone appointment and cannot become a handling order', () => {
+  const { app, event, calls, loadPage } = createHarness()
+  const index = loadPage('pages/index/index.js')
+  index.onShow()
+  index.chooseTask(event({ task: 'moving_handling' }))
+  app.globalData.draftOrder.item = '叉车'
+
+  const page = loadPage('pages/order-create/order-create.js')
+  page.onShow()
+
+  assert.equal(page.data.selectedItem, '搬运装卸')
+  assert.equal(app.globalData.draftOrder.item, '搬运装卸')
+  const beforeOrderCount = app.globalData.orders.length
+  page.callHandlingPhone(event({ phone: '18705939528' }))
+  assert.equal(calls.at(-1).type, 'makePhoneCall')
+  assert.equal(calls.at(-1).options.phoneNumber, '18705939528')
+  assert.equal(app.globalData.orders.length, beforeOrderCount)
+})
+
+test('route-based services choose their own lines inside the order form', () => {
+  const { app, event, calls, loadPage } = createHarness()
+  const index = loadPage('pages/index/index.js')
+  index.onShow()
+
+  index.chooseTask(event({ task: 'carpool_ride' }))
+  assert.equal(app.globalData.draftOrder.selectedLine, null)
+  index.goOrder()
+  assert.equal(calls.at(-1).options.url, '/pages/order-create/order-create')
+
+  const carpoolPage = loadPage('pages/order-create/order-create.js')
+  carpoolPage.onShow()
+  assert.deepEqual(carpoolPage.data.taskLines.map((line) => line.id), ['cangnan', 'wenzhou', 'fuzhou'])
+  carpoolPage.selectLine(event({ id: 'wenzhou' }))
+  assert.equal(app.globalData.draftOrder.selectedLine.id, 'wenzhou')
+
+  index.chooseTask(event({ task: 'send_parcel' }))
+  const parcelPage = loadPage('pages/order-create/order-create.js')
+  parcelPage.onShow()
+  assert.deepEqual(parcelPage.data.taskLines.map((line) => line.id), ['wenzhou_parcel', 'cangnan_parcel', 'qinyu_parcel', 'longan_parcel'])
+  assert.equal(parcelPage.data.selectedLineId, '')
+})
+
+test('unconfigured parcel matrix stays pending and blocks submission', () => {
+  const { app, event, calls, loadPage } = createHarness()
+  const index = loadPage('pages/index/index.js')
+  index.onShow()
+  index.chooseTask(event({ task: 'send_parcel' }))
+  app.globalData.draftOrder.pickup = app.globalData.addresses[0]
+  app.globalData.draftOrder.dropoff = app.globalData.addresses[1]
+
+  const page = loadPage('pages/order-create/order-create.js')
+  page.onShow()
+  page.selectLine(event({ id: 'wenzhou_parcel' }))
+  app.globalData.draftOrder.pickup = app.globalData.addresses[0]
+  app.globalData.draftOrder.dropoff = app.globalData.addresses[1]
+
+  assert.equal(page.data.estimate.isPricePending, true)
+  assert.equal(page.data.estimate.totalText, '待定')
+  const beforeCount = app.globalData.orders.length
+  page.submitOrder()
+  assert.equal(app.globalData.orders.length, beforeCount)
+  assert.match(calls.at(-1).options.title, /价格待定/)
 })
 
 test('published pricing is merged into the customer draft and route prices', () => {
@@ -303,15 +381,15 @@ test('switching from carpool to cargo clears the carpool-only destination', () =
 
   index.onShow()
   index.chooseTask(event({ task: 'carpool_ride' }))
-  assert.equal(app.globalData.draftOrder.dropoff.needsAddressSelection, true)
+  assert.equal(app.globalData.draftOrder.dropoff, null)
 
   index.chooseTask(event({ task: 'cargo_haul' }))
 
   assert.equal(app.globalData.draftOrder.taskId, 'cargo_haul')
   assert.equal(app.globalData.draftOrder.pickup.id, app.globalData.addresses[0].id)
   assert.equal(app.globalData.draftOrder.pickup.phone, app.globalData.addresses[0].phone)
-  assert.equal(app.globalData.draftOrder.dropoff, null)
-  assert.equal(index.data.draft.dropoff, null)
+  assert.ok(app.globalData.draftOrder.dropoff)
+  assert.equal(index.data.draft.dropoff.id, app.globalData.addresses[1].id)
 })
 
 test('switching from a remote fixed route to handling clears stale route choices', () => {
@@ -381,11 +459,10 @@ test('carpool fare follows passenger count and return always ends in Fuding', ()
   const index = loadPage('pages/index/index.js')
   index.onShow()
   index.chooseTask(event({ task: 'carpool_ride' }))
-  index.chooseCarpoolRoute(event({ route: 'wenzhou' }))
-  carpool.applySelectedAddress(app.globalData.draftOrder, WENZHOU_ADDRESS, 'dropoff', 'wenzhou')
   const page = loadPage('pages/order-create/order-create.js')
   page.onShow()
   page.selectLine(event({ id: 'wenzhou' }))
+  carpool.applySelectedAddress(app.globalData.draftOrder, WENZHOU_ADDRESS, 'dropoff', 'wenzhou')
   page.changePassenger(event({ step: 1 }))
   page.changePassenger(event({ step: 1 }))
   assert.equal(page.data.passengerCount, 3)
@@ -396,12 +473,32 @@ test('carpool fare follows passenger count and return always ends in Fuding', ()
   assert.equal(Number(page.data.estimate.total), 450)
 })
 
+test('carpool direction can be selected before the route', () => {
+  const { app, event, loadPage } = createHarness()
+  const index = loadPage('pages/index/index.js')
+  index.onShow()
+  index.chooseTask(event({ task: 'carpool_ride' }))
+  const page = loadPage('pages/order-create/order-create.js')
+  page.onShow()
+
+  page.selectDirection(event({ direction: 'RETURN' }))
+  assert.equal(app.globalData.draftOrder.direction, 'RETURN')
+  assert.equal(app.globalData.draftOrder.selectedLine, null)
+
+  page.selectLine(event({ id: 'wenzhou' }))
+  assert.equal(app.globalData.draftOrder.selectedLine.id, 'wenzhou')
+  assert.equal(app.globalData.draftOrder.pickup.name, '温州默认测试点')
+  assert.equal(app.globalData.draftOrder.dropoff.name, '福鼎')
+})
+
 test('carpool address selection accepts configured cities and matches the route', async () => {
   const { app, calls, event, loadPage } = createHarness()
   const index = loadPage('pages/index/index.js')
   index.onShow()
   index.chooseTask(event({ task: 'carpool_ride' }))
-  index.chooseCarpoolRoute(event({ route: 'wenzhou' }))
+  const createPage = loadPage('pages/order-create/order-create.js')
+  createPage.onShow()
+  createPage.selectLine(event({ id: 'wenzhou' }))
 
   const addressPage = loadPage('pages/address/address.js')
   addressPage.onLoad({ type: 'dropoff', mode: 'carpool', route: 'wenzhou' })
@@ -467,6 +564,7 @@ test('order detail preserves a user-adjusted map viewport during order refresh',
   index.chooseTask(event({ task: 'send_parcel' }))
   app.globalData.draftOrder.pickup = app.globalData.addresses[0]
   app.globalData.draftOrder.dropoff = app.globalData.addresses[1]
+  configureParcelPrice(app.globalData.draftOrder)
 
   const createPage = loadPage('pages/order-create/order-create.js')
   createPage.onShow()
@@ -518,6 +616,7 @@ test('all services expose cancellation before payment', () => {
       app.globalData.draftOrder.buyItems = '取消测试商品'
       app.globalData.draftOrder.budget = 20
     }
+    if (taskId === 'send_parcel') configureParcelPrice(app.globalData.draftOrder)
 
     const createPage = loadPage('pages/order-create/order-create.js')
     createPage.onShow()
@@ -541,6 +640,7 @@ test('a paid order awaiting merchant acceptance can cancel with an automatic moc
   index.chooseTask(event({ task: 'send_parcel' }))
   app.globalData.draftOrder.pickup = app.globalData.addresses[0]
   app.globalData.draftOrder.dropoff = app.globalData.addresses[1]
+  configureParcelPrice(app.globalData.draftOrder)
 
   const createPage = loadPage('pages/order-create/order-create.js')
   createPage.onShow()

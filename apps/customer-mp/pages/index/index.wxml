@@ -79,31 +79,15 @@
       <view class="price-arrow">›</view>
     </view>
 
-    <view class="carpool-flow" wx:if="{{draft.taskId === 'carpool_ride'}}">
-      <view class="flow-heading">
-        <view class="step-index">1</view>
-        <view><view class="flow-title">先选择要去的城市</view><view class="flow-sub">选定后，地址只显示该城市范围</view></view>
-      </view>
-      <view class="carpool-routes">
-        <block wx:for="{{carpoolRoutes}}" wx:key="id">
-          <view class="carpool-route {{draft.selectedLine.id === item.id ? 'active' : ''}}" data-route="{{item.id}}" bindtap="chooseCarpoolRoute">
-            <view class="route-city">{{item.name}}</view>
-            <view class="route-price">¥{{item.price}}/人</view>
-            <view class="route-selected">{{draft.selectedLine.id === item.id ? '✓' : ''}}</view>
-          </view>
-        </block>
-      </view>
-      <view class="flow-heading address-step">
-        <view class="step-index">2</view>
-        <view><view class="flow-title">填写{{draft.selectedLine.name}}境内地址</view><view class="flow-sub">可搜索地图，也可手动填写并保存</view></view>
-      </view>
+    <view class="route-entry-tip" wx:if="{{isRouteTask}}">
+      <text>下一步</text> 进入下单页选择线路和收送地址
     </view>
 
-    <view class="route-group">
+    <view class="route-group" wx:if="{{!isRouteTask}}">
       <view class="route-rail">
         <view class="rail-dot start"></view>
         <view class="rail-line"></view>
-        <view class="rail-dot end" wx:if="{{draft.taskId !== 'moving_handling' || draft.requiresDelivery}}"></view>
+        <view class="rail-dot end" wx:if="{{draft.taskId !== 'moving_handling'}}"></view>
       </view>
       <view class="route-fields">
         <view class="route-row" data-type="pickup" bindtap="chooseAddress">
@@ -115,8 +99,8 @@
           <view class="address-book-btn">地址簿</view>
         </view>
 
-        <view class="route-separator" wx:if="{{draft.taskId !== 'moving_handling' || draft.requiresDelivery}}"></view>
-        <view class="route-row" wx:if="{{draft.taskId !== 'moving_handling' || draft.requiresDelivery}}" data-type="dropoff" bindtap="chooseAddress">
+        <view class="route-separator" wx:if="{{draft.taskId !== 'moving_handling'}}"></view>
+        <view class="route-row" wx:if="{{draft.taskId !== 'moving_handling'}}" data-type="dropoff" bindtap="chooseAddress">
           <view class="route-main">
             <view class="route-label">送到哪里</view>
             <view class="route-title {{draft.dropoff ? '' : 'placeholder'}}">{{draft.dropoff ? draft.dropoff.name : '选择目的地'}}</view>
@@ -127,8 +111,8 @@
       </view>
     </view>
 
-    <view class="handling-home-tip" wx:if="{{draft.taskId === 'moving_handling' && !draft.requiresDelivery}}">
-      <text>先预约上门服务</text>，下一步可选择是否需要送往别处
+    <view class="handling-home-tip" wx:if="{{draft.taskId === 'moving_handling'}}">
+      <text>先预约上门人工服务</text>；如果需要把货送到其他地址，请选择“运货”并在备注中说明装卸需求
     </view>
     <button class="primary-btn order-btn" bindtap="goOrder">
       <text class="order-btn-label">去下单</text><text class="button-arrow">→</text>

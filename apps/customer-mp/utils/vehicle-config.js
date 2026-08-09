@@ -174,28 +174,34 @@ function applyVehicleToDraft(draft, vehicleId) {
   const vehicle = findVehicle(vehicleId)
   const currentPricing = draft.servicePricing || {}
   const baseDistanceKm = Number(currentPricing.baseDistanceKm || 4)
-  const serviceSurcharge = Number(currentPricing.serviceSurcharge || 0)
+  const hasTaskPricing = Number(currentPricing.basePrice || 0) > 0
+  const basePrice = hasTaskPricing ? Number(currentPricing.basePrice) : vehicle.baseFee
+  const extraPerKm = hasTaskPricing ? Number(currentPricing.extraPerKm || 0) : vehicle.distanceRate
   draft.recommendedVehicleType = vehicle.id
   draft.recommendedVehicleName = vehicle.name
   draft.cargoOptions = buildCargoOptions(draft, vehicle.id)
+  draft.cargoOptions.baseFee = basePrice
+  draft.cargoOptions.distanceRate = extraPerKm
+  draft.cargoOptions.maxDeliveryFee = 0
   draft.servicePricing = {
     baseDistanceKm,
-    basePrice: vehicle.baseFee,
-    extraPerKm: vehicle.distanceRate,
+    basePrice,
+    extraPerKm,
     badWeatherMultiplier: Number(currentPricing.badWeatherMultiplier || 1),
-    serviceSurcharge,
+    badWeatherSurcharge: Number(currentPricing.badWeatherSurcharge || 0),
+    serviceSurcharge: 0,
     linePriceMultiplier: vehicle.linePriceMultiplier,
-    maxDeliveryFee: vehicle.maxDeliveryFee
+    maxDeliveryFee: 0
   }
-  const startingFee = vehicle.baseFee + serviceSurcharge
+  const startingFee = basePrice
   if (draft.pricingMode === 'fixed_line_parcel' || draft.pricingMode === 'fixed_line_ride') {
     const selectedLine = draft.selectedLine || {}
-    const lineFee = Math.min(Number(selectedLine.price || startingFee) * vehicle.linePriceMultiplier + serviceSurcharge, vehicle.maxDeliveryFee)
+    const lineFee = Number(selectedLine.price || startingFee) * vehicle.linePriceMultiplier
     draft.priceSummary = `${vehicle.name} · ${selectedLine.name || '当前线路'}约${Number(lineFee.toFixed(1))}元`
-  } else if (vehicle.distanceRate > 0) {
-    draft.priceSummary = `${vehicle.name} · ${baseDistanceKm}公里内${startingFee}元，超出${vehicle.distanceRate}元/公里，配送费不超过${vehicle.maxDeliveryFee}元`
+  } else if (extraPerKm > 0) {
+    draft.priceSummary = `${vehicle.name} · ${baseDistanceKm}公里内${startingFee}元，超出${extraPerKm}元/公里`
   } else {
-    draft.priceSummary = `${vehicle.name} · 预估${startingFee}元起，配送费不超过${vehicle.maxDeliveryFee}元`
+    draft.priceSummary = `${vehicle.name} · 固定服务费${startingFee}元`
   }
   return vehicle
 }

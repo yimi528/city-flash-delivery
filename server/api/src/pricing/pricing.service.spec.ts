@@ -67,17 +67,40 @@ describe('PricingService', () => {
     expect(ebike.deliveryFee).toBe(31.9)
   })
 
-  it('caps unusually long same-city delivery fees', () => {
+  it('rounds partial overage kilometres up and does not cap the delivery fee', () => {
     const estimate = service.estimate({
       serviceType: 'DELIVERY',
       serviceName: '急送',
       vehicleType: 'EBIKE',
       pricingMode: 'distance_weather',
-      distanceKm: 123.5,
+      distanceKm: 4.1,
       serviceSurcharge: 3,
     })
 
-    expect(estimate.deliveryFee).toBe(68)
-    expect(estimate.discountFee).toBeGreaterThan(0)
+    expect(estimate.distanceFee).toBe(1.6)
+    expect(estimate.deliveryFee).toBe(14.6)
+    expect(estimate.discountFee).toBe(0)
+  })
+
+  it('adds bad-weather pricing only for two-wheel services', () => {
+    const ebike = service.estimate({
+      serviceType: 'DELIVERY',
+      vehicleType: 'EBIKE',
+      pricingMode: 'distance_weather',
+      distanceKm: 2.5,
+      badWeather: true,
+      badWeatherSurcharge: 5,
+    })
+    const etrike = service.estimate({
+      serviceType: 'CARGO',
+      vehicleType: 'ETRIKE',
+      pricingMode: 'distance_weather',
+      distanceKm: 2.5,
+      badWeather: true,
+      badWeatherSurcharge: 5,
+    })
+
+    expect(ebike.weatherFee).toBe(5)
+    expect(etrike.weatherFee).toBe(0)
   })
 })

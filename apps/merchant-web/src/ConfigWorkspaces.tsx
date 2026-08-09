@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import type { ConfigCategory, ConfigEnvelope, PricingConfig, PricingRuleConfig, ServiceAreaConfig, SystemSettingsConfig } from './types'
+import type { ConfigCategory, ConfigEnvelope, ParcelPricingConfig, PricingConfig, PricingRuleConfig, ServiceAreaConfig, SystemSettingsConfig } from './types'
 import type { OperationsApi } from './api'
 
 type WorkspaceProps = { api: OperationsApi; onToast: (message: string) => void }
@@ -7,6 +7,8 @@ type WorkspaceProps = { api: OperationsApi; onToast: (message: string) => void }
 const SERVICE_NAMES: Record<string, string> = {
   carpool_ride: '顺风车', send_parcel: '寄货/配送', cargo_haul: '运货', urgent_delivery: '急送', pickup: '帮取', buy_for_me: '帮买', pedicab_delivery: '送货/送客', moving_handling: '搬运装卸'
 }
+
+const WEATHER_SERVICE_IDS = new Set(['urgent_delivery', 'pickup', 'buy_for_me'])
 
 function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T
@@ -21,6 +23,47 @@ function fen(value: string) {
   return Number.isFinite(amount) && amount >= 0 ? Math.round(amount * 100) : 0
 }
 
+const PARCEL_PRICE_OPTIONS: Array<{ itemType: ParcelPricingConfig['itemType']; weightBand: ParcelPricingConfig['weightBand']; label: string }> = [
+  { itemType: 'NORMAL', weightBand: 'UP_TO_10', label: '普通货物 ≤10kg' },
+  { itemType: 'NORMAL', weightBand: 'UP_TO_30', label: '普通货物 ≤30kg' },
+  { itemType: 'PET', weightBand: 'ANY', label: '宠物' },
+]
+
+function parcelPrice(rule: PricingRuleConfig, routeId: string, itemType: ParcelPricingConfig['itemType'], weightBand: ParcelPricingConfig['weightBand']) {
+  return rule.parcelPricing?.find((entry) => entry.routeId === routeId && entry.itemType === itemType && entry.weightBand === weightBand)?.priceFen || 1
+}
+
+type PricingKind = 'parcel' | 'route' | 'distance' | 'handling'
+
+function pricingKind(serviceId: string, rule?: PricingRuleConfig): PricingKind {
+  if (serviceId === 'send_parcel' || rule?.pricingMode === 'parcel_category') return 'parcel'
+  if (rule?.pricingMode === 'fixed_route') return 'route'
+  if (rule?.pricingMode === 'handling_fixed') return 'handling'
+  return 'distance'
+}
+
+function pricingKindLabel(kind: PricingKind) {
+  return {
+    parcel: '线路 + 物品 + 重量',
+    route: '固定线路按人',
+    distance: '按驾车距离',
+    handling: '固定上门服务',
+  }[kind]
+}
+
+function pricingKindDescription(kind: PricingKind) {
+  return {
+    parcel: '先选线路，再按物品类型和重量填写价格；不按公里数计价。',
+    route: '只按线路单价和乘客人数计价，不使用基础费、距离费或天气费。',
+    distance: '配置起步价、起步包含距离和超出每公里价格；只有二轮车另有恶劣天气加价。',
+    handling: '只配置上门人工服务费；如果还要运输，请选择“运货”并在备注中说明装卸需求。',
+    }[kind]
+}
+
+function startingFee(rule: PricingRuleConfig) {
+  return Number(rule.baseFeeFen || 0) + Number(rule.serviceSurchargeFen || 0)
+}
+
 function ConfigActions({ category, version, dirty, saving, onSave, onPublish }: { category: ConfigCategory; version: number; dirty: boolean; saving: boolean; onSave: () => void; onPublish: () => void }) {
   return <div className="config-actions">
     <div><span className={`config-dot ${dirty ? 'dirty' : ''}`} />{dirty ? '有未保存的草稿' : `已发布版本 v${version}`}</div>
@@ -31,7 +74,7 @@ function ConfigActions({ category, version, dirty, saving, onSave, onPublish }: 
   </div>
 }
 
-function NumberField({ label, value, suffix, onChange, step = '0.01' }: { label: string; value: string | number; suffix?: string; onChange: (value: string) => void; step?: string }) {
+function NumberField({ label, value, suffix, onChange, step = '0.01', placeholder }: { label: string; value: string | number; suffix?: string; onChange: (value: string) => void; step?: string; placeholder?: string }) {
   const [inputValue, setInputValue] = useState(String(value))
   const [editing, setEditing] = useState(false)
   useEffect(() => {
@@ -42,6 +85,7 @@ function NumberField({ label, value, suffix, onChange, step = '0.01' }: { label:
     min="0"
     step={step}
     value={inputValue}
+    placeholder={placeholder}
     onFocus={() => setEditing(true)}
     onChange={(event) => {
       setInputValue(event.target.value)
@@ -70,6 +114,11 @@ export function PricingWorkspace({ api, onToast }: WorkspaceProps) {
 
   const rule = payload?.rules.find((item) => item.serviceId === activeService)
   const routes = payload?.routes.filter((item) => item.serviceId === activeService) || []
+  const kind = pricingKind(activeService, rule)
+  const activeServiceConfig = payload?.services.find((item) => item.id === activeService)
+  const showsWeather = kind === 'distance' && WEATHER_SERVICE_IDS.has(activeService)
+  const parcelEnabledRoutes = routes.filter((route) => route.enabled)
+  const parcelReady = Boolean(rule && kind === 'parcel' && parcelEnabledRoutes.length > 0 && parcelEnabledRoutes.every((route) => PARCEL_PRICE_OPTIONS.every((option) => (rule.parcelPricing || []).some((entry) => entry.routeId === route.id && entry.itemType === option.itemType && entry.weightBand === option.weightBand && entry.enabled && entry.priceFen > 1))))
   const updateRule = (key: keyof PricingRuleConfig, value: string) => {
     if (!payload || !rule) return
     const nextValue = ['pricingMode', 'serviceId', 'id'].includes(key)
@@ -81,9 +130,33 @@ export function PricingWorkspace({ api, onToast }: WorkspaceProps) {
           : fen(value)
     setPayload({ ...payload, rules: payload.rules.map((item) => item.serviceId === activeService ? { ...item, [key]: nextValue } : item) })
   }
+  const updateStartingFee = (value: string) => {
+    if (!payload || !rule) return
+    const nextValue = fen(value)
+    setPayload({ ...payload, rules: payload.rules.map((item) => item.serviceId === activeService ? { ...item, baseFeeFen: nextValue, serviceSurchargeFen: 0, minimumFeeFen: 0, maxFeeFen: 0 } : item) })
+  }
   const updateRoute = (id: string, key: string, value: string | boolean) => {
     if (!payload) return
     setPayload({ ...payload, routes: payload.routes.map((item) => item.id === id ? { ...item, [key]: key === 'unitPriceFen' && typeof value === 'string' ? fen(value) : key === 'sortOrder' && typeof value === 'string' ? Number(value || 0) : value } : item) })
+  }
+  const removeRoute = (id: string) => {
+    if (!payload) return
+    if (!window.confirm('删除后发布配置才会正式停用这条线路，确认删除？')) return
+    setPayload({ ...payload, routes: payload.routes.filter((item) => item.id !== id) })
+  }
+  const addRoute = () => {
+    if (!payload || !envelope) return
+    setPayload({ ...payload, routes: [...payload.routes, { id: `route-${Date.now()}`, serviceId: activeService, originName: '福鼎', destinationName: '新线路', priceUnit: activeService === 'carpool_ride' ? 'PER_PERSON' : 'PER_ORDER', unitPriceFen: 1, enabled: true, sortOrder: routes.length + 1, version: envelope.version }] })
+  }
+  const updateParcelPrice = (routeId: string, option: typeof PARCEL_PRICE_OPTIONS[number], value: string) => {
+    if (!payload || !rule) return
+    const nextPrice = Math.max(1, fen(value))
+    const current = rule.parcelPricing || []
+    const exists = current.some((entry) => entry.routeId === routeId && entry.itemType === option.itemType && entry.weightBand === option.weightBand)
+    const nextEntries = exists
+      ? current.map((entry) => entry.routeId === routeId && entry.itemType === option.itemType && entry.weightBand === option.weightBand ? { ...entry, priceFen: nextPrice } : entry)
+      : [...current, { routeId, itemType: option.itemType, weightBand: option.weightBand, priceFen: nextPrice, enabled: true }]
+    setPayload({ ...payload, rules: payload.rules.map((item) => item.serviceId === activeService ? { ...item, parcelPricing: nextEntries } : item) })
   }
   const dirty = Boolean(envelope && payload && JSON.stringify(payload) !== JSON.stringify(envelope.live))
   const save = async () => {
@@ -104,22 +177,26 @@ export function PricingWorkspace({ api, onToast }: WorkspaceProps) {
       <aside className="config-sidebar"><div className="config-sidebar-title">业务类型</div>{payload.services.filter((service) => service.id !== 'moving').map((service) => <button type="button" key={service.id} className={`config-service-item ${service.id === activeService ? 'active' : ''}`} onClick={() => setActiveService(service.id)}><strong>{service.name || SERVICE_NAMES[service.id]}</strong><span>{service.vehicleName || '固定车型'}</span></button>)}</aside>
       <div className="config-main">
         {rule ? <>
-          <div className="config-card config-card-intro"><div><span className="service-kicker">{SERVICE_NAMES[activeService] || activeService}</span><h3>{payload.services.find((item) => item.id === activeService)?.vehicleName || '固定车型'}</h3><p>计价模式：{rule.pricingMode === 'fixed_route' ? '固定线路（商家可自由配置）' : rule.pricingMode === 'parcel_category' ? '货物类型计价' : rule.pricingMode === 'handling_fixed' ? '搬运服务' : '距离计价'}</p></div><span className={`status-pill ${rule.enabled ? 'online' : ''}`}>{rule.enabled ? '启用中' : '已停用'}</span></div>
-          <div className="config-card"><h3>基础计价</h3><div className="config-fields">
-            <NumberField label="基础服务费" value={money(rule.baseFeeFen)} suffix="元" onChange={(value) => updateRule('baseFeeFen', value)} />
-            <NumberField label="业务附加费" value={money(rule.serviceSurchargeFen)} suffix="元" onChange={(value) => updateRule('serviceSurchargeFen', value)} />
-            <NumberField label="最低收费" value={money(rule.minimumFeeFen)} suffix="元" onChange={(value) => updateRule('minimumFeeFen', value)} />
-            <NumberField label="封顶价格" value={money(rule.maxFeeFen)} suffix="元（0=不封顶）" onChange={(value) => updateRule('maxFeeFen', value)} />
-          </div></div>
-          {rule.pricingMode !== 'fixed_route' ? <div className="config-card"><h3>距离计价</h3><div className="config-fields">
-            <NumberField label="起步距离" value={(rule.includedDistanceMeters / 1000).toFixed(1)} suffix="公里" onChange={(value) => updateRule('includedDistanceMeters', String(Number(value || 0) * 1000))} />
-            <NumberField label="超出每公里" value={money(rule.perKmFen)} suffix="元" onChange={(value) => updateRule('perKmFen', value)} />
-            <NumberField label="配送起步价" value={money(rule.deliveryStartFeeFen)} suffix="元" onChange={(value) => updateRule('deliveryStartFeeFen', value)} />
-            <NumberField label="最大服务距离" value={(rule.maxDistanceMeters / 1000).toFixed(1)} suffix="公里" onChange={(value) => updateRule('maxDistanceMeters', String(Number(value || 0) * 1000))} />
-            <NumberField label="恶劣天气加价" value={money(rule.weatherSurchargeFen)} suffix="元" onChange={(value) => updateRule('weatherSurchargeFen', value)} />
-          </div></div> : null}
-          {rule.pricingMode === 'fixed_route' ? <div className="config-card"><div className="card-title-row"><div><h3>线路价格</h3><p className="muted">顺风车往返路线和票价由商家自由配置。</p></div><button className="text-btn" type="button" onClick={() => setPayload({ ...payload, routes: [...payload.routes, { id: `route-${Date.now()}`, serviceId: activeService, originName: '福鼎', destinationName: '新线路', priceUnit: activeService === 'carpool_ride' ? 'PER_PERSON' : 'PER_ORDER', unitPriceFen: 0, enabled: true, sortOrder: routes.length + 1, version: envelope.version }] })}>+ 新增线路</button></div><div className="route-table"><div className="route-row route-head"><span>目的地</span><span>计价单位</span><span>价格</span><span>状态</span></div>{routes.map((route) => <div className="route-row" key={route.id}><input value={route.destinationName} onChange={(event) => updateRoute(route.id, 'destinationName', event.target.value)} /><select value={route.priceUnit} onChange={(event) => updateRoute(route.id, 'priceUnit', event.target.value)}><option value="PER_PERSON">每人</option><option value="PER_ORDER">每单</option></select><NumberField label="" value={money(route.unitPriceFen)} suffix="元" onChange={(value) => updateRoute(route.id, 'unitPriceFen', value)} /><label className="switch-field"><input type="checkbox" checked={route.enabled} onChange={(event) => updateRoute(route.id, 'enabled', event.target.checked)} /><span>{route.enabled ? '启用' : '停用'}</span></label></div>)}</div></div> : null}
-          <div className="config-card preview-card"><div><span className="service-kicker">即时预览</span><h3>{rule.pricingMode === 'fixed_route' ? '线路单价由上方线路表决定' : rule.pricingMode === 'parcel_category' ? '普通货物 / 宠物价格' : '6 公里订单预估'}</h3></div><strong>{rule.pricingMode === 'fixed_route' ? money(routes[0]?.unitPriceFen || 0) : rule.pricingMode === 'parcel_category' ? '38 / 58 / 120 元' : `${money(Math.max(rule.minimumFeeFen, rule.baseFeeFen + rule.serviceSurchargeFen + rule.deliveryStartFeeFen + Math.ceil(Math.max(0, 6000 - rule.includedDistanceMeters) / 1000) * rule.perKmFen))} 元`}</strong></div>
+          <div className="config-card config-card-intro"><div><span className="service-kicker">{SERVICE_NAMES[activeService] || activeService}</span><h3>{activeServiceConfig?.vehicleName || '固定车型'}</h3><p>{pricingKindDescription(kind)}</p></div><div className="pricing-intro-meta"><span className="pricing-mode-badge">{pricingKindLabel(kind)}</span><span className={`status-pill ${rule.enabled ? 'online' : ''}`}>{rule.enabled ? '启用中' : '已停用'}</span></div></div>
+
+          {kind === 'parcel' ? <>
+            <div className="config-card pricing-guide-card"><div><h3>寄货怎么定价</h3><p className="config-card-note">先维护线路，再在价格矩阵中填写每条线路的物品和重量价格。线路本身不按公里数收费，0.01 元代表待配置。</p></div><div className="pricing-steps"><span><b>1</b>维护线路</span><span><b>2</b>填写价格矩阵</span><span><b>3</b>发布后生效</span></div></div>
+            <div className="config-card"><div className="card-title-row"><div><h3>寄货线路</h3><p className="config-card-note">线路只决定价格矩阵的第一维，价格统一按“每单”计算。</p></div><button className="text-btn" type="button" onClick={addRoute}>+ 新增线路</button></div><div className="route-table"><div className="route-row parcel-route-row route-head"><span>出发地</span><span>目的地</span><span>价格设置</span><span>状态/操作</span></div>{routes.map((route) => <div className="route-row parcel-route-row" key={route.id}><input value={route.originName} onChange={(event) => updateRoute(route.id, 'originName', event.target.value)} /><input value={route.destinationName} onChange={(event) => updateRoute(route.id, 'destinationName', event.target.value)} /><span className="muted">下方价格矩阵</span><div className="route-actions"><label className="switch-field"><input type="checkbox" checked={route.enabled} onChange={(event) => updateRoute(route.id, 'enabled', event.target.checked)} /><span>{route.enabled ? '启用' : '停用'}</span></label><button className="remove-btn" type="button" onClick={() => removeRoute(route.id)}>删除</button></div></div>)}</div></div>
+            <div className="config-card"><div className="card-title-row"><div><h3>物品 × 重量价格矩阵</h3><p className="config-card-note">每条线路分别配置普通货物和宠物价格；普通货物超过 30kg 不允许下单。</p></div><span className={`pricing-state ${parcelReady ? 'ready' : 'pending'}`}>{parcelReady ? '已有可用价格' : '当前仍待配置'}</span></div><div className="route-table"><div className="route-row parcel-matrix-row route-head"><span>目的地</span>{PARCEL_PRICE_OPTIONS.map((option) => <span key={`${option.itemType}-${option.weightBand}`}>{option.label}</span>)}<span>状态</span></div>{routes.map((route) => <div className="route-row parcel-matrix-row" key={`matrix-${route.id}`}><strong>{route.destinationName}</strong>{PARCEL_PRICE_OPTIONS.map((option) => { const priceFen = parcelPrice(rule, route.id, option.itemType, option.weightBand); return <NumberField key={`${route.id}-${option.itemType}-${option.weightBand}`} label="" value={priceFen > 1 ? money(priceFen) : ''} placeholder="待配置" suffix="元" onChange={(value) => updateParcelPrice(route.id, option, value)} /> })}<span className="muted">{route.enabled ? '启用' : '停用'}</span></div>)}</div></div>
+          </> : null}
+
+          {kind === 'route' ? <div className="config-card"><div className="card-title-row"><div><h3>线路票价</h3><p className="config-card-note">只配置线路单价和计价单位；乘客人数会自动乘在线路价上，不需要填写基础费或距离费。空白价格表示待配置。</p></div><button className="text-btn" type="button" onClick={addRoute}>+ 新增线路</button></div><div className="route-table"><div className="route-row route-price-row route-head"><span>出发地</span><span>目的地</span><span>计价单位</span><span>单价</span><span>状态/操作</span></div>{routes.map((route) => <div className="route-row route-price-row" key={route.id}><input value={route.originName} onChange={(event) => updateRoute(route.id, 'originName', event.target.value)} /><input value={route.destinationName} onChange={(event) => updateRoute(route.id, 'destinationName', event.target.value)} /><select value={route.priceUnit} onChange={(event) => updateRoute(route.id, 'priceUnit', event.target.value)}><option value="PER_PERSON">每人</option><option value="PER_ORDER">每单</option></select><NumberField label="" value={route.unitPriceFen > 1 ? money(route.unitPriceFen) : ''} placeholder="待配置" suffix="元" onChange={(value) => updateRoute(route.id, 'unitPriceFen', value)} /><div className="route-actions"><label className="switch-field"><input type="checkbox" checked={route.enabled} onChange={(event) => updateRoute(route.id, 'enabled', event.target.checked)} /><span>{route.enabled ? '启用' : '停用'}</span></label><button className="remove-btn" type="button" onClick={() => removeRoute(route.id)}>删除</button></div></div>)}</div></div> : null}
+
+          {kind === 'distance' && rule ? <>
+            <div className="config-card"><h3>起步价</h3><p className="config-card-note">用户先支付这一笔起步价；基础服务费和业务附加费已合并，不再拆分。</p><div className="config-fields"><NumberField label="起步价" value={money(startingFee(rule))} suffix="元" onChange={updateStartingFee} /><div className="pricing-readout"><span>当前起步价</span><strong>{money(startingFee(rule))} 元</strong></div></div></div>
+            <div className="config-card"><h3>距离规则</h3><p className="config-card-note">起步距离可配置；超出后按整公里向上取整收费。没有封顶价格，超过最大服务距离直接提示超出范围。</p><div className="config-fields"><NumberField label="起步包含距离" value={(rule.includedDistanceMeters / 1000).toFixed(1)} suffix="公里" onChange={(value) => updateRule('includedDistanceMeters', String(Number(value || 0) * 1000))} /><NumberField label="超出每公里" value={money(rule.perKmFen)} suffix="元" onChange={(value) => updateRule('perKmFen', value)} /><NumberField label="最大服务距离" value={(rule.maxDistanceMeters / 1000).toFixed(1)} suffix="公里" onChange={(value) => updateRule('maxDistanceMeters', String(Number(value || 0) * 1000))} />{showsWeather ? <NumberField label="恶劣天气加价" value={money(rule.weatherSurchargeFen)} suffix="元/单" onChange={(value) => updateRule('weatherSurchargeFen', value)} /> : null}</div></div>
+          </> : null}
+
+          {kind === 'handling' && rule ? <>
+            <div className="config-card"><h3>人工搬运服务费</h3><p className="config-card-note">搬运装卸只负责人工到现场搬、装、卸；如果还要把货物送到另一个地址，请选择“运货”，并在备注中说明装卸需求。</p><div className="config-fields"><NumberField label="固定人工服务费" value={money(startingFee(rule))} suffix="元" onChange={updateStartingFee} /><div className="pricing-readout"><span>当前服务起价</span><strong>{money(startingFee(rule))} 元</strong></div></div></div>
+          </> : null}
+
+    <div className="config-card preview-card"><div><span className="service-kicker">当前规则摘要</span><h3>{kind === 'parcel' ? '线路 × 物品 × 重量' : kind === 'route' ? '线路单价 × 乘客人数' : kind === 'handling' ? '固定上门服务费' : '起步价 + 距离费'}</h3></div><strong>{kind === 'parcel' ? (parcelReady ? '已配置' : '待配置') : kind === 'route' ? (routes.find((route) => route.enabled && route.unitPriceFen > 1) ? `${money(routes.find((route) => route.enabled && route.unitPriceFen > 1)?.unitPriceFen || 0)} 元起` : '待配置') : rule ? `${money(startingFee(rule))} 元起` : '待配置'}</strong></div>
         </> : <div className="empty">该业务尚未创建价格规则。</div>}
       </div>
     </div>

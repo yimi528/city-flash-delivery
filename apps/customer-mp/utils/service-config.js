@@ -4,13 +4,19 @@ const PRIMARY_TASKS = [
     name: '寄货/配送',
     icon: '📦',
     subtitle: '普通货物 · 宠物',
-    desc: '普通货物10kg内38元，30kg内58元；宠物120元',
+    desc: '价格按线路、物品和重量配置，当前待定',
     vehicleType: 'small_car',
     vehicleName: '小车',
-    priceSummary: '普通货物10kg内38元 · 30kg内58元 · 宠物120元',
+    priceSummary: '价格按线路、物品和重量配置，当前待定',
     pricingMode: 'parcel_category',
+    parcelPricing: [],
     serviceSurcharge: 0,
-    lines: [],
+    lines: [
+      { id: 'wenzhou_parcel', name: '温州', price: 0, priceUnit: 'PER_ORDER', pending: true },
+      { id: 'cangnan_parcel', name: '苍南', price: 0, priceUnit: 'PER_ORDER', pending: true },
+      { id: 'qinyu_parcel', name: '秦屿', price: 0, priceUnit: 'PER_ORDER', pending: true },
+      { id: 'longan_parcel', name: '龙安', price: 0, priceUnit: 'PER_ORDER', pending: true }
+    ],
     limits: { maxWeightKg: 30, maxVolumeM3: 1 }
   },
   {
@@ -38,12 +44,12 @@ const PRIMARY_TASKS = [
     desc: '市场拉货、商家补货',
     vehicleType: 'cargo_tricycle',
     vehicleName: '货三轮车',
-    priceSummary: '推荐货三轮，4公里内33元',
+    priceSummary: '货三轮4公里内33元，超出3元/公里',
     pricingMode: 'distance',
     baseDistanceKm: 4,
-    basePrice: 28,
+    basePrice: 33,
     extraPerKm: 3,
-    serviceSurcharge: 5
+    serviceSurcharge: 0
   },
   {
     id: 'urgent_delivery',
@@ -53,53 +59,35 @@ const PRIMARY_TASKS = [
     desc: '一对一快速送达',
     vehicleType: 'ebike',
     vehicleName: '二轮车',
-    priceSummary: '二轮车4公里内13元，超出1.6元/公里',
+    priceSummary: '二轮车4公里内13元，超出1.6元/公里；恶劣天气每单加5元',
     pricingMode: 'distance_weather',
     baseDistanceKm: 4,
-    basePrice: 10,
+    basePrice: 13,
     extraPerKm: 1.6,
-    badWeatherMultiplier: 1.15,
+    badWeatherMultiplier: 1,
     badWeatherSurcharge: 5,
-    serviceSurcharge: 3
+    serviceSurcharge: 0
   }
 ]
 
 const HANDLING_TYPES = [
   {
-    name: '搬家/搬店',
-    icon: '🏠',
-    desc: '住宅、宿舍或门店整体搬运',
+    name: '搬运装卸',
+    icon: '🏗️',
+    desc: '搬家、搬店、装货、卸货等人工服务',
     vehicleId: 'manual_labor',
     vehicleName: '人力服务',
-    serviceSurcharge: 10,
-    priceSummary: '上门搬运固定48元'
-  },
-  {
-    name: '装货',
-    icon: '📦',
-    desc: '协助装车、码放和短时搬运',
-    vehicleId: 'manual_labor',
-    vehicleName: '人力服务',
-    serviceSurcharge: 10,
-    priceSummary: '上门装货固定48元'
-  },
-  {
-    name: '卸货',
-    icon: '📥',
-    desc: '协助卸车、入库和搬至指定位置',
-    vehicleId: 'manual_labor',
-    vehicleName: '人力服务',
-    serviceSurcharge: 10,
-    priceSummary: '上门卸货固定48元'
+    serviceSurcharge: 0,
+    priceSummary: '上门人工固定48元；运输请使用运货并在备注中说明装卸需求'
   },
   {
     name: '叉车',
     icon: '🚜',
-    desc: '叉车作业服务，电话 18705939528',
+    desc: '叉车作业仅支持电话预约',
     phone: '18705939528',
     vehicleId: 'forklift_service',
     vehicleName: '叉车服务',
-    serviceSurcharge: 10,
+    serviceSurcharge: 0,
     priceSummary: '叉车服务请致电 18705939528'
   }
 ]
@@ -118,7 +106,7 @@ const COMMON_TASKS = [
     baseDistanceKm: 4,
     basePrice: 10,
     extraPerKm: 1.6,
-    badWeatherMultiplier: 1.15,
+    badWeatherMultiplier: 1,
     badWeatherSurcharge: 5,
     serviceSurcharge: 0
   },
@@ -130,14 +118,14 @@ const COMMON_TASKS = [
     desc: '帮买商品并送达',
     vehicleType: 'ebike',
     vehicleName: '二轮车',
-    priceSummary: '商品价格另加配送费，二轮车12元起',
+    priceSummary: '商品价格另加配送费，二轮车12元起；恶劣天气每单加5元',
     pricingMode: 'distance_weather',
     baseDistanceKm: 4,
-    basePrice: 10,
+    basePrice: 12,
     extraPerKm: 1.6,
-    badWeatherMultiplier: 1.15,
+    badWeatherMultiplier: 1,
     badWeatherSurcharge: 5,
-    serviceSurcharge: 2
+    serviceSurcharge: 0
   },
   {
     id: 'moving_handling',
@@ -147,12 +135,12 @@ const COMMON_TASKS = [
     desc: '统一提交搬运需求',
     vehicleType: 'manual_labor',
     vehicleName: '人力服务',
-    priceSummary: '上门搬运固定48元，需要配送时另计里程费',
+    priceSummary: '上门人工固定48元；运输请使用运货并在备注中说明装卸需求',
     pricingMode: 'handling_fixed',
-    baseDistanceKm: 4,
-    basePrice: 28,
-    extraPerKm: 2.8,
-    serviceSurcharge: 20
+    baseDistanceKm: 0,
+    basePrice: 48,
+    extraPerKm: 0,
+    serviceSurcharge: 0
   },
   {
     id: 'pedicab_delivery',
@@ -187,6 +175,12 @@ const ALL_TASKS = [
   'pedicab_delivery'
 ].map((id) => TASKS_BY_ID[id])
 
+const ROUTE_TASK_IDS = ['carpool_ride', 'send_parcel']
+
+function isRouteTask(taskId) {
+  return ROUTE_TASK_IDS.includes(taskId)
+}
+
 const DEFAULT_ITEMS = {
   send_parcel: '普通货物',
   carpool_ride: '1人',
@@ -194,7 +188,7 @@ const DEFAULT_ITEMS = {
   urgent_delivery: '文件/小件',
   pickup: '快递包裹',
   buy_for_me: '万能帮买',
-  moving_handling: '搬家/搬店',
+  moving_handling: '搬运装卸',
   pedicab_delivery: '短途送客'
 }
 
@@ -214,17 +208,19 @@ function getDefaultItem(taskId) {
 }
 
 function applyHandlingType(draft, itemName) {
-  const handlingType = HANDLING_TYPES.find((item) => item.name === itemName) || HANDLING_TYPES[0]
+  const requestedType = HANDLING_TYPES.find((item) => item.name === itemName) || HANDLING_TYPES[0]
+  const handlingType = requestedType.phone ? HANDLING_TYPES[0] : requestedType
   draft.item = handlingType.name
   draft.recommendedVehicleType = handlingType.vehicleId
   draft.recommendedVehicleName = handlingType.vehicleName
   draft.priceSummary = handlingType.priceSummary
   draft.servicePricing = {
-    baseDistanceKm: 4,
-    basePrice: 0,
+    baseDistanceKm: 0,
+    basePrice: 48,
     extraPerKm: 0,
     badWeatherMultiplier: 1,
-    serviceSurcharge: handlingType.serviceSurcharge
+    badWeatherSurcharge: 0,
+    serviceSurcharge: 0
   }
   return handlingType
 }
@@ -245,8 +241,9 @@ function buildDraftService(taskId) {
     pricingMode: task.pricingMode,
     recommendedVehicleType: task.vehicleType,
     recommendedVehicleName: task.vehicleName,
-    selectedLine: task.lines ? task.lines[0] : null,
+    selectedLine: isRouteTask(task.id) ? null : (task.lines ? task.lines[0] : null),
     remoteTaskLines: [],
+    parcelPricing: task.parcelPricing || [],
     serviceLimits: task.limits || null,
     badWeather: false,
     servicePricing: {
@@ -272,36 +269,45 @@ function applyRemoteConfigToDraft(draft, config) {
   }
   if (!remoteRule) return true
 
-  const basePrice = Number(remoteRule.baseFeeFen || 0) / 100
+  const weatherEnabled = ['urgent_delivery', 'pickup', 'buy_for_me'].includes(draft.taskId)
+  const basePrice = (Number(remoteRule.baseFeeFen || 0) + Number(remoteRule.serviceSurchargeFen || 0)) / 100
   const extraPerKm = Number(remoteRule.perKmFen || 0) / 100
-  const maxDeliveryFee = Number(remoteRule.maxFeeFen || 0) / 100
+  const maxDeliveryFee = 0
   draft.pricingMode = remoteRule.pricingMode || draft.pricingMode
+  if (draft.taskId === 'send_parcel') draft.parcelPricing = Array.isArray(remoteRule.parcelPricing) ? remoteRule.parcelPricing : []
   draft.pricingVersion = Number(config.pricingVersion || (config.pricing && config.pricing.version) || 0)
   draft.servicePricing = Object.assign({}, draft.servicePricing || {}, {
     remote: true,
-    baseDistanceKm: Number(remoteRule.includedDistanceMeters || 0) / 1000,
+    baseDistanceKm: draft.taskId === 'moving_handling' ? 0 : Number(remoteRule.includedDistanceMeters || 0) / 1000,
     basePrice,
-    extraPerKm,
-    serviceSurcharge: Number(remoteRule.serviceSurchargeFen || 0) / 100,
-    deliveryStartFee: Number(remoteRule.deliveryStartFeeFen || 0) / 100,
-    minimumFee: Number(remoteRule.minimumFeeFen || 0) / 100,
+    extraPerKm: draft.taskId === 'moving_handling' ? 0 : extraPerKm,
+    serviceSurcharge: 0,
+    deliveryStartFee: 0,
+    minimumFee: 0,
     maxDeliveryFee,
-    badWeatherMultiplier: Number(remoteRule.weatherMultiplierBps || 10000) / 10000,
-    badWeatherSurcharge: remoteRule.weatherSurchargeFen === undefined ? 5 : Number(remoteRule.weatherSurchargeFen || 0) / 100
+    badWeatherMultiplier: 1,
+    badWeatherSurcharge: weatherEnabled ? (remoteRule.weatherSurchargeFen === undefined ? 5 : Number(remoteRule.weatherSurchargeFen || 0) / 100) : 0
   })
   if (draft.cargoOptions) {
     draft.cargoOptions.baseFee = basePrice
     draft.cargoOptions.distanceRate = extraPerKm
     draft.cargoOptions.maxDeliveryFee = maxDeliveryFee
   }
-  if (remoteRule.pricingMode === 'fixed_route' && remoteService && remoteService.routes && remoteService.routes.length) {
+  if (remoteService && Array.isArray(remoteService.routes) && remoteService.routes.length) {
     const taskLines = remoteService.routes.map((route) => ({
       id: route.id,
       name: route.destinationName || route.city,
-      price: Number(route.unitPriceFen || 0) / 100
+      originName: route.originName || '福鼎',
+      destinationName: route.destinationName || route.city,
+      price: Number(route.unitPriceFen || 0) / 100,
+      priceUnit: route.priceUnit || 'PER_ORDER',
+      pending: draft.taskId === 'send_parcel' || Number(route.unitPriceFen || 0) <= 1
     }))
     draft.remoteTaskLines = taskLines
-    draft.selectedLine = taskLines.find((line) => draft.selectedLine && line.id === draft.selectedLine.id) || taskLines[0]
+    draft.selectedLine = taskLines.find((line) => draft.selectedLine && line.id === draft.selectedLine.id) || (isRouteTask(draft.taskId) ? null : taskLines[0])
+  } else if (remoteService && Array.isArray(remoteService.routes)) {
+    draft.remoteTaskLines = []
+    draft.selectedLine = null
   }
   return true
 }
@@ -310,6 +316,8 @@ module.exports = {
   PRIMARY_TASKS,
   COMMON_TASKS,
   ALL_TASKS,
+  ROUTE_TASK_IDS,
+  isRouteTask,
   HANDLING_TYPES,
   getTask,
   getDefaultItem,

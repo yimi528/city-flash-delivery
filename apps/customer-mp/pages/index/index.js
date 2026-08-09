@@ -1,44 +1,54 @@
 const app = getApp()
 const map = require('../../utils/map')
-const carpool = require('../../utils/carpool')
 const serviceConfig = require('../../utils/service-config')
 const vehicleConfig = require('../../utils/vehicle-config')
 
-function getCarpoolRoutes() {
-  const remoteRoutes = ((app.globalData.appConfig && app.globalData.appConfig.services || []).find((item) => item.id === 'carpool_ride') || {}).routes || []
-  if (remoteRoutes.length) {
-    return remoteRoutes.map((route) => ({
-      id: route.id,
-      name: route.destinationName || route.city,
-      price: Number(route.unitPriceFen || 0) / 100
-    }))
+function defaultOrderAddresses() {
+  if (typeof app.getDefaultOrderAddresses === 'function') return app.getDefaultOrderAddresses()
+  const addresses = Array.isArray(app.globalData.addresses) ? app.globalData.addresses : []
+  const pickup = addresses.find((address) => address.isDefault) || addresses[0] || null
+  const dropoff = addresses.find((address) => address.id !== (pickup && pickup.id)) || pickup
+  return {
+    pickup: pickup ? Object.assign({}, pickup) : null,
+    dropoff: dropoff ? Object.assign({}, dropoff) : null
   }
-  return Object.keys(carpool.ROUTES).map((id) => carpool.ROUTES[id])
 }
 
-function defaultCustomerAddress() {
-  const addresses = Array.isArray(app.globalData.addresses) ? app.globalData.addresses : []
-  const selected = addresses.find((address) => address.isDefault) || addresses[0]
-  return selected ? Object.assign({}, selected) : null
+function ensureDefaultOrderAddresses(draft) {
+  const defaults = defaultOrderAddresses()
+  if (!draft.pickup && defaults.pickup) draft.pickup = defaults.pickup
+  if (!draft.dropoff && defaults.dropoff) draft.dropoff = defaults.dropoff
 }
 
 function ensureDraftTask(taskId) {
   const draft = app.globalData.draftOrder
   const nextTaskId = taskId || draft.taskId || 'send_parcel'
+  const routeTask = serviceConfig.isRouteTask(nextTaskId)
   const isTaskChanged = draft.taskId !== nextTaskId
   const previousTaskId = draft.taskId
   const previousSelectedLine = draft.selectedLine
   const patch = serviceConfig.buildDraftService(nextTaskId)
   Object.assign(draft, patch)
   if (!isTaskChanged && previousSelectedLine) draft.selectedLine = previousSelectedLine
-  if (isTaskChanged && previousTaskId === 'carpool_ride' && patch.taskId !== 'carpool_ride') {
-    draft.pickup = defaultCustomerAddress()
+  if (isTaskChanged && routeTask) {
+    draft.selectedLine = null
+    draft.remoteTaskLines = []
+    draft.pickup = null
     draft.dropoff = null
     draft.routeDistanceKm = 0
     draft.routeDistanceSource = ''
     draft.routeDuration = ''
     draft.quoteId = ''
+  } else if (isTaskChanged && serviceConfig.isRouteTask(previousTaskId)) {
+    const defaults = defaultOrderAddresses()
+    draft.pickup = defaults.pickup
+    draft.dropoff = defaults.dropoff
+    draft.routeDistanceKm = 0
+    draft.routeDistanceSource = ''
+    draft.routeDuration = ''
+    draft.quoteId = ''
   }
+  if (!routeTask || draft.selectedLine) ensureDefaultOrderAddresses(draft)
   if (isTaskChanged || !draft.item) {
     draft.item = serviceConfig.getDefaultItem(nextTaskId)
   }
@@ -49,11 +59,10 @@ function ensureDraftTask(taskId) {
   if (patch.taskId === 'carpool_ride') {
     draft.direction = draft.direction || 'OUTBOUND'
     draft.passengerCount = Number(draft.passengerCount || 1)
-    carpool.applyRoute(draft, { clearAddress: isTaskChanged })
   }
   if (patch.taskId === 'moving_handling') {
-    draft.requiresDelivery = Boolean(draft.requiresDelivery)
-    if (!draft.requiresDelivery) draft.dropoff = null
+    draft.requiresDelivery = false
+    draft.dropoff = null
   }
   const remoteService = (app.globalData.remoteServices || []).find((item) => item.id === nextTaskId)
   if (remoteService) {
@@ -90,7 +99,7 @@ Page({
     coreTasks: serviceConfig.ALL_TASKS.slice(0, 4),
     moreTasks: serviceConfig.ALL_TASKS.slice(4),
     activeTask: serviceConfig.PRIMARY_TASKS[0],
-    carpoolRoutes: Object.keys(carpool.ROUTES).map((id) => carpool.ROUTES[id]),
+    isRouteTask: false,
     locationText: '定位附近'
   },
 
@@ -108,7 +117,7 @@ Page({
         coreTasks: tasks.slice(0, 4),
         moreTasks: tasks.slice(4),
         activeTask: serviceConfig.getTask(draft.taskId),
-        carpoolRoutes: getCarpoolRoutes()
+        isRouteTask: serviceConfig.isRouteTask(draft.taskId)
       })
     }
     if (this.configSyncTimer) clearInterval(this.configSyncTimer)
@@ -138,7 +147,8 @@ Page({
     const draft = ensureDraftTask(taskId)
     this.setData({
       draft,
-      activeTask: serviceConfig.getTask(draft.taskId)
+      activeTask: serviceConfig.getTask(draft.taskId),
+      isRouteTask: serviceConfig.isRouteTask(draft.taskId)
     })
   },
 
@@ -164,18 +174,7 @@ Page({
 
   chooseAddress(event) {
     const type = event.currentTarget.dataset.type
-    const routeId = this.data.draft.selectedLine && this.data.draft.selectedLine.id
-    const carpoolMode = this.data.draft.taskId === 'carpool_ride' ? `&mode=carpool&route=${routeId || 'cangnan'}` : ''
-    wx.navigateTo({ url: `/pages/address/address?type=${type}${carpoolMode}` })
-  },
-
-  chooseCarpoolRoute(event) {
-    const routeId = event.currentTarget.dataset.route
-    const draft = app.globalData.draftOrder
-    if (!carpool.ROUTES[routeId] || (draft.selectedLine && draft.selectedLine.id === routeId)) return
-    carpool.applyRoute(draft, { routeId, clearAddress: true })
-    serviceConfig.applyRemoteConfigToDraft(draft, app.globalData.appConfig)
-    this.setData({ draft })
+    wx.navigateTo({ url: `/pages/address/address?type=${type}` })
   },
 
   openPricing() {
@@ -188,20 +187,14 @@ Page({
       return
     }
     const draft = app.globalData.draftOrder
-    if (!draft.pickup) {
+    const routeTask = serviceConfig.isRouteTask(draft.taskId)
+    if (!routeTask && !draft.pickup) {
       wx.showToast({ title: '请先选择服务地址', icon: 'none' })
       return
     }
-    if (draft.taskId !== 'moving_handling' && draft.taskId !== 'carpool_ride' && !draft.dropoff) {
+    if (!routeTask && draft.taskId !== 'moving_handling' && !draft.dropoff) {
       wx.showToast({ title: '请先选择目的地', icon: 'none' })
       return
-    }
-    if (draft.taskId === 'carpool_ride') {
-      const validation = carpool.validateDraft(draft)
-      if (!validation.valid) {
-        wx.showToast({ title: validation.message, icon: 'none' })
-        return
-      }
     }
     wx.navigateTo({ url: '/pages/order-create/order-create' })
   }

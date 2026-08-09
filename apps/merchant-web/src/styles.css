@@ -1079,7 +1079,7 @@ h1 {
   position: fixed;
   right: 24px;
   bottom: 24px;
-  z-index: 50;
+  z-index: 100;
   transform: translateY(16px);
   opacity: 0;
   pointer-events: none;
@@ -1424,7 +1424,21 @@ h1 {
 .config-card-intro h3 { margin: 4px 0; font-family: Georgia, 'Times New Roman', serif; font-size: 24px; }
 .config-card-intro p { margin: 0; color: #839087; font-size: 12px; }
 .service-kicker { color: #d74d35; font-size: 11px; font-weight: 700; letter-spacing: .12em; }
+.pricing-intro-meta { display: grid; justify-items: end; gap: 8px; }
+.pricing-mode-badge, .pricing-state { display: inline-flex; align-items: center; width: fit-content; padding: 6px 9px; border-radius: 999px; color: #2f6d5e; background: #edf6f0; font-size: 11px; font-weight: 700; }
+.pricing-state.pending { color: #a65a32; background: #fff0e5; }
+.pricing-state.ready { color: #2f6d5e; background: #edf6f0; }
+.config-card-note { margin: 7px 0 0; color: #839087; font-size: 12px; line-height: 1.55; }
+.pricing-guide-card { display: grid; gap: 16px; background: linear-gradient(115deg, #fff9ef, #f3f8f2); }
+.pricing-steps { display: flex; flex-wrap: wrap; gap: 8px 18px; color: #5f7167; font-size: 12px; }
+.pricing-steps span { display: inline-flex; align-items: center; gap: 7px; }
+.pricing-steps b { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; color: #fffaf3; background: #d74d35; font-size: 11px; }
 .config-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 15px; margin-top: 17px; }
+.pricing-readout { display: flex; align-items: center; justify-content: space-between; min-height: 42px; padding: 0 12px; border: 1px dashed rgba(215, 77, 53, .34); border-radius: 10px; color: #6b776f; background: #fff8f1; font-size: 12px; }
+.pricing-readout strong { color: #d74d35; font-family: Georgia, 'Times New Roman', serif; font-size: 20px; }
+.pricing-advanced { padding: 16px 20px; border: 1px dashed rgba(49, 65, 57, .2); border-radius: 16px; color: #64736b; background: rgba(255, 253, 249, .64); }
+.pricing-advanced summary { cursor: pointer; color: #526159; font-size: 13px; font-weight: 700; }
+.pricing-advanced[open] summary { margin-bottom: 4px; }
 .config-field { display: grid; gap: 7px; color: #64736b; font-size: 12px; }
 .config-field input, .config-field textarea, .config-field select, .route-row input, .route-row select { box-sizing: border-box; width: 100%; border: 1px solid #d9d5ce; border-radius: 10px; padding: 10px 11px; color: #26352d; background: #fffefa; outline: none; font: inherit; }
 .config-field input:focus, .config-field textarea:focus, .route-row input:focus, .route-row select:focus { border-color: #d74d35; box-shadow: 0 0 0 3px rgba(215, 77, 53, .11); }
@@ -1434,10 +1448,15 @@ h1 {
 .card-title-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .text-btn { border: 0; color: #c94933; background: transparent; cursor: pointer; font-weight: 700; }
 .route-table { display: grid; gap: 7px; margin-top: 14px; overflow-x: auto; }
-.route-row { display: grid; grid-template-columns: 1.4fr 1fr 1fr 100px; gap: 10px; align-items: center; min-width: 600px; }
+.route-row { display: grid; grid-template-columns: 1.2fr 1.2fr 1fr 1fr 155px; gap: 10px; align-items: center; min-width: 760px; }
+.parcel-route-row { grid-template-columns: 1.2fr 1.2fr 1.2fr 155px; min-width: 650px; }
+.route-price-row { grid-template-columns: 1.2fr 1.2fr 1fr 1fr 155px; min-width: 760px; }
+.parcel-matrix-row { grid-template-columns: 1.2fr repeat(3, 1fr) 100px; min-width: 760px; }
 .route-head { padding: 0 10px 4px; color: #8c9690; font-size: 11px; }
 .route-row .config-field { display: block; }
 .route-row .number-input { min-width: 0; }
+.route-actions { display: flex; align-items: center; gap: 8px; }
+.remove-btn { border: 0; padding: 0; color: #b44b3b; background: transparent; cursor: pointer; font: inherit; font-size: 12px; }
 .switch-field { display: inline-flex; align-items: center; gap: 8px; color: #5c6a62; font-size: 12px; cursor: pointer; }
 .switch-field input { accent-color: #d74d35; }
 .preview-card { display: flex; align-items: center; justify-content: space-between; background: linear-gradient(115deg, #f7ece2, #f5f8ee); }

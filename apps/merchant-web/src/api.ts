@@ -2,7 +2,7 @@ import type { ApiOrder, BackendStatus, ConfigCategory, ConfigEnvelope, Dashboard
 
 const configuredApiBase = import.meta.env.VITE_API_BASE_URL?.trim()
 export const DEFAULT_API_BASE = configuredApiBase || 'http://127.0.0.1:3000/api'
-export const DEFAULT_OPERATOR_ID = 'operator-demo'
+export const DEFAULT_OPERATOR_ID = 'admin'
 
 const STATUS_LABELS: Record<string, string> = {
   PENDING: '待接单',

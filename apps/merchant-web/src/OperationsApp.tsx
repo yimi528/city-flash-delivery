@@ -69,8 +69,7 @@ function Toast({ message }: { message: string }) {
   return <div className={`toast ${message ? 'show' : ''}`} role="status" aria-live="polite">{message}</div>
 }
 
-const DEMO_OPERATOR_USERNAME = 'operator-demo'
-const DEMO_OPERATOR_PASSWORD = 'DevOperator!2026'
+const DEMO_OPERATOR_USERNAME = 'admin'
 
 function LoginDialog({
   open,
@@ -84,7 +83,7 @@ function LoginDialog({
   onClose: () => void
 }) {
   const [username, setUsername] = useState(() => import.meta.env.DEV ? DEMO_OPERATOR_USERNAME : localStorage.getItem('merchantUsername') || '')
-  const [password, setPassword] = useState(() => import.meta.env.DEV ? DEMO_OPERATOR_PASSWORD : '')
+  const [password, setPassword] = useState('')
   if (!open) return null
   return (
     <div className="login-overlay" role="presentation">
@@ -102,7 +101,7 @@ function LoginDialog({
         </label>
         <label className="login-field">
           <span>强密码</span>
-          <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" required placeholder="请输入登录密码" />
+          <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" required placeholder="请输入本地 .env 中的运营密码" />
         </label>
         <p className="login-security-note">密码至少 12 位，并包含大小写字母、数字和特殊字符。连续失败 5 次，账号将锁定 15 分钟。</p>
         <button className="login-submit" type="submit" disabled={loading || !username.trim() || !password}>

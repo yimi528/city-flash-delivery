@@ -155,6 +155,14 @@ export type Stats = {
 
 export type ConfigCategory = 'PRICING' | 'SERVICE_AREA' | 'SYSTEM'
 
+export type ParcelPricingConfig = {
+  routeId: string
+  itemType: 'NORMAL' | 'PET'
+  weightBand: 'UP_TO_10' | 'UP_TO_30' | 'ANY'
+  priceFen: number
+  enabled: boolean
+}
+
 export type PricingRuleConfig = {
   id: string
   serviceId: string
@@ -169,6 +177,7 @@ export type PricingRuleConfig = {
   maxFeeFen: number
   weatherMultiplierBps: number
   weatherSurchargeFen: number
+  parcelPricing?: ParcelPricingConfig[]
   enabled: boolean
   version: number
 }

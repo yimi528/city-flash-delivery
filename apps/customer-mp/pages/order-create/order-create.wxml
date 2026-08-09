@@ -8,25 +8,33 @@
 
   <view class="handling-intro" wx:if="{{draft.taskId === 'moving_handling'}}">
     <view class="handling-kicker">一站式搬运</view>
-    <view class="handling-title">搬家、搬店和装卸统一下单</view>
-    <view class="handling-sub">上门服务固定收费，需要配送时再按驾车距离计费</view>
+    <view class="handling-title">搬运装卸统一下单</view>
+    <view class="handling-sub">只提供上门人工服务；如需把货物送到其他地址，请选择“运货”</view>
   </view>
 
   <view class="card handling-card" wx:if="{{draft.taskId === 'moving_handling'}}">
     <view class="section-head handling-head">
       <view>
-        <view class="section-title">本次需要什么服务？</view>
-        <view class="handling-hint">选择主要需求，再补充现场情况</view>
+        <view class="section-title">搬运装卸服务</view>
+        <view class="handling-hint">填写现场情况，工作人员按需求安排</view>
       </view>
     </view>
     <view class="handling-options">
       <block wx:for="{{handlingTypes}}" wx:key="name">
-        <view class="handling-option {{selectedItem === item.name ? 'active' : ''}}" data-item="{{item.name}}" bindtap="selectItem">
+        <view wx:if="{{item.phone}}" class="handling-option phone-only" data-phone="{{item.phone}}" bindtap="callHandlingPhone">
           <view class="handling-icon">{{item.icon}}</view>
           <view class="handling-copy">
             <view class="handling-name">{{item.name}}</view>
             <view class="handling-desc">{{item.desc}}</view>
-            <view class="handling-phone" wx:if="{{item.phone}}" data-phone="{{item.phone}}" catchtap="callHandlingPhone">拨打 {{item.phone}}</view>
+            <view class="handling-phone">电话预约 {{item.phone}}</view>
+          </view>
+          <view class="handling-check phone-label">预约</view>
+        </view>
+        <view wx:else class="handling-option {{selectedItem === item.name ? 'active' : ''}}" data-item="{{item.name}}" bindtap="selectItem">
+          <view class="handling-icon">{{item.icon}}</view>
+          <view class="handling-copy">
+            <view class="handling-name">{{item.name}}</view>
+            <view class="handling-desc">{{item.desc}}</view>
           </view>
           <view class="handling-check">{{selectedItem === item.name ? '✓' : ''}}</view>
         </view>
@@ -35,27 +43,10 @@
     <textarea class="handling-remark" value="{{draft.remark}}" placeholder="{{fieldConfig.remarkPlaceholder}}" auto-height maxlength="160" bindinput="inputRemark" />
   </view>
 
-  <view class="card delivery-choice" wx:if="{{draft.taskId === 'moving_handling'}}">
-    <view class="delivery-choice-row" bindtap="toggleHandlingDelivery">
-      <view>
-        <view class="section-title">需要送到别的地方</view>
-        <view class="muted">开启后增加目的地，并按驾车距离计算配送费</view>
-      </view>
-      <switch checked="{{draft.requiresDelivery}}" color="#ff3b30" />
-    </view>
-    <view class="destination-picker" wx:if="{{draft.requiresDelivery}}" bindtap="chooseHandlingDestination">
-      <view>
-        <view class="destination-label">配送目的地</view>
-        <view class="destination-name">{{draft.dropoff ? draft.dropoff.name : '请选择目的地'}}</view>
-      </view>
-      <text>›</text>
-    </view>
-  </view>
-
   <view class="route-card card">
     <view class="service-badge" wx:if="{{draft.service === '帮买'}}">帮买 · 商品价格 ￥{{estimate.productFee}}</view>
     <view class="service-badge" wx:else>{{draft.service}} · 预计 {{estimate.distance}}km</view>
-    <view class="route-meter" wx:if="{{draft.taskId !== 'moving_handling' || draft.requiresDelivery}}">{{isRouteLoading ? '正在获取腾讯地图距离...' : routeSource}} · {{routeDuration ? '约 ' + routeDuration + ' 分钟' : '预计 ' + estimate.distance + 'km'}}</view>
+    <view class="route-meter" wx:if="{{draft.taskId !== 'moving_handling'}}">{{isRouteLoading ? '正在获取腾讯地图距离...' : routeSource}} · {{routeDuration ? '约 ' + routeDuration + ' 分钟' : '预计 ' + estimate.distance + 'km'}}</view>
     <view class="route-line" data-type="{{draft.service === '帮买' ? 'purchase' : 'pickup'}}" bindtap="chooseRouteAddress">
       <view class="{{draft.service === '帮买' ? 'tag-buy' : 'tag-red'}}">{{draft.service === '帮买' ? '买' : '发'}}</view>
       <view class="route-info">
@@ -64,8 +55,8 @@
         <view class="sub" wx:elif="{{draft.pickup}}">{{draft.pickup.detail}}<text wx:if="{{draft.pickup.phone}}"> · {{draft.pickup.phone}}</text></view>
       </view>
     </view>
-    <view class="connector {{draft.service === '帮买' ? 'buy' : ''}}" wx:if="{{draft.taskId !== 'moving_handling' || draft.requiresDelivery}}"></view>
-    <view class="route-line" wx:if="{{draft.taskId !== 'moving_handling' || draft.requiresDelivery}}" data-type="dropoff" bindtap="chooseRouteAddress">
+    <view class="connector {{draft.service === '帮买' ? 'buy' : ''}}" wx:if="{{draft.taskId !== 'moving_handling'}}"></view>
+    <view class="route-line" wx:if="{{draft.taskId !== 'moving_handling'}}" data-type="dropoff" bindtap="chooseRouteAddress">
       <view class="tag-green">收</view>
       <view class="route-info">
         <view class="title">{{draft.dropoff ? draft.dropoff.name : '请选择收货地址'}}</view>
@@ -77,26 +68,18 @@
   <view class="card line-card" wx:if="{{taskLines.length}}">
     <view class="section-head">
       <view class="section-title">选择线路</view>
-      <view class="muted">{{draft.taskId === 'carpool_ride' ? '单人票价' : '固定价格'}}</view>
+      <view class="muted">{{draft.taskId === 'carpool_ride' ? '单人票价' : (draft.taskId === 'send_parcel' ? '按物品和重量' : '固定价格')}}</view>
     </view>
     <view class="direction-switch" wx:if="{{draft.taskId === 'carpool_ride'}}">
       <view class="direction-option {{draft.direction !== 'RETURN' ? 'active' : ''}}" data-direction="OUTBOUND" bindtap="selectDirection">去程 · 福鼎出发</view>
       <view class="direction-option {{draft.direction === 'RETURN' ? 'active' : ''}}" data-direction="RETURN" bindtap="selectDirection">返程 · 回福鼎</view>
     </view>
     <view class="line-grid">
-      <block wx:if="{{draft.taskId === 'carpool_ride'}}">
-        <view class="line-option active locked-line">
-          <view class="line-name">{{draft.selectedLine.name}}</view>
-          <view class="line-price">￥{{draft.selectedLine.price}}/人 · 已锁定</view>
+      <block wx:for="{{taskLines}}" wx:key="id">
+        <view class="line-option {{selectedLineId === item.id ? 'active' : ''}}" data-id="{{item.id}}" bindtap="selectLine">
+          <view class="line-name">{{item.name}}</view>
+          <view class="line-price">{{item.pending ? '待定' : (item.priceUnit === 'PER_PERSON' ? '￥' + item.price + '/人' : '￥' + item.price)}}</view>
         </view>
-      </block>
-      <block wx:else>
-        <block wx:for="{{taskLines}}" wx:key="id">
-          <view class="line-option {{selectedLineId === item.id ? 'active' : ''}}" data-id="{{item.id}}" bindtap="selectLine">
-            <view class="line-name">{{item.name}}</view>
-            <view class="line-price">￥{{item.price}}</view>
-          </view>
-        </block>
       </block>
     </view>
   </view>
@@ -185,7 +168,7 @@
     <view class="price-row discount" wx:if="{{estimate.showDiscount}}"><text>{{estimate.discountTitle}}</text><text>-￥{{estimate.discount}}</text></view>
     <view class="price-row budget-fee" wx:if="{{draft.service === '帮买'}}"><text>商品价格</text><text>￥{{estimate.productFee}}</text></view>
     <view class="price-row service-fee" wx:if="{{draft.service === '帮买'}}"><text>配送费</text><text>￥{{estimate.deliveryFee}}</text></view>
-    <view class="weather-row {{draft.badWeather ? 'active' : ''}}" wx:if="{{estimate.pricingMode === 'distance_weather'}}">
+    <view class="weather-row {{draft.badWeather ? 'active' : ''}}" wx:if="{{estimate.weatherEnabled}}">
       <view>
         <view class="weather-title">天气预报自动判断</view>
         <view class="weather-sub">{{isWeatherLoading ? '正在同步天气预报...' : weatherRisk.reason}}</view>

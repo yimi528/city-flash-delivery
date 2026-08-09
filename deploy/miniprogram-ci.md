@@ -44,8 +44,11 @@ npm run miniprogram:preview
 
 1. 先部署 API 和商家后台，并确认 API 健康检查通过；
 2. 确认 `apps/customer-mp/config/runtime.js` 中 `trial`、`release` 使用备案后的 HTTPS API；
-3. 在 Actions 中选择 `preview` 生成体验二维码；
-4. 完成用户端、骑手端、登录和订单流程验证后，再选择 `upload` 上传版本。
+3. 在 Actions 中选择 `upload` 上传小程序代码；
+4. 上传成功后，在微信公众平台开发管理中将该版本设置为体验版，再进行用户端、骑手端、登录和订单流程验证。
+
+GitHub Actions 当前只执行上传，不生成或保存预览二维码。若需要本地预览二维码，仍可使用上面的
+`npm run miniprogram:preview` 命令。
 
 `miniprogram-ci` 只负责小程序预览和上传，不负责 Sealos、NestJS、PostgreSQL、Redis
 或商家后台的部署。

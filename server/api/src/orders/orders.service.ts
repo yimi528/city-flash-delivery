@@ -42,6 +42,7 @@ const TASK_VEHICLES: Record<string, { type: PrismaVehicleType; name: string }> =
   buy_for_me: { type: PrismaVehicleType.EBIKE, name: '二轮车' },
   pedicab_delivery: { type: PrismaVehicleType.ETRIKE, name: '人力三轮车' },
 }
+const WEATHER_TASK_IDS = new Set(['urgent_delivery', 'pickup', 'buy_for_me'])
 
 @Injectable()
 export class OrdersService {
@@ -130,6 +131,9 @@ export class OrdersService {
     const taskId = this.normalizeTaskId(dto.taskId || this.taskIdForService(dto.serviceName || ''))
     if (taskId === 'carpool_ride' || taskId === 'moving_handling') {
       throw new BadRequestException('该业务必须先获取后端报价')
+    }
+    if (taskId === 'send_parcel') {
+      throw new BadRequestException('寄货必须先获取线路、物品和重量报价')
     }
     const fixedVehicle = TASK_VEHICLES[taskId] || TASK_VEHICLES.urgent_delivery
     const pricingInput = await this.serverPricingInput(dto, taskId, fixedVehicle)
@@ -675,14 +679,11 @@ export class OrdersService {
     const configured = configuredRule
       ? {
           baseDistanceKm: Number(configuredRule.includedDistanceMeters || 0) / 1000,
-          basePrice: Number(configuredRule.baseFeeFen || 0) / 100,
+          basePrice: (Number(configuredRule.baseFeeFen || 0) + Number(configuredRule.serviceSurchargeFen || 0)) / 100,
           extraPerKm: Number(configuredRule.perKmFen || 0) / 100,
-          serviceSurcharge: Number(configuredRule.serviceSurchargeFen || 0) / 100,
-          maxDeliveryFee:
-            Number(configuredRule.maxFeeFen || 0) > 0
-              ? Number(configuredRule.maxFeeFen) / 100
-              : fallback.maxDeliveryFee,
-          badWeatherSurcharge: Number(configuredRule.weatherSurchargeFen || 0) / 100,
+          serviceSurcharge: 0,
+          maxDeliveryFee: 0,
+          badWeatherSurcharge: WEATHER_TASK_IDS.has(taskId) ? Number(configuredRule.weatherSurchargeFen || 0) / 100 : 0,
           pricingMode: configuredRule.pricingMode || 'distance',
         }
       : {
@@ -690,8 +691,8 @@ export class OrdersService {
           basePrice: fallback.baseFee,
           extraPerKm: fallback.distanceRate,
           serviceSurcharge: 0,
-          maxDeliveryFee: fallback.maxDeliveryFee,
-          badWeatherSurcharge: 5,
+          maxDeliveryFee: 0,
+          badWeatherSurcharge: vehicle.type === PrismaVehicleType.EBIKE && WEATHER_TASK_IDS.has(taskId) ? 5 : 0,
           pricingMode: 'distance',
         }
     const common = {
@@ -717,14 +718,13 @@ export class OrdersService {
       }
     }
     if (taskId === 'cargo_haul')
-      return { ...common, serviceType: 'CARGO', serviceName: '运货', serviceSurcharge: 5 }
+      return { ...common, serviceType: 'CARGO', serviceName: '运货' }
     if (taskId === 'urgent_delivery')
       return {
         ...common,
         serviceType: 'DELIVERY',
         serviceName: '急送',
         pricingMode: 'distance_weather',
-        serviceSurcharge: 3,
       }
     if (taskId === 'pickup')
       return {
@@ -739,7 +739,6 @@ export class OrdersService {
         serviceType: 'BUY_FOR_ME',
         serviceName: '帮买',
         pricingMode: 'distance_weather',
-        serviceSurcharge: 2,
       }
     if (taskId === 'pedicab_delivery') {
       return {
@@ -748,7 +747,6 @@ export class OrdersService {
         serviceName: '送货/送客',
         basePrice: 15,
         extraPerKm: 2,
-        maxDeliveryFee: 88,
       }
     }
     return common
@@ -780,13 +778,22 @@ export class OrdersService {
     if (!route.configured || !route.route) {
       throw new ServiceUnavailableException('地图距离计算失败，请稍后重试或转人工报价')
     }
+    const configuredRule = await (this.prisma as any).pricingRule?.findFirst?.({
+      where: { serviceId: taskId, enabled: true },
+      select: { maxDistanceMeters: true },
+    })
+    const distanceKm = route.route.distanceKm
+    if (configuredRule && distanceKm * 1000 > Number(configuredRule.maxDistanceMeters || 0)) {
+      throw new BadRequestException(taskId === 'cargo_haul' ? '运货超出距离上限' : '目的地超出当前服务距离')
+    }
+    if (!WEATHER_TASK_IDS.has(taskId)) return { distanceKm, badWeather: false }
     const risk = await this.weather.resolve({
       city: dto.dropoffName || dto.pickupName,
       latitude: to.latitude,
       longitude: to.longitude,
     })
     return {
-      distanceKm: route.route.distanceKm,
+      distanceKm,
       badWeather: Boolean(risk.isBadWeather),
     }
   }

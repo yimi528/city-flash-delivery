@@ -227,7 +227,7 @@ export class AuthService {
 
   private async findOrBootstrapOperator(username: string, password: string) {
     const existing = await this.prisma.operator.findUnique({ where: { username } })
-    const bootstrapUsername = this.config.get<string>('OPERATOR_BOOTSTRAP_USERNAME') || 'operator-demo'
+    const bootstrapUsername = this.config.get<string>('OPERATOR_BOOTSTRAP_USERNAME') || 'admin'
     const bootstrapPassword = this.config.get<string>('OPERATOR_BOOTSTRAP_PASSWORD') || ''
     const bootstrapEnabled = this.isDevelopmentMockEnabled('OPERATOR_BOOTSTRAP_ENABLED')
     if (existing) {

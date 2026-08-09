@@ -100,6 +100,16 @@ App({
     } catch (error) {}
   },
 
+  getDefaultOrderAddresses() {
+    const addresses = Array.isArray(this.globalData.addresses) ? this.globalData.addresses : []
+    const pickup = addresses.find((address) => address.isDefault) || addresses[0] || null
+    const dropoff = addresses.find((address) => address.id !== (pickup && pickup.id)) || pickup
+    return {
+      pickup: pickup ? Object.assign({}, pickup) : null,
+      dropoff: dropoff ? Object.assign({}, dropoff) : null
+    }
+  },
+
   clearCurrentUser() {
     this.clearRiderSession()
     this.globalData.userId = 'demo-user'
@@ -259,12 +269,13 @@ App({
       service: '寄货/配送',
       subServiceId: 'send_parcel',
       subServiceName: '寄货/配送',
-      serviceDesc: '普通货物10kg内38元，30kg内58元；宠物120元',
-      priceSummary: '普通货物10kg内38元 · 30kg内58元 · 宠物120元',
+      serviceDesc: '价格按线路、物品和重量配置，当前待定',
+      priceSummary: '价格按线路、物品和重量配置，当前待定',
       pricingMode: 'parcel_category',
       recommendedVehicleType: 'small_car',
       recommendedVehicleName: '小车',
       selectedLine: null,
+      parcelPricing: [],
       serviceLimits: { maxWeightKg: 30, maxVolumeM3: 1 },
       servicePricing: { baseDistanceKm: 0, basePrice: 0, extraPerKm: 0, badWeatherMultiplier: 1, badWeatherSurcharge: 0, serviceSurcharge: 0, linePriceMultiplier: 1, maxDeliveryFee: 0 },
       pickup: {

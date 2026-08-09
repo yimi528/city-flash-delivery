@@ -61,11 +61,11 @@ export class CatalogService implements OnModuleInit {
             id: 'moving-handling-v1',
             serviceId: 'moving_handling',
             baseFeeFen: 4800,
-            deliveryStartFeeFen: 2800,
-            includedDistanceMeters: 4000,
-            perKmFen: 280,
-            minimumFeeFen: 4800,
-            maxDistanceMeters: 50000,
+            deliveryStartFeeFen: 0,
+            includedDistanceMeters: 0,
+            perKmFen: 0,
+            minimumFeeFen: 0,
+            maxDistanceMeters: 100000,
           },
         }),
       ])
@@ -167,39 +167,21 @@ export class CatalogService implements OnModuleInit {
   }
 
   async quoteHandling(userId: string, dto: HandlingQuoteDto) {
+    if (dto.item === '叉车') throw new BadRequestException('叉车服务请拨打 18705939528 电话预约')
+    if (dto.requiresDelivery) throw new BadRequestException('搬运装卸只提供人工服务，请使用运货')
     const rule = await this.prisma.pricingRule.findFirst({ where: { serviceId: 'moving_handling', enabled: true } })
     if (!rule) throw new ServiceUnavailableException('搬运装卸价格尚未配置')
-    let distanceMeters = 0
-    let distanceFeeFen = 0
-    if (dto.requiresDelivery) {
-      if ([dto.dropoffLat, dto.dropoffLng].some((value) => value === undefined)) {
-        throw new BadRequestException('配送订单必须填写有效目的地')
-      }
-      const route = await this.maps.distance(
-        dto.pickupLat,
-        dto.pickupLng,
-        dto.dropoffLat as number,
-        dto.dropoffLng as number,
-        'driving',
-      )
-      if (!route.configured || !route.route) throw new ServiceUnavailableException('地图距离计算失败，请稍后重试或转人工报价')
-      distanceMeters = Math.round(route.route.distanceKm * 1000)
-      if (distanceMeters > rule.maxDistanceMeters) throw new BadRequestException('目的地超出当前服务范围')
-      const excessKm = Math.ceil(Math.max(0, distanceMeters - rule.includedDistanceMeters) / 1000)
-      distanceFeeFen = rule.deliveryStartFeeFen + excessKm * rule.perKmFen
-    }
-    const totalFen = Math.max(rule.minimumFeeFen, rule.baseFeeFen + distanceFeeFen)
-    const isForklift = dto.item === '叉车'
-    const vehicleType = dto.requiresDelivery ? VehicleType.ETRIKE : VehicleType.MANUAL
-    const vehicleName = isForklift ? '叉车服务' : (dto.requiresDelivery ? '货三轮车' : '人力服务')
+    const distanceMeters = 0
+    const distanceFeeFen = 0
+    const totalFen = rule.baseFeeFen + rule.serviceSurchargeFen
+    const vehicleType = VehicleType.MANUAL
+    const vehicleName = '人力服务'
     return this.prisma.quote.create({
       data: {
         userId,
         serviceId: 'moving_handling',
         pickup: this.addressJson(dto.pickupName, dto.pickupDetail, dto.pickupLat, dto.pickupLng),
-        dropoff: dto.requiresDelivery
-          ? this.addressJson(dto.dropoffName || '', dto.dropoffDetail || '', dto.dropoffLat as number, dto.dropoffLng as number)
-          : Prisma.JsonNull,
+        dropoff: Prisma.JsonNull,
         distanceMeters,
         vehicleType,
         vehicleName,
@@ -207,7 +189,7 @@ export class CatalogService implements OnModuleInit {
         distanceFeeFen,
         totalFen,
         pricingRuleVersion: rule.version,
-        requiresDelivery: dto.requiresDelivery,
+        requiresDelivery: false,
         expiresAt: new Date(Date.now() + await this.quoteValidityMs()),
       },
     })

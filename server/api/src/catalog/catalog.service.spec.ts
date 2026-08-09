@@ -95,4 +95,30 @@ describe('CatalogService quotes', () => {
       addressAdcode: '330327',
     })).rejects.toThrow('所选地址与拼车线路不匹配')
   })
+
+  it('requires a phone appointment for forklift service', async () => {
+    await expect(service.quoteHandling('user-1', {
+      item: '叉车',
+      requiresDelivery: false,
+      pickupName: '仓库',
+      pickupDetail: '仓库入口',
+      pickupLat: 27.3245,
+      pickupLng: 120.216,
+    })).rejects.toThrow('叉车服务请拨打 18705939528 电话预约')
+
+    expect(prisma.quote.create).not.toHaveBeenCalled()
+  })
+
+  it('does not turn manual handling into a delivery order', async () => {
+    await expect(service.quoteHandling('user-1', {
+      item: '搬运装卸',
+      requiresDelivery: true,
+      pickupName: '仓库',
+      pickupDetail: '仓库入口',
+      pickupLat: 27.3245,
+      pickupLng: 120.216,
+    })).rejects.toThrow('搬运装卸只提供人工服务，请使用运货')
+
+    expect(prisma.quote.create).not.toHaveBeenCalled()
+  })
 })

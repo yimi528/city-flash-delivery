@@ -16,7 +16,6 @@ export class PricingService {
     const linePrice = Number(dto.linePrice || 0)
     const linePriceMultiplier = Number(dto.linePriceMultiplier ?? rule.linePriceMultiplier)
     const serviceSurcharge = Number(dto.serviceSurcharge || 0)
-    const maxDeliveryFee = Number(dto.maxDeliveryFee ?? rule.maxDeliveryFee)
     const badWeatherSurcharge = Number(dto.badWeatherSurcharge ?? 5)
     const isBuyForMe = dto.serviceType === 'BUY_FOR_ME' || dto.serviceName === '帮买'
     const productFee = isBuyForMe ? Number(dto.productFee ?? dto.budget ?? 0) : 0
@@ -28,24 +27,23 @@ export class PricingService {
     let weatherFee = 0
     let serviceFee = 0
     let discountFee = 0
+    let isPricePending = false
 
     if (isParcelCategory) {
-      baseFee = dto.item === '宠物' ? 120 : (weightKg <= 10 ? 38 : 58)
+      baseFee = 0.01
       serviceFee = baseFee
+      isPricePending = true
     } else if (isFixedLine) {
       baseFee = (linePrice || basePrice) * linePriceMultiplier + serviceSurcharge
-      serviceFee = Math.min(baseFee, maxDeliveryFee)
-      discountFee = Math.max(baseFee - serviceFee, 0)
+      serviceFee = baseFee
     } else {
       baseFee = basePrice + serviceSurcharge
-      distanceFee = Math.max(distanceKm - baseDistanceKm, 0) * extraPerKm
+      distanceFee = isManualQuote ? 0 : Math.ceil(Math.max(distanceKm - baseDistanceKm, 0)) * extraPerKm
       const subtotal = baseFee + distanceFee
-      weatherFee = !isManualQuote && pricingMode === 'distance_weather' && dto.badWeather
+      weatherFee = !isManualQuote && vehicleType === 'EBIKE' && pricingMode === 'distance_weather' && dto.badWeather
         ? badWeatherSurcharge
         : 0
-      const uncappedServiceFee = subtotal + weatherFee
-      serviceFee = Math.min(uncappedServiceFee, maxDeliveryFee)
-      discountFee = Math.max(uncappedServiceFee - serviceFee, 0)
+      serviceFee = subtotal + weatherFee
     }
 
     const weightFee = 0
@@ -64,20 +62,21 @@ export class PricingService {
       baseDistanceKm,
       extraPerKm,
       linePriceMultiplier,
-      serviceSurcharge: Number(serviceSurcharge.toFixed(1)),
-      maxDeliveryFee: Number(maxDeliveryFee.toFixed(1)),
-      baseFee: Number(baseFee.toFixed(1)),
+      serviceSurcharge: 0,
+      maxDeliveryFee: 0,
+      baseFee: Number(baseFee.toFixed(2)),
       distanceFee: Number(distanceFee.toFixed(1)),
       weightFee: Number(weightFee.toFixed(1)),
       vehicleFee,
       weatherFee: Number(weatherFee.toFixed(1)),
       discountFee: Number(discountFee.toFixed(1)),
       productFee: Number(productFee.toFixed(1)),
-      deliveryFee: Number(deliveryFee.toFixed(1)),
-      serviceFee: Number(serviceFee.toFixed(1)),
+      deliveryFee: Number(deliveryFee.toFixed(2)),
+      serviceFee: Number(serviceFee.toFixed(2)),
       budget: Number(productFee.toFixed(1)),
-      totalFee: Number(total.toFixed(1)),
+      totalFee: Number(total.toFixed(2)),
       isManualQuote,
+      isPricePending,
     }
   }
 
