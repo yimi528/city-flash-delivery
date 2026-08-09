@@ -26,7 +26,7 @@ export class PricingService {
     let distanceFee = 0
     let weatherFee = 0
     let serviceFee = 0
-    let discountFee = 0
+    const discountFee = 0
     let isPricePending = false
 
     if (isParcelCategory) {
