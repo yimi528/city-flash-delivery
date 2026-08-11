@@ -1,5 +1,5 @@
 // 当前开发/真机/体验环境统一通过 Quick Tunnel 访问 osako 上的 API。
-const OSAKO_API_BASE_URL = 'https://systematic-meaning-regardless-supplier.trycloudflare.com/api'
+const OSAKO_API_BASE_URL = 'https://regarded-memorial-lauderdale-rest.trycloudflare.com/api'
 // 保留旧导出名，避免其他本地工具引用时失效；它不再指向局域网 IP。
 const LOCAL_API_BASE_URL = OSAKO_API_BASE_URL
 

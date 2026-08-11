@@ -1,4 +1,4 @@
-let runtimeConfig = { resolveApiBaseUrl: () => 'https://systematic-meaning-regardless-supplier.trycloudflare.com/api' }
+let runtimeConfig = { resolveApiBaseUrl: () => 'https://regarded-memorial-lauderdale-rest.trycloudflare.com/api' }
 try {
   if (typeof require === 'function') runtimeConfig = require('./config/runtime')
 } catch (error) {}

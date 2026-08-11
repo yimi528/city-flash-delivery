@@ -119,21 +119,19 @@ https://随机字符串.trycloudflare.com/api
 
 Quick Tunnel 不需要 Cloudflare Token 或自有域名，但地址由 Cloudflare 随机分配，Tunnel 停止或重启后可能变化。它适合一次性开发/真机联调，不适合作为长期体验版或正式入口；地址变化后，商家后台构建参数、小程序配置和微信后台的 request 合法域名都需要重新处理。
 
-本次 osako 的实际网络检查显示，Cloudflare API 的 443 可访问，但 Tunnel 边缘的 7844 在 TLS 握手阶段被断开，因此 osako 内直接运行 `cloudflared` 会得到 530。当前可用的临时方案是：API、PostgreSQL、Redis 和商家后台仍全部运行在 osako；开发机通过 SSH 转发 osako 的 API，再由开发机上的 arm64 `cloudflared` 建立 Quick Tunnel：
+当前 osako 已直接运行 Compose 中的 `cloudflared-quick`，公网请求不再经过开发机。osako 上的 Clash Verge/iKuuuVPN 如果启用了 TUN/增强模式，会接管 Cloudflare 的 Tunnel 路由并导致 7844 握手失败；启动 Tunnel 前应关闭 TUN/增强模式，Tailscale 不需要关闭。当前入口为：
 
 ```bash
-ssh -fN -o ExitOnForwardFailure=yes -o ServerAliveInterval=30 \
-  -o ServerAliveCountMax=3 -L 33001:127.0.0.1:3000 osako-macbookair
-
-docker run -d --name city-flash-quick-tunnel-local --restart unless-stopped \
-  --add-host host.docker.internal:host-gateway \
-  cloudflare/cloudflared:latest \
-  tunnel --no-autoupdate --protocol quic \
-  --url http://host.docker.internal:33001
-docker logs -f city-flash-quick-tunnel-local
+https://regarded-memorial-lauderdale-rest.trycloudflare.com
 ```
 
-这种方案的公网请求仍然落到 osako，只是 Quick Tunnel 和 SSH 转发依赖开发机保持在线。若之后放行 osako 到 Cloudflare 边缘的 TCP/UDP 7844，就可以改回上面的 Compose `quick-tunnel` profile。
+验证入口：
+
+```bash
+curl --fail https://regarded-memorial-lauderdale-rest.trycloudflare.com/api/health/ready
+```
+
+如果必须重启或重建 Quick Tunnel，Cloudflare 可能分配新地址；新地址需要同步更新小程序配置、商家后台构建参数和微信后台的 request 合法域名。当前方案不依赖开发机在线，但 Quick Tunnel 仍是临时入口，不应当作为正式生产域名。
 
 停止临时 Tunnel：
 
@@ -237,9 +235,9 @@ docker compose exec -T postgres sh -c \
 
 使用当前临时 Quick Tunnel 做开发版真机和体验版联调时：
 
-1. 将 `develop`、`developDevice` 和 `trial` 配置为日志中当前的 `https://随机字符串.trycloudflare.com/api`；本仓库当前配置文件已写入本次生成的地址。
-2. 在微信公众平台的“开发—开发管理—开发设置—服务器域名”中，把当前 `https://随机字符串.trycloudflare.com` 配置为 `request 合法域名`。
-3. Quick Tunnel 重启或 SSH/开发机断开后可能生成新地址；新地址必须同时更新 `apps/customer-mp/config/runtime.js`、商家后台构建参数和微信后台合法域名，并重新上传体验版。
+1. `develop`、`developDevice` 和 `trial` 当前统一使用 `https://regarded-memorial-lauderdale-rest.trycloudflare.com/api`；本仓库配置文件已写入该地址。
+2. 在微信公众平台的“开发—开发管理—开发设置—服务器域名”中，把 `https://regarded-memorial-lauderdale-rest.trycloudflare.com` 配置为 `request 合法域名`。
+3. Quick Tunnel 重启或重建后可能生成新地址；新地址必须同时更新 `apps/customer-mp/config/runtime.js`、商家后台构建参数和微信后台合法域名，并重新上传体验版。
 4. `release` 仍应使用稳定的正式 API HTTPS 地址，例如 `https://api.example.com/api`，不要把 Quick Tunnel 当作正式入口。
 5. 如果小程序上传、登录、支付回调或地图服务还有其他域名要求，按微信后台对应字段配置；不要把 `http://api:3000` 或 `http://127.0.0.1:3000` 填入微信后台。
 
