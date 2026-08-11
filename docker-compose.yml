@@ -150,6 +150,19 @@ services:
       merchant-web:
         condition: service_healthy
 
+  cloudflared-quick:
+    profiles: ["quick-tunnel"]
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    command:
+      - tunnel
+      - --no-autoupdate
+      - --url
+      - http://api:3000
+    depends_on:
+      api:
+        condition: service_healthy
+
 volumes:
   city_flash_pgdata:
     name: "${POSTGRES_VOLUME_NAME:-city_flash_pgdata}"

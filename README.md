@@ -363,17 +363,17 @@ npm run dev:stop
 ### 小程序请求不到 API
 
 - 确认 `/api/health` 可访问；
-- 检查 `apps/customer-mp/config/runtime.js` 的开发地址；
+- 检查 `apps/customer-mp/config/runtime.js` 的开发版、真机和体验版地址；当前配置通过 Quick Tunnel 访问 osako；
 - 微信开发者工具本地调试时可关闭合法域名校验；
-- 模拟器开发默认访问 `127.0.0.1`；真机开发默认访问 Sealos HTTPS API，不依赖开发者电脑的局域网 IP；如需访问本地后端，可在小程序存储中设置 `developerApiBaseUrl` 为同一局域网内电脑的地址。
-- 朋友使用独立预览/体验包时，需要在微信公众平台将 `xian-api-img6c740.sealosbja.site` 加入 request 合法域名；仅开发者工具真机调试可以在“本地设置”勾选“不校验合法域名”。
+- 开发者工具、开发版真机和体验版默认访问当前 Quick Tunnel；Quick Tunnel 地址停止或重启后可能变化，变化后要同步更新配置并重新上传体验版。
+- `release` 仍使用稳定 HTTPS API，不应使用临时 Tunnel。
 
 #### 局域网真机调试注意事项
 
-如果使用 Windows 电脑上的本地后端，例如：
+历史上如果使用局域网电脑上的本地后端，例如：
 
 ```text
-http://192.168.2.105:3000/api
+http://<局域网IPv4>:3000/api
 ```
 
 运行微信开发者工具的电脑和真机必须能够访问 Windows 的局域网 IP 与 3000 端口。不要求一定连接同一个 Wi-Fi，但网络必须互通；最简单的方式是让 Windows、Mac 和手机连接同一个普通 Wi-Fi，不要使用访客网络。

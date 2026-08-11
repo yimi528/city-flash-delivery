@@ -1,4 +1,4 @@
-const DEFAULT_BASE_URL = 'http://192.168.2.105:3000/api'
+const DEFAULT_BASE_URL = 'https://systematic-meaning-regardless-supplier.trycloudflare.com/api'
 
 const STATUS_LABELS = {
   PENDING: '待接单',

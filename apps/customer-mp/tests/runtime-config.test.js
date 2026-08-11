@@ -12,26 +12,28 @@ function wxFor(envVersion, override = '') {
   }
 }
 
-test('development uses local API and allows a developer-only override', () => {
-  assert.equal(runtime.resolveApiBaseUrl(wxFor('develop')), 'http://192.168.2.105:3000/api')
+test('development uses osako API and allows a developer-only override', () => {
+  assert.equal(runtime.resolveApiBaseUrl(wxFor('develop')), runtime.OSAKO_API_BASE_URL)
   assert.equal(runtime.resolveApiBaseUrl(wxFor('develop', 'https://dev.example.com/api/')), 'https://dev.example.com/api')
 })
 
-test('development on a real device uses the deployed HTTPS API', () => {
+test('development on a real device uses the osako API', () => {
   const deviceWx = {
     getAccountInfoSync: () => ({ miniProgram: { envVersion: 'develop' } }),
     getSystemInfoSync: () => ({ platform: 'ios' }),
     getStorageSync: () => ''
   }
 
-  assert.equal(runtime.resolveApiBaseUrl(deviceWx), 'https://xian-api-img6c740.sealosbja.site/api')
+  assert.equal(runtime.resolveApiBaseUrl(deviceWx), runtime.OSAKO_API_BASE_URL)
   assert.match(runtime.resolveApiBaseUrl(deviceWx), /^https:\/\//)
 })
 
-test('trial and release builds never use local or temporary tunnel addresses', () => {
-  for (const version of ['trial', 'release']) {
-    const url = runtime.resolveApiBaseUrl(wxFor(version, 'http://127.0.0.1:3000/api'))
-    assert.match(url, /^https:\/\//)
-    assert.doesNotMatch(url, /127\.0\.0\.1|localhost|trycloudflare/i)
-  }
+test('trial builds use the osako API', () => {
+  assert.equal(runtime.resolveApiBaseUrl(wxFor('trial', 'http://127.0.0.1:3000/api')), runtime.OSAKO_API_BASE_URL)
+})
+
+test('release builds retain the stable production API', () => {
+  const url = runtime.resolveApiBaseUrl(wxFor('release', 'http://127.0.0.1:3000/api'))
+  assert.match(url, /^https:\/\//)
+  assert.doesNotMatch(url, /127\.0\.0\.1|localhost|trycloudflare/i)
 })

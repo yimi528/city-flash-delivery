@@ -1,8 +1,12 @@
+// 当前开发/真机/体验环境统一通过 Quick Tunnel 访问 osako 上的 API。
+const OSAKO_API_BASE_URL = 'https://systematic-meaning-regardless-supplier.trycloudflare.com/api'
+// 保留旧导出名，避免其他本地工具引用时失效；它不再指向局域网 IP。
+const LOCAL_API_BASE_URL = OSAKO_API_BASE_URL
+
 const API_BASE_URLS = Object.freeze({
-  develop: 'http://192.168.2.105:3000/api',
-  // 真机默认走 Sealos HTTPS API，避免依赖开发者电脑的局域网 IP。
-  developDevice: 'https://xian-api-img6c740.sealosbja.site/api',
-  trial: 'https://xian-api-img6c740.sealosbja.site/api',
+  develop: OSAKO_API_BASE_URL,
+  developDevice: OSAKO_API_BASE_URL,
+  trial: OSAKO_API_BASE_URL,
   release: 'https://xian-api-img6c740.sealosbja.site/api'
 })
 
@@ -39,6 +43,8 @@ function resolveApiBaseUrl(wxApi) {
 }
 
 module.exports = {
+  OSAKO_API_BASE_URL,
+  LOCAL_API_BASE_URL,
   API_BASE_URLS,
   environmentVersion,
   isRealDevice,
