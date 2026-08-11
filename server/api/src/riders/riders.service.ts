@@ -82,7 +82,7 @@ export class RidersService {
           verificationStatus: dto.verificationStatus || 'UNVERIFIED',
           vehicleType: dto.vehicleType,
           vehicleName: dto.vehicleName || '',
-          vehicleTypes: this.vehicleTypes(dto),
+          vehicleTypes: this.vehicleTypes(dto) as Prisma.InputJsonValue,
           statement: dto.statement || '',
           agreementAccepted: dto.agreementAccepted !== false,
         },

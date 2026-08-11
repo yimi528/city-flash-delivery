@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "mysql"
   url      = env("DATABASE_URL")
 }
 
@@ -188,7 +188,6 @@ model Address {
   adcode     String                                 @default("")
   latitude   Decimal?                               @db.Decimal(10, 7)
   longitude  Decimal?                               @db.Decimal(10, 7)
-  location   Unsupported("geography(Point, 4326)")?
   mapPoiId   String                                 @default("")
   isDefault  Boolean                                @default(false)
   usageCount Int                                    @default(0)
@@ -366,7 +365,7 @@ model RiderApplication {
   verificationStatus String        @default("UNVERIFIED")
   vehicleType        VehicleType
   vehicleName        String        @default("")
-  vehicleTypes       VehicleType[] @default([])
+  vehicleTypes       Json
   statement          String        @default("")
   agreementAccepted  Boolean       @default(false)
   submittedAt        DateTime      @default(now())
@@ -462,14 +461,12 @@ model Order {
   pickupPhone        String
   pickupLat          Decimal?                               @db.Decimal(10, 7)
   pickupLng          Decimal?                               @db.Decimal(10, 7)
-  pickupLocation     Unsupported("geography(Point, 4326)")?
   dropoffName        String
   dropoffDetail      String
   dropoffContact     String
   dropoffPhone       String
   dropoffLat         Decimal?                               @db.Decimal(10, 7)
   dropoffLng         Decimal?                               @db.Decimal(10, 7)
-  dropoffLocation    Unsupported("geography(Point, 4326)")?
   itemName           String
   buyItems           String                                 @default("")
   weightKg           Decimal                                @db.Decimal(8, 2)
@@ -642,7 +639,6 @@ model ServiceArea {
   boundaryGeoJson Json?
   sortOrder       Int                                      @default(0)
   version         Int                                      @default(1)
-  boundary        Unsupported("geography(Polygon, 4326)")?
   bindings        ServiceAreaBinding[]
   createdAt       DateTime                                 @default(now())
   updatedAt       DateTime                                 @updatedAt

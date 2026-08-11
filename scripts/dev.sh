@@ -79,11 +79,11 @@ if [[ ! -d "$WEB_DIR/node_modules" ]]; then
   (cd "$WEB_DIR" && npm ci)
 fi
 
-log "启动 PostgreSQL 与 Redis"
+log "启动 MySQL（Redis 为可选依赖）"
 (cd "$API_DIR" && docker compose up -d --wait)
 
 log "同步数据库结构"
-(cd "$API_DIR" && npm run prisma:generate && npm run prisma:deploy && npm run build)
+(cd "$API_DIR" && npm run prisma:generate && npm run prisma:cloudbase && npm run build)
 
 log "启动后端 API"
 (cd "$API_DIR" && exec node dist/main.js) &

@@ -1,12 +1,14 @@
 # NestJS API
 
-This is the backend for the city flash delivery project. All customer, rider, operations, pricing, payment, and configuration flows use this NestJS + PostgreSQL/PostGIS + Redis service.
+> 当前 `cloudbase-demo` 分支使用 MySQL 和 `prisma db push` 作为体验版部署方式；PostgreSQL/PostGIS 迁移说明仅适用于 `main` 分支。
+
+This is the backend for the city flash delivery project. The `cloudbase-demo` branch uses NestJS + MySQL, with Redis optional and Mock login/payment enabled for local and CloudBase demonstrations.
 
 ## Stack
 
 - TypeScript + NestJS
-- PostgreSQL + PostGIS
-- Redis
+- MySQL 8
+- Redis (optional)
 - Prisma
 - Swagger / OpenAPI
 - Docker Compose
@@ -16,10 +18,10 @@ This is the backend for the city flash delivery project. All customer, rider, op
 ```bash
 cd /Users/Admin1/Documents/Codex/2026-07-09/xian/server/api
 cp .env.example .env
-/Applications/Docker.app/Contents/Resources/bin/docker compose up -d
+docker compose up -d
 npm install
 npm run prisma:generate
-npm run prisma:deploy
+npm run prisma:cloudbase
 npm run start:dev
 ```
 
@@ -50,7 +52,7 @@ The production API includes:
 - `auth`: WeChat/customer login, operator login, and role switching.
 - `users`: customer profile and account roles.
 - `addresses`: persisted customer address book.
-- `orders`: create/list/detail/status APIs persisted with Prisma/PostgreSQL.
+- `orders`: create/list/detail/status APIs persisted with Prisma/MySQL.
 - `operations`: operator order list, quote, and status update endpoints.
 - `pricing`: delivery price estimate using fixed vehicle rules.
 - `maps`: server-side Tencent address search, reverse geocoding, route distance, and automatic bad-weather risk endpoints.
@@ -76,17 +78,17 @@ New endpoints:
 - `GET /api/operations/riders`
 - `POST /api/operations/riders/:id/suspend|restore|resign`
 
-Apply the Prisma migration before using the new flow:
+Apply the Prisma schema before using the new flow:
 
 ```bash
-npm run prisma:deploy
+npm run prisma:cloudbase
 ```
 
 ## Database Notes
 
-`prisma/schema.prisma` stores latitude/longitude as decimals and reserves PostGIS columns with Prisma `Unsupported("geography(...)")` fields. The initial Prisma migration enables PostGIS extensions before creating tables. The SQL file `prisma/sql/001_enable_postgis.sql` also enables PostGIS when the Docker Postgres container first initializes.
+`prisma/schema.prisma` stores latitude/longitude as decimals. The CloudBase demo keeps service-area boundaries as GeoJSON and evaluates point coverage in the application layer, so it does not require PostgreSQL/PostGIS. `prisma:cloudbase` uses `prisma db push` for a fresh MySQL environment.
 
-Customer orders, operator quotes, and order status changes now write to PostgreSQL. `order_status_logs` stores the status timeline, while quote fields on `orders` keep pending/quoted state visible to the customer mini program and operations web.
+Customer orders, operator quotes, and order status changes now write to MySQL. `order_status_logs` stores the status timeline, while quote fields on `orders` keep pending/quoted state visible to the customer mini program and operations web.
 
 The `搬运装卸` service now uses a server-side fixed base fee. A destination is optional; when delivery is enabled, Tencent Map driving distance adds the configured start and per-kilometer fee. Quotes expire after ten minutes and orders persist a price-rule snapshot. The legacy manual-quote fields and endpoints remain only for historical-order compatibility.
 

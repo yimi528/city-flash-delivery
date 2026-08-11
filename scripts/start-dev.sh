@@ -72,7 +72,7 @@ if is_reachable "$API_URL" && is_reachable "$WEB_URL"; then
   exit 0
 fi
 
-log '正在后台启动 PostgreSQL、Redis、后端 API 和运营后台……'
+log '正在后台启动 MySQL、后端 API 和运营后台……'
 launcher_pid="$(launch_dev)"
 
 for _ in $(seq 1 90); do

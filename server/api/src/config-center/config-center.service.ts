@@ -76,6 +76,40 @@ function point(value: unknown) {
   return { latitude, longitude }
 }
 
+function geoJsonGeometry(value: unknown): { type?: string; coordinates?: unknown } {
+  const source = record(value)
+  return source.type === 'Feature' ? record(source.geometry) : source
+}
+
+function pointInRing(longitude: number, latitude: number, ring: unknown) {
+  if (!Array.isArray(ring) || ring.length < 4) return false
+  let inside = false
+  for (let index = 0, previous = ring.length - 1; index < ring.length; previous = index++) {
+    const current = Array.isArray(ring[index]) ? ring[index] : []
+    const prior = Array.isArray(ring[previous]) ? ring[previous] : []
+    const currentLng = Number(current[0])
+    const currentLat = Number(current[1])
+    const priorLng = Number(prior[0])
+    const priorLat = Number(prior[1])
+    if (![currentLng, currentLat, priorLng, priorLat].every(Number.isFinite)) continue
+    const crosses = (currentLat > latitude) !== (priorLat > latitude)
+    if (crosses && longitude < ((priorLng - currentLng) * (latitude - currentLat)) / (priorLat - currentLat) + currentLng) inside = !inside
+  }
+  return inside
+}
+
+function pointInGeoJson(value: unknown, longitude: number, latitude: number): boolean {
+  const geometry = geoJsonGeometry(value)
+  if (geometry.type === 'Polygon' && Array.isArray(geometry.coordinates)) {
+    const rings = geometry.coordinates as unknown[]
+    return pointInRing(longitude, latitude, rings[0]) && !rings.slice(1).some((ring) => pointInRing(longitude, latitude, ring))
+  }
+  if (geometry.type === 'MultiPolygon' && Array.isArray(geometry.coordinates)) {
+    return (geometry.coordinates as unknown[]).some((polygon) => pointInGeoJson({ type: 'Polygon', coordinates: polygon }, longitude, latitude))
+  }
+  return false
+}
+
 @Injectable()
 export class ConfigCenterService implements OnModuleInit {
   constructor(
@@ -360,7 +394,6 @@ export class ConfigCenterService implements OnModuleInit {
       const id = area.id || `area-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
       const geoJson = area.geoJson || area.boundaryGeoJson
       await tx.serviceArea.upsert({ where: { id }, update: { name: area.name, enabled: area.enabled !== false, boundaryGeoJson: geoJson as Prisma.InputJsonValue, sortOrder: area.sortOrder || 0, version }, create: { id, name: area.name, enabled: area.enabled !== false, boundaryGeoJson: geoJson as Prisma.InputJsonValue, sortOrder: area.sortOrder || 0, version } })
-      await tx.$executeRaw(Prisma.sql`UPDATE "service_areas" SET "boundary" = ST_SetSRID(ST_GeomFromGeoJSON(${JSON.stringify(geoJson)}), 4326)::geography WHERE "id" = ${id}`)
       await tx.serviceAreaBinding.deleteMany({ where: { serviceAreaId: id } })
       for (const serviceId of area.serviceIds || []) await tx.serviceAreaBinding.create({ data: { serviceAreaId: id, serviceId } })
     }
@@ -379,8 +412,11 @@ export class ConfigCenterService implements OnModuleInit {
     const latitude = numberValue(value.latitude, NaN)
     const longitude = numberValue(value.longitude, NaN)
     if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return false
-    const result = await this.prisma.$queryRaw<Array<{ covered: boolean }>>(Prisma.sql`SELECT EXISTS (SELECT 1 FROM "service_areas" AS a INNER JOIN "service_area_bindings" AS b ON b."serviceAreaId" = a."id" WHERE b."serviceId" = ${serviceId} AND a."enabled" = true AND ST_Covers(a."boundary"::geometry, ST_SetSRID(ST_MakePoint(${longitude}, ${latitude}), 4326))) AS covered`)
-    return Boolean(result[0]?.covered)
+    const bindings = await this.prisma.serviceAreaBinding.findMany({
+      where: { serviceId, serviceArea: { enabled: true } },
+      include: { serviceArea: { select: { boundaryGeoJson: true } } },
+    })
+    return bindings.some((binding) => pointInGeoJson(binding.serviceArea.boundaryGeoJson, longitude, latitude))
   }
 
   private vehicleName(taskId: string, item?: string) {

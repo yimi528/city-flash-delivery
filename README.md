@@ -1,5 +1,7 @@
 # 同城速送（City Flash Delivery）
 
+> **微信云托管纯体验版分支提示**：当前为 `cloudbase-demo` 分支，使用 MySQL、可选 Redis 和 Mock 登录/支付，部署说明见 [`deploy/cloudbase-demo/README.md`](deploy/cloudbase-demo/README.md)。完整生产部署仍以 `main` 分支的 PostgreSQL/PostGIS 方案为准。
+
 同城速送是一套面向单一运营方的同城配送系统，包含用户微信小程序、同一小程序内的骑手工作台、商家运营后台和 NestJS API。
 
 项目覆盖从用户询价、下单和支付，到商家调度、骑手抢单、取货、配送和完成的完整履约闭环。当前适合本地演示、业务验收和测试环境部署；正式上线前仍需配置真实域名、HTTPS 证书、微信凭证和生产镜像。
@@ -21,8 +23,8 @@
 | 商家运营后台 | React 18、TypeScript、Vite | 订单调度、商家报价、骑手管理和配置中心 |
 | 后端服务 | Node.js、NestJS 11、TypeScript | REST API、业务模块、依赖注入、鉴权和参数校验 |
 | 数据访问 | Prisma 5 | 数据模型、迁移、事务和类型安全查询 |
-| 数据存储 | PostgreSQL、PostGIS | 订单、支付、用户、骑手和地理空间数据 |
-| 缓存与限流 | Redis、ioredis | 接口限流、骑手在线状态和高频临时数据 |
+| 数据存储 | MySQL、Prisma | 订单、支付、用户、骑手和经纬度数据 |
+| 缓存与限流 | Redis（可选）、ioredis | 接口限流；未配置 Redis 时使用单实例内存回退 |
 | 外部服务 | 腾讯地图 WebService、Open-Meteo、微信登录、微信支付 | 地址搜索、路线距离、天气风险、身份和支付能力 |
 | 接口与安全 | REST、Swagger、Token 鉴权、角色权限、Helmet、CORS | 接口文档、访问控制和基础安全防护 |
 | 测试与质量 | Jest、Node.js Test Runner、ESLint、Prettier | 后端测试、小程序测试、静态检查和格式化 |
@@ -34,7 +36,7 @@
 | --- | --- | --- | --- |
 | 用户端与骑手端 | `apps/customer-mp` | 微信原生小程序 | 用户下单、订单查询、地址簿、骑手申请及骑手履约 |
 | 商家运营后台 | `apps/merchant-web` | React 18、TypeScript、Vite | 订单调度、骑手审核与管理、价格和系统配置 |
-| 主后端 | `server/api` | NestJS、Prisma、PostgreSQL、Redis | 账号、订单、计价、支付、地图、骑手和运营接口 |
+| 主后端 | `server/api` | NestJS、Prisma、MySQL、可选 Redis | 账号、订单、计价、支付、地图、骑手和运营接口 |
 | 生产部署 | `deploy` | Docker Compose、Nginx | 云端部署、证书、备份和监控配置 |
 
 ## 快速开始
@@ -55,7 +57,7 @@
 npm run start:dev
 ```
 
-该命令会在后台启动前端、后端、PostgreSQL 和 Redis，等待前后端健康检查通过后返回终端。也可以双击 `启动开发环境.command`。
+该命令会在后台启动前端、后端和 MySQL，等待前后端健康检查通过后返回终端。Redis 未配置时自动使用内存限流回退。也可以双击 `启动开发环境.command`。
 
 如果需要在当前终端持续查看启动日志，可使用底层前台命令：
 
@@ -67,7 +69,7 @@ npm run dev
 
 1. 从 `server/api/.env.example` 创建本地 `.env`；
 2. 安装后端和商家端依赖；
-3. 启动 PostgreSQL 与 Redis；
+3. 启动 MySQL（Redis 为可选依赖）；
 4. 生成 Prisma Client 并执行数据库迁移；
 5. 构建并启动 API；
 6. 启动商家运营后台。
@@ -91,7 +93,7 @@ npm run dev
 npm run dev:stop
 ```
 
-该命令会停止前端、后端、PostgreSQL 和 Redis。macOS 也可以双击：
+该命令会停止前端、后端和 MySQL。macOS 也可以双击：
 
 - `启动开发环境.command`
 - `停止开发环境.command`
@@ -152,8 +154,8 @@ http://127.0.0.1:3000/api
 
 - 微信登录 Mock 与正式微信登录配置；
 - 用户、运营员和骑手多角色授权；
-- PostgreSQL + Prisma 数据持久化及 PostGIS 扩展；
-- Redis 限流和骑手在线状态支持；
+- MySQL + Prisma 数据持久化及经纬度字段；
+- Redis 可选限流和骑手在线状态支持；
 - 订单状态机、幂等抢单和状态日志；
 - 后端计价与配置版本快照；
 - 腾讯地图 WebService 服务端代理；
@@ -198,9 +200,9 @@ React 商家运营后台 ──────────────┤
                                  ▼
                        NestJS API
                         │       │
-                        │       └── Redis
+                        │       └── Redis（可选）
                         ▼
-                PostgreSQL + PostGIS
+                MySQL
                         │
                         ├── 腾讯地图 WebService
                         ├── 天气预报服务
@@ -236,8 +238,8 @@ cp server/api/.env.example server/api/.env
 
 | 变量 | 用途 | 本地默认值 |
 | --- | --- | --- |
-| `DATABASE_URL` | PostgreSQL 连接 | 本地 Docker PostgreSQL |
-| `REDIS_URL` | Redis 连接 | `redis://127.0.0.1:6379` |
+| `DATABASE_URL` | MySQL 连接 | 本地 Docker MySQL |
+| `REDIS_URL` | Redis 连接（可选） | 空，使用内存限流回退 |
 | `JWT_SECRET` | 登录令牌签名 | 仅限本地的占位密钥 |
 | `WECHAT_LOGIN_MOCK_ENABLED` | 微信登录 Mock | `true` |
 | `WECHAT_PAY_MODE` | `mock`、`disabled` 或 `wechat` | `mock` |
@@ -276,7 +278,7 @@ npm test -- --runInBand     # 单元与集成测试
 npm run lint                # ESLint
 npm run build               # NestJS 构建
 npx prisma validate         # 校验 Prisma Schema
-npm run prisma:deploy       # 执行已有数据库迁移
+npm run prisma:cloudbase    # 将体验版 schema 同步到 MySQL
 npm run test:live           # 真实 API 订单履约流程
 ```
 
@@ -306,7 +308,7 @@ node --test apps/customer-mp/tests/*.test.js
 - 商家端生产构建通过；
 - 2026-07-19 完整回归中的商家端主要页面浏览器检查通过；
 - 历史订单搜索、骑手搜索及骑手申请页面通过；
-- PostgreSQL、Redis、API 和商家端健康检查通过；
+- MySQL、API 和商家端健康检查通过；Redis 未配置时使用内存回退；
 - 报价、下单、支付、接单、取货、配送、完成真实数据库链路通过；
 - API、迁移和商家端三个生产镜像构建通过；
 - 生产依赖安全检查为 0 个已知漏洞。
