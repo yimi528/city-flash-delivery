@@ -245,6 +245,8 @@ docker compose exec -T postgres sh -c \
 
 内网穿透不是 Docker 自动提供的公网地址。公网 HTTPS 域名必须由 Cloudflare Tunnel、反向代理或其他明确的网络入口提供，并且要在微信后台配置为合法域名。
 
+体验版上传使用 `.github/workflows/miniprogram-release.yml` 的手动 workflow，上传私钥只从 GitHub Secret `WECHAT_PRIVATE_KEY` 读取。若出现微信接口 `errCode:-10008 invalid ip`，说明微信后台的 CI 上传 IP 白名单未允许当前 GitHub runner 出口；GitHub-hosted runner 的出口 IP 可能变化，应更新白名单，或改用位于固定出口网络的 self-hosted runner。上传失败不代表小程序代码打包失败，先看 workflow 日志中的微信接口错误。
+
 ## 九、部署前检查清单
 
 ```bash
