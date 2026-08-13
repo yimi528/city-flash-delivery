@@ -17,7 +17,7 @@ Add these repository variables:
 
 | Variable | Example | Purpose |
 | --- | --- | --- |
-| `VITE_API_BASE_URL` | `https://api.example.com/api` | API URL compiled into the merchant web image |
+| `VITE_API_BASE_URL` | `https://api.example.com/api` | Optional override for the API URL compiled into the merchant web image; when omitted, the workflow reads the `release` URL from `apps/customer-mp/config/runtime.js` |
 | `VITE_TENCENT_MAP_JS_KEY` | `...` | Optional browser map key |
 | `DEPLOY_HEALTHCHECK_URL` | `https://api.example.com/api/health/ready` | Optional post-deploy readiness check |
 

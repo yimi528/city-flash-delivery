@@ -72,13 +72,13 @@ jobs:
           MERCHANT_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
         run: |
           if [[ -z "$MERCHANT_API_BASE_URL" ]]; then
-            if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
-              MERCHANT_API_BASE_URL="https://api.example.com/api"
-            else
-              echo "Repository variable VITE_API_BASE_URL is required for a release build."
-              exit 1
-            fi
+            MERCHANT_API_BASE_URL="$(node -e "const c=require('./apps/customer-mp/config/runtime.js'); process.stdout.write(c.API_BASE_URLS.release || '')")"
+            echo "VITE_API_BASE_URL repository variable is not set; using release API from apps/customer-mp/config/runtime.js."
           fi
+          [[ "$MERCHANT_API_BASE_URL" =~ ^https://[^[:space:]]+/api$ ]] || {
+            echo "VITE_API_BASE_URL must be an HTTPS URL ending in /api."
+            exit 1
+          }
           echo "VITE_API_BASE_URL=$MERCHANT_API_BASE_URL" >> "$GITHUB_ENV"
 
       - name: Log in to GitHub Container Registry
