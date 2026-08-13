@@ -9,7 +9,64 @@ permissions:
   contents: read
 
 jobs:
+  quality:
+    name: Tests and quality checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_DATABASE: city_flash_ci
+          MYSQL_USER: ci
+          MYSQL_PASSWORD: ci
+          MYSQL_ROOT_PASSWORD: root-ci
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uci -pci --silent"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            server/api/package-lock.json
+            apps/merchant-web/package-lock.json
+
+      - name: Install dependencies
+        run: |
+          npm ci
+          npm --prefix server/api ci
+          npm --prefix apps/merchant-web ci
+
+      - name: Generate Prisma Client
+        run: npm --prefix server/api run prisma:generate
+
+      - name: Run tests and checks
+        env:
+          DATABASE_URL: mysql://ci:ci@127.0.0.1:3306/city_flash_ci
+          VITE_API_BASE_URL: https://api.example.com/api
+        run: |
+          node --test apps/customer-mp/tests/*.test.js
+          npm --prefix server/api test -- --runInBand
+          npm --prefix server/api run lint
+          npm --prefix server/api run build
+          npm --prefix server/api run prisma:deploy
+          npm --prefix server/api exec -- prisma validate
+          npm --prefix apps/merchant-web run build
+
   deploy:
+    needs: quality
     runs-on: ubuntu-latest
     env:
       WX_CLOUD_ENV_ID: ${{ secrets.WX_CLOUD_ENV_ID }}
@@ -55,6 +112,7 @@ jobs:
             --containerPort 3000
             --envId "$WX_CLOUD_ENV_ID"
             --serviceName "$WX_CLOUD_API_SERVICE_NAME"
+            --region ap-shanghai
             --releaseType FULL
             --remark "GitHub Actions $GITHUB_SHA"
           )
@@ -86,6 +144,7 @@ jobs:
             --containerPort 80 \
             --envId "$WX_CLOUD_ENV_ID" \
             --serviceName "$WX_CLOUD_MERCHANT_SERVICE_NAME" \
+            --region ap-shanghai \
             --releaseType FULL \
             --remark "GitHub Actions merchant $GITHUB_SHA" \
             --noConfirm
