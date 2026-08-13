@@ -61,8 +61,8 @@ jobs:
           npm --prefix server/api test -- --runInBand
           npm --prefix server/api run lint
           npm --prefix server/api run build
-          npm --prefix server/api run prisma:deploy
-          npm --prefix server/api exec -- prisma validate
+          (cd server/api && npm run prisma:deploy)
+          (cd server/api && npm exec -- prisma validate)
           npm --prefix apps/merchant-web run build
 
   deploy:
