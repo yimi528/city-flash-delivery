@@ -5,6 +5,9 @@
 - Pull requests run the Mini Program tests, API tests/lint/build/Prisma validation, dependency audit, and production image builds.
 - Pushes to `main` publish three immutable images to GHCR using the full commit SHA, then deploy them to the configured production host.
 - `workflow_dispatch` can rerun the pipeline; production deployment is restricted to the `main` ref.
+- `.github/workflows/miniprogram-release.yml` remains a separate manual workflow for uploading the WeChat Mini Program.
+
+The older duplicate `ci.yml` and `publish-images.yml` workflows were removed so a push to `main` has one authoritative CI/CD path and cannot publish the mutable `latest` tag.
 
 ## GitHub configuration
 
