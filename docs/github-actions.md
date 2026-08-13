@@ -20,6 +20,7 @@ Add these repository variables:
 | `VITE_API_BASE_URL` | `https://api.example.com/api` | Optional override for the API URL compiled into the merchant web image; when omitted, the workflow reads the `release` URL from `apps/customer-mp/config/runtime.js` |
 | `VITE_TENCENT_MAP_JS_KEY` | `...` | Optional browser map key |
 | `DEPLOY_HEALTHCHECK_URL` | `https://api.example.com/api/health/ready` | Optional post-deploy readiness check |
+| `DEPLOY_ENABLED` | `true` | Set to `true` only after the production host and all deployment secrets are ready; otherwise images publish and deployment is explicitly skipped |
 
 Add these `production` environment secrets:
 

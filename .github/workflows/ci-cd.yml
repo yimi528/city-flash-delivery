@@ -130,7 +130,7 @@ jobs:
   deploy:
     name: Deploy to production host
     needs: containers
-    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && vars.DEPLOY_ENABLED == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     environment:
@@ -194,3 +194,12 @@ jobs:
           else
             echo "DEPLOY_HEALTHCHECK_URL is not configured; skipping external readiness check."
           fi
+
+  deployment-not-configured:
+    name: Deployment configuration status
+    needs: containers
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && vars.DEPLOY_ENABLED != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Explain deployment is disabled
+        run: echo "Images were published. Set repository variable DEPLOY_ENABLED=true and configure the production Environment secrets to enable SSH deployment."
