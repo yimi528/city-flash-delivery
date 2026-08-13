@@ -166,6 +166,13 @@ WX_CLOUD_API_PUBLIC_DOMAIN
 
 `WX_CLOUD_MERCHANT_MAP_KEY` 可以作为可选的商家地图前端 Key；`WX_CLOUD_API_ENV_PARAMS` 只有在需要同步更新 API 环境变量时才设置，不能把私钥或密码提交到仓库。
 
+另外设置一个仓库变量 `WX_CLOUD_DEPLOY_ENABLED`：
+
+- 不设置或设置为 `false`：每次推送仍执行完整质量检查，但跳过云端发布；
+- 设置为 `true`：在上述 Secret 都已配置后，每次推送到 `main` 才发布 API 和商家后台。
+
+当前仓库的最近一次 Actions 已验证质量检查通过；因为尚未配置云托管 Secret，发布开关应保持关闭，避免产生误报。
+
 ```bash
 cd server/api
 wxcloud run:deploy --targetDir . --dockerfile Dockerfile --containerPort 3000 \
@@ -181,7 +188,7 @@ wxcloud run:deploy "$merchant_package_dir" --targetDir . --dockerfile Dockerfile
   --releaseType FULL --region ap-shanghai
 ```
 
-实际 CI 参数以官方文档和当前 CLI 帮助为准。首次云端发布前不要启用自动发布，先完成一次手动部署和验收。
+实际 CI 参数以官方文档和当前 CLI 帮助为准。首次接入新环境时，先完成一次手动部署和验收，再将 `WX_CLOUD_DEPLOY_ENABLED` 设为 `true`。
 
 ## 8. 云端接管后的旧环境清理
 

@@ -67,6 +67,7 @@ jobs:
 
   deploy:
     needs: quality
+    if: github.event_name != 'pull_request' && vars.WX_CLOUD_DEPLOY_ENABLED == 'true'
     runs-on: ubuntu-latest
     env:
       WX_CLOUD_ENV_ID: ${{ secrets.WX_CLOUD_ENV_ID }}
@@ -148,3 +149,13 @@ jobs:
             --releaseType FULL \
             --remark "GitHub Actions merchant $GITHUB_SHA" \
             --noConfirm
+
+  deployment-not-configured:
+    name: Cloud deployment status
+    needs: quality
+    if: github.event_name != 'pull_request' && vars.WX_CLOUD_DEPLOY_ENABLED != 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Explain deployment is disabled
+        run: echo "Quality checks passed. Set repository variable WX_CLOUD_DEPLOY_ENABLED=true and configure the wxcloud secrets to enable deployment."
