@@ -81,4 +81,4 @@ if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
   (cd "$API_DIR" && docker compose stop)
 fi
 
-printf '[同城速送] 本地前后端、PostgreSQL 和 Redis 已停止。\n'
+printf '[同城速送] 本地前后端和 MySQL 已停止。\n'

@@ -11,7 +11,7 @@
 - **服务端权威计价**：后端结合路线距离、车型、重量、固定线路和天气风险计算价格，并保存计价规则版本；
 - **可靠订单流转**：使用后端状态机限制跨级和倒退操作，通过状态日志保留完整履约轨迹；
 - **并发与幂等控制**：骑手抢单采用事务、条件更新、版本号和幂等键，避免重复领取同一订单；
-- **工程化交付**：包含自动化测试、Swagger、健康检查、审计日志、Docker Compose、Nginx、备份和发布检查。
+- **工程化交付**：包含自动化测试、Swagger、健康检查、审计日志、Docker Compose、云托管发布和持续交付检查。
 
 ## 技术栈
 
@@ -21,12 +21,12 @@
 | 商家运营后台 | React 18、TypeScript、Vite | 订单调度、商家报价、骑手管理和配置中心 |
 | 后端服务 | Node.js、NestJS 11、TypeScript | REST API、业务模块、依赖注入、鉴权和参数校验 |
 | 数据访问 | Prisma 5 | 数据模型、迁移、事务和类型安全查询 |
-| 数据存储 | PostgreSQL、PostGIS | 订单、支付、用户、骑手和地理空间数据 |
-| 缓存与限流 | Redis、ioredis | 接口限流、骑手在线状态和高频临时数据 |
+| 数据存储 | MySQL 8.0、MySQL GIS | 订单、支付、用户、骑手和服务区域边界 |
+| 限流 | API 单实例内存 Map | 接口限流；当前不依赖 Redis |
 | 外部服务 | 腾讯地图 WebService、Open-Meteo、微信登录、微信支付 | 地址搜索、路线距离、天气风险、身份和支付能力 |
 | 接口与安全 | REST、Swagger、Token 鉴权、角色权限、Helmet、CORS | 接口文档、访问控制和基础安全防护 |
 | 测试与质量 | Jest、Node.js Test Runner、ESLint、Prettier | 后端测试、小程序测试、静态检查和格式化 |
-| 部署与运维 | Docker、Docker Compose、Nginx、Bash | 本地编排、生产部署、反向代理和自动化检查 |
+| 部署与运维 | Docker、Docker Compose、微信云托管 CLI、Bash | 本地编排、云托管服务发布和自动化检查 |
 
 ## 系统组成
 
@@ -34,8 +34,8 @@
 | --- | --- | --- | --- |
 | 用户端与骑手端 | `apps/customer-mp` | 微信原生小程序 | 用户下单、订单查询、地址簿、骑手申请及骑手履约 |
 | 商家运营后台 | `apps/merchant-web` | React 18、TypeScript、Vite | 订单调度、骑手审核与管理、价格和系统配置 |
-| 主后端 | `server/api` | NestJS、Prisma、PostgreSQL、Redis | 账号、订单、计价、支付、地图、骑手和运营接口 |
-| 生产部署 | `deploy` | Docker Compose、Nginx | 云端部署、证书、备份和监控配置 |
+| 主后端 | `server/api` | NestJS、Prisma、MySQL 8.0 | 账号、订单、计价、支付、地图、骑手和运营接口 |
+| 生产部署 | `docs/deploy-wxcloud.md` | 微信云托管 CLI、云托管容器服务 | API、MySQL 和商家后台发布 |
 
 ## 快速开始
 
@@ -55,7 +55,7 @@
 npm run start:dev
 ```
 
-该命令会在后台启动前端、后端、PostgreSQL 和 Redis，等待前后端健康检查通过后返回终端。也可以双击 `启动开发环境.command`。
+该命令会在后台启动前端、后端和 MySQL，等待前后端健康检查通过后返回终端。也可以双击 `启动开发环境.command`。
 
 如果需要在当前终端持续查看启动日志，可使用底层前台命令：
 
@@ -67,7 +67,7 @@ npm run dev
 
 1. 从 `server/api/.env.example` 创建本地 `.env`；
 2. 安装后端和商家端依赖；
-3. 启动 PostgreSQL 与 Redis；
+3. 启动 MySQL；
 4. 生成 Prisma Client 并执行数据库迁移；
 5. 构建并启动 API；
 6. 启动商家运营后台。
@@ -91,7 +91,7 @@ npm run dev
 npm run dev:stop
 ```
 
-该命令会停止前端、后端、PostgreSQL 和 Redis。macOS 也可以双击：
+该命令会停止前端、后端和 MySQL。macOS 也可以双击：
 
 - `启动开发环境.command`
 - `停止开发环境.command`
@@ -105,13 +105,13 @@ npm run dev:stop
 http://127.0.0.1:3000/api
 ```
 
-接口地址由 `apps/customer-mp/config/runtime.js` 按微信环境决定：
+接口地址由 `apps/customer-mp/config/runtime.js` 按微信环境决定。填写微信云托管环境 ID 后，用户端和骑手端优先通过 `wx.cloud.callContainer` 调用 API；未填写时仅保留 `127.0.0.1` 本地开发回退：
 
 - `develop`：本地 API，可使用本地存储中的开发覆盖地址；
-- `trial`：体验版 HTTPS API；
-- `release`：正式版 HTTPS API。
+- `trial`：微信云托管 API；
+- `release`：微信云托管 API。
 
-上传体验版或正式版之前，必须把 `trial` 和 `release` 的占位地址替换为真实 HTTPS API 地址，并在微信公众平台配置 request 合法域名。
+上传体验版或正式版之前，必须填写 `WX_CLOUD_ENV_ID`，并确认小程序已授权访问该云托管环境。
 
 ## 已实现功能
 
@@ -152,8 +152,8 @@ http://127.0.0.1:3000/api
 
 - 微信登录 Mock 与正式微信登录配置；
 - 用户、运营员和骑手多角色授权；
-- PostgreSQL + Prisma 数据持久化及 PostGIS 扩展；
-- Redis 限流和骑手在线状态支持；
+- MySQL 8.0 + Prisma 数据持久化及 MySQL GIS 服务区域查询；
+- 单实例内存限流和后端骑手在线状态支持；
 - 订单状态机、幂等抢单和状态日志；
 - 后端计价与配置版本快照；
 - 腾讯地图 WebService 服务端代理；
@@ -197,10 +197,9 @@ http://127.0.0.1:3000/api
 React 商家运营后台 ──────────────┤
                                  ▼
                        NestJS API
-                        │       │
-                        │       └── Redis
+                        │
                         ▼
-                PostgreSQL + PostGIS
+                  MySQL 8.0 + GIS
                         │
                         ├── 腾讯地图 WebService
                         ├── 天气预报服务
@@ -218,7 +217,7 @@ city-flash-delivery/
 │   └── api/                  # NestJS 主后端
 ├── packages/shared/          # 多端共享状态约定
 ├── scripts/                  # 启停、验收和发布检查脚本
-├── deploy/                   # 云端 Compose、Nginx、备份和监控
+├── deploy/                   # 小程序发布辅助说明
 ├── docs/                     # 产品需求和 UI 参考资料
 ├── project.config.json       # 微信开发者工具项目配置
 └── package.json              # 根目录统一命令
@@ -236,8 +235,7 @@ cp server/api/.env.example server/api/.env
 
 | 变量 | 用途 | 本地默认值 |
 | --- | --- | --- |
-| `DATABASE_URL` | PostgreSQL 连接 | 本地 Docker PostgreSQL |
-| `REDIS_URL` | Redis 连接 | `redis://127.0.0.1:6379` |
+| `DATABASE_URL` | MySQL 连接 | 本地 Docker MySQL |
 | `JWT_SECRET` | 登录令牌签名 | 仅限本地的占位密钥 |
 | `WECHAT_LOGIN_MOCK_ENABLED` | 微信登录 Mock | `true` |
 | `WECHAT_PAY_MODE` | `mock`、`disabled` 或 `wechat` | `mock` |
@@ -298,47 +296,43 @@ node --test apps/customer-mp/tests/*.test.js
 
 ## 当前验证基线
 
-最近一次基础回归日期：**2026-07-23**；最近一次包含容器、真实数据库履约和安全检查的完整回归日期：**2026-07-19**。
+最近一次基础回归日期：**2026-08-14**；微信云托管 API、MySQL 和商家后台验收也在 **2026-08-14** 完成。
 
-- 小程序自动化测试：48 项通过；
-- 后端 Jest：12 个测试套件、67 项测试通过；
+- 小程序自动化测试：53 项通过；
+- 后端 Jest：12 个测试套件、70 项测试通过；
 - 后端 lint、构建和 Prisma 校验通过；
 - 商家端生产构建通过；
-- 2026-07-19 完整回归中的商家端主要页面浏览器检查通过；
-- 历史订单搜索、骑手搜索及骑手申请页面通过；
-- PostgreSQL、Redis、API 和商家端健康检查通过；
+- 商家端首页和 `/healthz` 通过；
+- API `/api/health/live`、`/api/health/ready`、MySQL 就绪检查和 CORS 预检通过；
+- 云端用户 Mock 登录和服务范围检查接口通过；
 - 报价、下单、支付、接单、取货、配送、完成真实数据库链路通过；
-- API、迁移和商家端三个生产镜像构建通过；
-- 生产依赖安全检查为 0 个已知漏洞。
 
 这些结果表示当前提交可用于本地验收，不表示已经满足正式上线条件。
 
 ## 生产部署
 
-详细步骤见 [`deploy/README.md`](deploy/README.md)，Sealos 说明见 [`deploy/sealos-production.md`](deploy/sealos-production.md)。
+详细步骤见 [`docs/deploy-wxcloud.md`](docs/deploy-wxcloud.md)。
 
 正式部署前至少需要：
 
-1. PostgreSQL 16（启用 PostGIS）和 Redis；
-2. API、数据库迁移和商家端三个不可变版本镜像；
-3. 稳定的 API HTTPS 域名及 TLS 证书；
-4. 正式微信小程序 AppID 和 Secret；
-5. 商家运营账号和符合规则的强密码；
-6. 商家端精确 HTTPS 来源；
-7. 腾讯地图 WebService Key；
-8. 至少 32 字符的随机 `JWT_SECRET`；
-9. 与 API 域名一致的小程序 `trial` / `release` 地址；
-10. 微信支付商户号、APIv3 密钥、商户私钥、平台证书和回调域名；
-11. 数据库备份、日志、监控、告警和恢复演练。
+1. 微信云托管环境和 MySQL 8.0；
+2. API 服务和商家后台服务；
+3. 正式微信小程序 AppID 和 Secret；
+4. 商家运营账号和符合规则的强密码；
+5. 商家后台 HTTPS 来源和 API CORS 配置；
+6. 腾讯地图 WebService Key；
+7. 至少 32 字符的随机 `JWT_SECRET`；
+8. 微信支付商户号、APIv3 密钥、商户私钥、平台证书和回调域名（启用支付时）；
+9. 云托管 MySQL 备份、日志、监控、告警和恢复演练。
 
 准备生产配置：
 
 ```bash
-cp deploy/env.production.example deploy/env.production
-npm run release:check -- deploy/env.production
+cp .env.docker.example .env
+npm run release:check -- .env.cloud
 ```
 
-发布检查全部通过后再执行部署。商家后台不强制购买独立域名，可以使用云平台提供的受保护 HTTPS 地址；用户小程序请求的 API 则必须使用符合微信要求的稳定 HTTPS 域名。
+发布检查全部通过后再执行部署。商家后台通过微信云托管容器提供 HTTPS 地址；小程序通过云托管 `callContainer` 调用 API。当前部署和验收过程见 [`docs/deploy-wxcloud.md`](docs/deploy-wxcloud.md)。
 
 ## 常见问题
 
@@ -363,10 +357,9 @@ npm run dev:stop
 ### 小程序请求不到 API
 
 - 确认 `/api/health` 可访问；
-- 检查 `apps/customer-mp/config/runtime.js` 的开发版、真机和体验版地址；当前配置通过 Quick Tunnel 访问 osako；
+- 检查 `apps/customer-mp/config/runtime.js` 是否已填写云托管环境 ID；
 - 微信开发者工具本地调试时可关闭合法域名校验；
-- 开发者工具、开发版真机和体验版默认访问当前 Quick Tunnel；Quick Tunnel 地址停止或重启后可能变化，变化后要同步更新配置并重新上传体验版。
-- `release` 仍使用稳定 HTTPS API，不应使用临时 Tunnel。
+- 开发者工具本地回退访问 `127.0.0.1`；真机、体验版和正式版应使用云托管 `callContainer`，不依赖临时 Tunnel。
 
 #### 局域网真机调试注意事项
 
@@ -441,7 +434,7 @@ wx.setStorageSync('developerApiBaseUrl', 'http://<Windows局域网IPv4>:3000/api
 - 生产环境应关闭 Swagger、关闭登录 Mock，并按发布阶段配置支付模式；
 - 所有地图、微信和支付密钥只保存在服务端；
 - 生产镜像必须使用完整 Git SHA，不要使用 `latest`；
-- 数据库和 Redis 不应直接暴露到公网；
+- 云托管 MySQL 不应直接暴露到公网，API 只通过云托管内网连接数据库；
 - 仓库中的功能和支付接入代码不能替代微信平台审核、备案、隐私合规和真实设备验收。
 
 ## License

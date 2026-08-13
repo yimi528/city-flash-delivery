@@ -3,8 +3,7 @@ import { validateProductionConfig } from './production-config'
 const validConfig: Record<string, string> = {
   NODE_ENV: 'production',
   APP_RELEASE_STAGE: 'production',
-  DATABASE_URL: 'postgresql://app:secret@database.internal:5432/city_flash',
-  REDIS_URL: 'redis://:secret@redis.internal:6379',
+  DATABASE_URL: 'mysql://app:secret@mysql.internal:3306/city_flash',
   JWT_SECRET: 'a-secure-random-secret-that-is-long-enough',
   CORS_ORIGINS: 'https://ops.city-flash.test',
   ENABLE_SWAGGER: 'false',

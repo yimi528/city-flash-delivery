@@ -1,3 +1,5 @@
+const cloudRequest = require('./cloud-request')
+
 function request(path, options) {
   const config = options || {}
   return new Promise((resolve, reject) => {
@@ -8,21 +10,31 @@ function request(path, options) {
     }
     const header = Object.assign({ 'content-type': 'application/json' }, config.header || {})
     if (app.globalData.riderAuthToken) header.Authorization = `Bearer ${app.globalData.riderAuthToken}`
+    const handleResponse = (res) => {
+      if (res.statusCode >= 200 && res.statusCode < 300) {
+        resolve(res.data)
+        return
+      }
+      if (res.statusCode === 401) app.clearRiderSession()
+      const message = res.data && res.data.message
+      reject(new Error(Array.isArray(message) ? message.join('；') : message || '骑手端请求失败'))
+    }
+    if (cloudRequest.isConfigured()) {
+      cloudRequest.requestCloud(path, {
+        method: config.method || 'GET',
+        data: config.data || {},
+        header,
+        timeout: config.timeout || 8000
+      }).then(handleResponse).catch(reject)
+      return
+    }
     wx.request({
       url: `${app.globalData.apiBaseUrl}${path}`,
       method: config.method || 'GET',
       data: config.data || {},
       header,
       timeout: 8000,
-      success(res) {
-        if (res.statusCode >= 200 && res.statusCode < 300) {
-          resolve(res.data)
-          return
-        }
-        if (res.statusCode === 401) app.clearRiderSession()
-        const message = res.data && res.data.message
-        reject(new Error(Array.isArray(message) ? message.join('；') : message || '骑手端请求失败'))
-      },
+      success: handleResponse,
       fail(error) {
         reject(new Error((error && (error.errMsg || error.message)) || '无法连接后端服务'))
       }

@@ -1,3 +1,5 @@
+const cloudRequest = require('./cloud-request')
+
 const QQ_MAP_HOST = 'https://apis.map.qq.com'
 const DEFAULT_REGION = '福鼎市'
 const DEFAULT_LOCATION = {
@@ -170,7 +172,7 @@ function getBackendMapBaseUrl() {
 
 function shouldUseBackendMap() {
   const globalData = getGlobalData()
-  return Boolean(globalData.useBackend && getBackendMapBaseUrl() && typeof wx !== 'undefined' && wx.request)
+  return Boolean(globalData.useBackend && (cloudRequest.isConfigured() || getBackendMapBaseUrl()) && typeof wx !== 'undefined' && wx.request)
 }
 
 function requestBackendMap(path, data) {
@@ -182,19 +184,29 @@ function requestBackendMap(path, data) {
     const globalData = getGlobalData()
     const headers = { 'x-app-role': globalData.appRole || 'customer' }
     if (globalData.authToken) headers.Authorization = `Bearer ${globalData.authToken}`
+    const handleResponse = (res) => {
+      if (res.statusCode >= 200 && res.statusCode < 300) {
+        resolve(res.data || {})
+        return
+      }
+      reject(new Error((res.data && res.data.message) || `Backend map request failed with ${res.statusCode}`))
+    }
+    if (cloudRequest.isConfigured()) {
+      cloudRequest.requestCloud(path, {
+        method: 'GET',
+        data: data || {},
+        header: headers,
+        timeout: 5000
+      }).then(handleResponse).catch(reject)
+      return
+    }
     wx.request({
       url: `${getBackendMapBaseUrl()}${path}`,
       method: 'GET',
       data: data || {},
       header: headers,
       timeout: 5000,
-      success(res) {
-        if (res.statusCode >= 200 && res.statusCode < 300) {
-          resolve(res.data || {})
-          return
-        }
-        reject(new Error((res.data && res.data.message) || `Backend map request failed with ${res.statusCode}`))
-      },
+      success: handleResponse,
       fail(error) {
         reject(error)
       }

@@ -1,6 +1,6 @@
 # miniprogram-ci 发布说明
 
-`xian` 的用户端和骑手端共用 `apps/customer-mp` 下的同一个微信小程序和 AppID。
+用户端和骑手端共用 `apps/customer-mp` 下的同一个微信小程序和 AppID `wx4878475053d6a722`。
 仓库根目录的 `project.config.json` 是微信开发者工具项目入口，它的
 `miniprogramRoot` 指向 `apps/customer-mp/`，因此 CI 也必须以仓库根目录作为
 `miniprogram-ci` 的 `projectPath`。
@@ -19,7 +19,7 @@ npm run miniprogram:preview
 本机如果使用 Downloads 中的密钥，可以直接执行：
 
 ```bash
-WECHAT_PRIVATE_KEY_PATH=/Users/Admin1/Downloads/private.wx9243db2c195c61b6.key \\
+WECHAT_PRIVATE_KEY_PATH=/secure/path/miniprogram-upload.private.key \\
 WECHAT_VERSION=1.0.0 \\
 npm run miniprogram:preview
 ```
@@ -42,13 +42,13 @@ npm run miniprogram:preview
 
 ## 发布顺序
 
-1. 先部署 API 和商家后台，并确认 API 健康检查通过；
-2. 确认 `apps/customer-mp/config/runtime.js` 中 `trial`、`release` 使用备案后的 HTTPS API；
+1. 先部署微信云托管 API 和商家后台，并确认 API 健康检查通过；
+2. 确认 `apps/customer-mp/config/runtime.js` 中已填写云托管环境 ID 和 `city-flash-api` 服务名；
 3. 在 Actions 中选择 `upload` 上传小程序代码；
 4. 上传成功后，在微信公众平台开发管理中将该版本设置为体验版，再进行用户端、骑手端、登录和订单流程验证。
 
 GitHub Actions 当前只执行上传，不生成或保存预览二维码。若需要本地预览二维码，仍可使用上面的
 `npm run miniprogram:preview` 命令。
 
-`miniprogram-ci` 只负责小程序预览和上传，不负责 Sealos、NestJS、PostgreSQL、Redis
-或商家后台的部署。
+`miniprogram-ci` 只负责小程序预览和上传；微信云托管 API、MySQL 和商家后台的部署见
+[`docs/deploy-wxcloud.md`](../docs/deploy-wxcloud.md)。

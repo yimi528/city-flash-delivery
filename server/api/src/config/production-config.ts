@@ -22,7 +22,6 @@ export function validateProductionConfig(config: ConfigReader) {
   const errors: string[] = []
   const required = [
     'DATABASE_URL',
-    'REDIS_URL',
     'JWT_SECRET',
     'WECHAT_MINI_APP_ID',
     'WECHAT_MINI_APP_SECRET',

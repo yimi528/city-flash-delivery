@@ -1,13 +1,15 @@
-// 当前开发/真机/体验环境统一通过 Quick Tunnel 访问 osako 上的 API。
-const OSAKO_API_BASE_URL = 'https://regarded-memorial-lauderdale-rest.trycloudflare.com/api'
-// 保留旧导出名，避免其他本地工具引用时失效；它不再指向局域网 IP。
-const LOCAL_API_BASE_URL = OSAKO_API_BASE_URL
+// 未配置云托管环境时，仅供本机开发工具使用；真机/体验版应配置云托管环境 ID。
+const LOCAL_API_BASE_URL = 'http://127.0.0.1:3000/api'
+
+// 云托管环境创建后填写；填写后小程序优先使用 wx.cloud.callContainer。
+const WX_CLOUD_ENV_ID = 'prod-d0gpn0x7a421ec215'
+const WX_CLOUD_SERVICE_NAME = 'city-flash-api'
 
 const API_BASE_URLS = Object.freeze({
-  develop: OSAKO_API_BASE_URL,
-  developDevice: OSAKO_API_BASE_URL,
-  trial: OSAKO_API_BASE_URL,
-  release: 'https://xian-api-img6c740.sealosbja.site/api'
+  develop: LOCAL_API_BASE_URL,
+  developDevice: LOCAL_API_BASE_URL,
+  trial: LOCAL_API_BASE_URL,
+  release: LOCAL_API_BASE_URL
 })
 
 function environmentVersion(wxApi) {
@@ -43,9 +45,10 @@ function resolveApiBaseUrl(wxApi) {
 }
 
 module.exports = {
-  OSAKO_API_BASE_URL,
   LOCAL_API_BASE_URL,
   API_BASE_URLS,
+  WX_CLOUD_ENV_ID,
+  WX_CLOUD_SERVICE_NAME,
   environmentVersion,
   isRealDevice,
   resolveApiBaseUrl

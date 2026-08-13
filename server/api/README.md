@@ -1,12 +1,11 @@
 # NestJS API
 
-This is the backend for the city flash delivery project. All customer, rider, operations, pricing, payment, and configuration flows use this NestJS + PostgreSQL/PostGIS + Redis service.
+This is the backend for the city flash delivery project. All customer, rider, operations, pricing, payment, and configuration flows use this NestJS + MySQL 8.0 GIS service.
 
 ## Stack
 
 - TypeScript + NestJS
-- PostgreSQL + PostGIS
-- Redis
+- MySQL 8.0 + GIS
 - Prisma
 - Swagger / OpenAPI
 - Docker Compose
@@ -50,7 +49,7 @@ The production API includes:
 - `auth`: WeChat/customer login, operator login, and role switching.
 - `users`: customer profile and account roles.
 - `addresses`: persisted customer address book.
-- `orders`: create/list/detail/status APIs persisted with Prisma/PostgreSQL.
+- `orders`: create/list/detail/status APIs persisted with Prisma/MySQL.
 - `operations`: operator order list, quote, and status update endpoints.
 - `pricing`: delivery price estimate using fixed vehicle rules.
 - `maps`: server-side Tencent address search, reverse geocoding, route distance, and automatic bad-weather risk endpoints.
@@ -84,9 +83,9 @@ npm run prisma:deploy
 
 ## Database Notes
 
-`prisma/schema.prisma` stores latitude/longitude as decimals and reserves PostGIS columns with Prisma `Unsupported("geography(...)")` fields. The initial Prisma migration enables PostGIS extensions before creating tables. The SQL file `prisma/sql/001_enable_postgis.sql` also enables PostGIS when the Docker Postgres container first initializes.
+`prisma/schema.prisma` stores latitude/longitude as decimals and keeps MySQL GIS columns as Prisma `Unsupported("point")`/`Unsupported("polygon")` fields. Service-area boundaries are written with `ST_GeomFromGeoJSON` and checked with MySQL `ST_Intersects`; the historical PostgreSQL migrations are archived under `prisma/migrations-postgresql-archive/` and are not executed.
 
-Customer orders, operator quotes, and order status changes now write to PostgreSQL. `order_status_logs` stores the status timeline, while quote fields on `orders` keep pending/quoted state visible to the customer mini program and operations web.
+Customer orders, operator quotes, and order status changes now write to MySQL. `order_status_logs` stores the status timeline, while quote fields on `orders` keep pending/quoted state visible to the customer mini program and operations web.
 
 The `搬运装卸` service now uses a server-side fixed base fee. A destination is optional; when delivery is enabled, Tencent Map driving distance adds the configured start and per-kilometer fee. Quotes expire after ten minutes and orders persist a price-rule snapshot. The legacy manual-quote fields and endpoints remain only for historical-order compatibility.
 

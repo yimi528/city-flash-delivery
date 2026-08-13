@@ -1,5 +1,4 @@
 import { Controller, Get, ServiceUnavailableException } from '@nestjs/common'
-import { ConfigService } from '@nestjs/config'
 import { ApiTags } from '@nestjs/swagger'
 import { PrismaService } from '../common/prisma/prisma.service'
 
@@ -7,7 +6,6 @@ import { PrismaService } from '../common/prisma/prisma.service'
 @Controller('health')
 export class HealthController {
   constructor(
-    private readonly config: ConfigService,
     private readonly prisma: PrismaService,
   ) {}
 
@@ -29,7 +27,6 @@ export class HealthController {
         status: 'ok',
         service: 'city-flash-api',
         database: true,
-        redisConfigured: Boolean(this.config.get<string>('REDIS_URL')),
         time: new Date().toISOString(),
       }
     } catch {

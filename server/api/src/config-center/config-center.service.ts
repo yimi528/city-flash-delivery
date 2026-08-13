@@ -360,7 +360,7 @@ export class ConfigCenterService implements OnModuleInit {
       const id = area.id || `area-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
       const geoJson = area.geoJson || area.boundaryGeoJson
       await tx.serviceArea.upsert({ where: { id }, update: { name: area.name, enabled: area.enabled !== false, boundaryGeoJson: geoJson as Prisma.InputJsonValue, sortOrder: area.sortOrder || 0, version }, create: { id, name: area.name, enabled: area.enabled !== false, boundaryGeoJson: geoJson as Prisma.InputJsonValue, sortOrder: area.sortOrder || 0, version } })
-      await tx.$executeRaw(Prisma.sql`UPDATE "service_areas" SET "boundary" = ST_SetSRID(ST_GeomFromGeoJSON(${JSON.stringify(geoJson)}), 4326)::geography WHERE "id" = ${id}`)
+      await tx.$executeRaw(Prisma.sql`UPDATE \`service_areas\` SET \`boundary\` = ST_GeomFromGeoJSON(${JSON.stringify(geoJson)}) WHERE \`id\` = ${id}`)
       await tx.serviceAreaBinding.deleteMany({ where: { serviceAreaId: id } })
       for (const serviceId of area.serviceIds || []) await tx.serviceAreaBinding.create({ data: { serviceAreaId: id, serviceId } })
     }
@@ -379,7 +379,7 @@ export class ConfigCenterService implements OnModuleInit {
     const latitude = numberValue(value.latitude, NaN)
     const longitude = numberValue(value.longitude, NaN)
     if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return false
-    const result = await this.prisma.$queryRaw<Array<{ covered: boolean }>>(Prisma.sql`SELECT EXISTS (SELECT 1 FROM "service_areas" AS a INNER JOIN "service_area_bindings" AS b ON b."serviceAreaId" = a."id" WHERE b."serviceId" = ${serviceId} AND a."enabled" = true AND ST_Covers(a."boundary"::geometry, ST_SetSRID(ST_MakePoint(${longitude}, ${latitude}), 4326))) AS covered`)
+    const result = await this.prisma.$queryRaw<Array<{ covered: number }>>(Prisma.sql`SELECT EXISTS (SELECT 1 FROM \`service_areas\` AS a INNER JOIN \`service_area_bindings\` AS b ON b.\`serviceAreaId\` = a.\`id\` WHERE b.\`serviceId\` = ${serviceId} AND a.\`enabled\` = true AND ST_Intersects(a.\`boundary\`, ST_GeomFromText(CONCAT('POINT(', ${longitude}, ' ', ${latitude}, ')'), 4326, 'axis-order=long-lat'))) AS covered`)
     return Boolean(result[0]?.covered)
   }
 

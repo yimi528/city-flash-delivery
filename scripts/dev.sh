@@ -79,7 +79,7 @@ if [[ ! -d "$WEB_DIR/node_modules" ]]; then
   (cd "$WEB_DIR" && npm ci)
 fi
 
-log "启动 PostgreSQL 与 Redis"
+log "启动 MySQL"
 (cd "$API_DIR" && docker compose up -d --wait)
 
 log "同步数据库结构"
@@ -128,7 +128,7 @@ printf '%s\n' \
   "运营后台：http://127.0.0.1:5173" \
   "后端 API：http://127.0.0.1:3000/api" \
   "接口文档：http://127.0.0.1:3000/api/docs" \
-  "按 Ctrl+C 可停止前后端；数据库会保留运行。"
+  "按 Ctrl+C 可停止前后端；MySQL 数据库会保留运行。"
 
 if [[ "${OPEN_BROWSER:-1}" == "1" ]] && command -v open >/dev/null 2>&1; then
   open http://127.0.0.1:5173 >/dev/null 2>&1 || true
