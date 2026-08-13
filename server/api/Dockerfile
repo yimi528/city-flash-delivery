@@ -25,7 +25,7 @@ ENV NODE_ENV=development \
 RUN apk add --no-cache openssl
 COPY package*.json ./
 COPY prisma ./prisma
-RUN npm ci --omit=dev && npm cache clean --force
+COPY --from=build /app/node_modules ./node_modules
 COPY --chown=node:node --from=build /app/dist ./dist
 COPY --chown=node:node --from=build /app/node_modules/.prisma ./node_modules/.prisma
 COPY --chown=node:node prisma ./prisma
