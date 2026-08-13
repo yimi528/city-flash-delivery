@@ -27,7 +27,11 @@ export class CatalogService implements OnModuleInit {
     @Optional() private readonly configCenter?: ConfigCenterService,
   ) {}
 
-  async onModuleInit() {
+  onModuleInit() {
+    void this.bootstrapDefaults()
+  }
+
+  private async bootstrapDefaults() {
     try {
       await Promise.all(DEFAULT_SERVICES.map((service) => this.prisma.serviceCatalog.upsert({
         where: { id: service.id },

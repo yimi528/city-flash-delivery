@@ -119,7 +119,11 @@ export class ConfigCenterService implements OnModuleInit {
     private readonly config: ConfigService,
   ) {}
 
-  async onModuleInit() {
+  onModuleInit() {
+    void this.bootstrapDefaults()
+  }
+
+  private async bootstrapDefaults() {
     try {
       await this.prisma.platformSetting.upsert({
         where: { id: 'platform' },
