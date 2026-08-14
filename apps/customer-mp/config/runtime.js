@@ -1,8 +1,9 @@
-// 未配置云托管环境时，仅供本机开发工具使用；真机/体验版应配置云托管环境 ID。
+// 开发版只访问本机 API；体验版访问当前云托管测试环境。
 const LOCAL_API_BASE_URL = 'http://127.0.0.1:3000/api'
 
-// 云托管环境创建后填写；填写后小程序优先使用 wx.cloud.callContainer。
-const WX_CLOUD_ENV_ID = 'prod-d0gpn0x7a421ec215'
+// 当前云环境先作为体验测试环境使用。正式上线前创建独立生产环境并填写下方 ID。
+const WX_CLOUD_TEST_ENV_ID = 'prod-d0gpn0x7a421ec215'
+const WX_CLOUD_PROD_ENV_ID = ''
 const WX_CLOUD_SERVICE_NAME = 'city-flash-api'
 
 const API_BASE_URLS = Object.freeze({
@@ -32,6 +33,14 @@ function isRealDevice(wxApi) {
   }
 }
 
+function resolveCloudEnvId(wxApi) {
+  const version = environmentVersion(wxApi)
+  if (version === 'develop') return ''
+  if (version === 'trial') return WX_CLOUD_TEST_ENV_ID
+  if (version === 'release') return WX_CLOUD_PROD_ENV_ID
+  return ''
+}
+
 function resolveApiBaseUrl(wxApi) {
   const version = environmentVersion(wxApi)
   if (version === 'develop') {
@@ -47,9 +56,11 @@ function resolveApiBaseUrl(wxApi) {
 module.exports = {
   LOCAL_API_BASE_URL,
   API_BASE_URLS,
-  WX_CLOUD_ENV_ID,
+  WX_CLOUD_TEST_ENV_ID,
+  WX_CLOUD_PROD_ENV_ID,
   WX_CLOUD_SERVICE_NAME,
   environmentVersion,
   isRealDevice,
+  resolveCloudEnvId,
   resolveApiBaseUrl
 }

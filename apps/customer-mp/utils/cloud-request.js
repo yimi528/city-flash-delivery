@@ -13,8 +13,9 @@ function getCloudConfig() {
     app = typeof getApp === 'function' ? getApp() : null
   } catch (error) {}
   const globalData = app && app.globalData ? app.globalData : {}
+  const hasRuntimeEnv = Boolean(globalData && Object.prototype.hasOwnProperty.call(globalData, 'wxCloudEnvId'))
   return {
-    envId: globalData.wxCloudEnvId || runtime.WX_CLOUD_ENV_ID || '',
+    envId: hasRuntimeEnv ? globalData.wxCloudEnvId : '',
     serviceName: globalData.wxCloudServiceName || runtime.WX_CLOUD_SERVICE_NAME || 'city-flash-api'
   }
 }

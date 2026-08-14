@@ -46,7 +46,7 @@ wxcloud env:list --region ap-shanghai --json
 
 当前 CLI 的 `--privateKey` 接收私钥内容，不是文件路径；上面的 shell 变量只存在于当前终端，不要写入仓库或 shell 脚本。
 
-登录后使用环境 `prod-d0gpn0x7a421ec215`，并在微信云托管控制台确认 MySQL 8.0 已创建、数据库连接信息可供服务使用。
+当前环境 `prod-d0gpn0x7a421ec215` 先作为体验测试环境使用，并在微信云托管控制台确认 MySQL 8.0 已创建、数据库连接信息可供服务使用。正式上线前应另建生产环境，避免测试数据和真实业务数据混用。
 
 ## 3. 创建 API 服务
 
@@ -128,14 +128,15 @@ https://city-flash-merchant-296677-11-1468253816.sh.run.tcloudbase.com
 
 ## 5. 小程序调用
 
-`apps/customer-mp/config/runtime.js` 中配置微信云托管环境 ID 和服务名：
+`apps/customer-mp/config/runtime.js` 中按小程序版本配置微信云托管环境 ID 和服务名：
 
 ```js
-const WX_CLOUD_ENV_ID = 'prod-d0gpn0x7a421ec215'
+const WX_CLOUD_TEST_ENV_ID = 'prod-d0gpn0x7a421ec215'
+const WX_CLOUD_PROD_ENV_ID = '' // 正式上线前填写独立生产环境 ID
 const WX_CLOUD_SERVICE_NAME = 'city-flash-api'
 ```
 
-小程序启动时调用 `wx.cloud.init`，用户端和骑手端请求统一通过 `wx.cloud.callContainer` 访问 `/api/...`。小程序基础库最低版本要满足官方文档要求（当前项目配置为 3.16.2）。修改后用微信开发者工具真机预览，再按现有 `miniprogram-ci` 流程上传体验版。
+开发版不初始化云托管，访问本机 API；体验版初始化 `WX_CLOUD_TEST_ENV_ID`；正式版只有在填写独立的 `WX_CLOUD_PROD_ENV_ID` 后才初始化云托管。用户端和骑手端请求统一通过 `wx.cloud.callContainer` 访问 `/api/...`。小程序基础库最低版本要满足官方文档要求（当前项目配置为 3.16.2）。修改后用微信开发者工具真机预览，再按现有 `miniprogram-ci` 流程上传体验版。
 
 商家后台走 API 的 HTTPS 公网地址，因此 API 服务必须配置 CORS；小程序的 `callContainer` 不需要把容器内网地址写入代码。
 

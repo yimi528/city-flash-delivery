@@ -15,6 +15,7 @@ function wxFor(envVersion, override = '') {
 test('development uses the local API and allows a developer-only override', () => {
   assert.equal(runtime.resolveApiBaseUrl(wxFor('develop')), runtime.LOCAL_API_BASE_URL)
   assert.equal(runtime.resolveApiBaseUrl(wxFor('develop', 'https://dev.example.com/api/')), 'https://dev.example.com/api')
+  assert.equal(runtime.resolveCloudEnvId(wxFor('develop')), '')
 })
 
 test('development on a real device keeps the local fallback until cloud config is enabled', () => {
@@ -28,11 +29,13 @@ test('development on a real device keeps the local fallback until cloud config i
   assert.match(runtime.resolveApiBaseUrl(deviceWx), /^http:\/\//)
 })
 
-test('trial builds use the local fallback until cloud config is enabled', () => {
+test('trial builds use the cloud test environment', () => {
   assert.equal(runtime.resolveApiBaseUrl(wxFor('trial', 'http://127.0.0.1:3000/api')), runtime.LOCAL_API_BASE_URL)
+  assert.equal(runtime.resolveCloudEnvId(wxFor('trial')), runtime.WX_CLOUD_TEST_ENV_ID)
 })
 
-test('release builds retain the configured runtime fallback', () => {
+test('release builds stay disabled until a production environment is configured', () => {
   const url = runtime.resolveApiBaseUrl(wxFor('release', 'http://127.0.0.1:3000/api'))
   assert.equal(url, runtime.LOCAL_API_BASE_URL)
+  assert.equal(runtime.resolveCloudEnvId(wxFor('release')), '')
 })

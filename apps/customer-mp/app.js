@@ -1,11 +1,17 @@
-let runtimeConfig = { resolveApiBaseUrl: () => 'http://127.0.0.1:3000/api', WX_CLOUD_ENV_ID: '', WX_CLOUD_SERVICE_NAME: 'city-flash-api' }
+let runtimeConfig = {
+  resolveApiBaseUrl: () => 'http://127.0.0.1:3000/api',
+  resolveCloudEnvId: () => '',
+  WX_CLOUD_SERVICE_NAME: 'city-flash-api'
+}
 try {
   if (typeof require === 'function') runtimeConfig = require('./config/runtime')
 } catch (error) {}
 
 App({
   onLaunch() {
-    const cloudEnvId = runtimeConfig.WX_CLOUD_ENV_ID || ''
+    const cloudEnvId = typeof runtimeConfig.resolveCloudEnvId === 'function'
+      ? runtimeConfig.resolveCloudEnvId(wx)
+      : ''
     if (cloudEnvId && wx.cloud && typeof wx.cloud.init === 'function') {
       wx.cloud.init({ env: cloudEnvId })
     }
@@ -250,7 +256,7 @@ App({
     announcement: null,
     pricingVersion: 0,
     apiBaseUrl: runtimeConfig.resolveApiBaseUrl(wx),
-    wxCloudEnvId: runtimeConfig.WX_CLOUD_ENV_ID || '',
+    wxCloudEnvId: '',
     wxCloudServiceName: runtimeConfig.WX_CLOUD_SERVICE_NAME || 'city-flash-api',
     city: '福鼎市',
     currentLocation: null,

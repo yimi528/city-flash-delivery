@@ -42,10 +42,13 @@ npm run miniprogram:preview
 
 ## 发布顺序
 
-1. 先部署微信云托管 API 和商家后台，并确认 API 健康检查通过；
-2. 确认 `apps/customer-mp/config/runtime.js` 中已填写云托管环境 ID 和 `city-flash-api` 服务名；
-3. 在 Actions 中选择 `upload` 上传小程序代码；
-4. 上传成功后，在微信公众平台开发管理中将该版本设置为体验版，再进行用户端、骑手端、登录和订单流程验证。
+1. 本机开发版使用本地 API 和本地 MySQL，不会初始化微信云托管环境；
+2. 先部署微信云托管 API 和商家后台，并确认 API 健康检查通过；
+3. `apps/customer-mp/config/runtime.js` 中的 `WX_CLOUD_TEST_ENV_ID` 供体验版使用；正式上线前必须填写独立的 `WX_CLOUD_PROD_ENV_ID`；
+4. 在 Actions 中选择 `upload` 上传小程序代码；
+5. 上传成功后，在微信公众平台开发管理中将该版本设置为体验版，再进行用户端、骑手端、登录和订单流程验证。
+
+运行时隔离规则：`develop` 使用本地 Docker/本地数据库，`trial` 使用当前云托管测试环境，`release` 只有在配置独立生产环境 ID 后才会访问云托管。真机开发版如需访问本机 API，可继续使用 `developerApiBaseUrl` 临时覆盖本机局域网地址。
 
 GitHub Actions 当前只执行上传，不生成或保存预览二维码。若需要本地预览二维码，仍可使用上面的
 `npm run miniprogram:preview` 命令。
