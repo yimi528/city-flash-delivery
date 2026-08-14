@@ -1,209 +1,66 @@
-# 同城速送（City Flash Delivery）
+# 同城速送 City Flash Delivery
 
-同城速送是一套面向单一运营方的同城配送系统，包含用户微信小程序、同一小程序内的骑手工作台、商家运营后台和 NestJS API。
+一套覆盖用户下单、商家调度与骑手履约的同城配送系统。
 
-项目覆盖从用户询价、下单和支付，到商家调度、骑手抢单、取货、配送和完成的完整履约闭环。当前适合本地演示、业务验收和测试环境部署；正式上线前仍需配置真实域名、HTTPS 证书、微信凭证和生产镜像。
+项目采用 monorepo 组织，包含微信原生小程序、React 商家运营后台、NestJS API 与 MySQL 数据库，支持从服务询价、下单支付到抢单配送、退款对账的完整业务流程。
 
-## 项目亮点
+> 当前项目适合本地开发、功能演示和业务验收。正式上线前，请完成微信登录与支付、地图服务、HTTPS、生产账号及微信云托管等配置。
 
-- **完整业务闭环**：覆盖询价、服务端计价、下单、支付、商家接单、骑手抢单、履约、取消、退款和对账；
-- **多角色协同**：一个微信小程序同时支持用户与骑手身份，运营后台负责报价、调度、审核和配置；
-- **服务端权威计价**：后端结合路线距离、车型、重量、固定线路和天气风险计算价格，并保存计价规则版本；
-- **可靠订单流转**：使用后端状态机限制跨级和倒退操作，通过状态日志保留完整履约轨迹；
-- **并发与幂等控制**：骑手抢单采用事务、条件更新、版本号和幂等键，避免重复领取同一订单；
-- **工程化交付**：包含自动化测试、Swagger、健康检查、审计日志、Docker Compose、云托管发布和持续交付检查。
-
-## 技术栈
-
-| 层级 | 技术 | 用途 |
-| --- | --- | --- |
-| 用户端与骑手端 | 微信原生小程序、JavaScript、WXML、WXSS | 用户下单、微信支付、订单跟踪、骑手抢单与履约 |
-| 商家运营后台 | React 18、TypeScript、Vite | 订单调度、商家报价、骑手管理和配置中心 |
-| 后端服务 | Node.js、NestJS 11、TypeScript | REST API、业务模块、依赖注入、鉴权和参数校验 |
-| 数据访问 | Prisma 5 | 数据模型、迁移、事务和类型安全查询 |
-| 数据存储 | MySQL 8.0、MySQL GIS | 订单、支付、用户、骑手和服务区域边界 |
-| 限流 | API 单实例内存 Map | 接口限流；当前不依赖 Redis |
-| 外部服务 | 腾讯地图 WebService、Open-Meteo、微信登录、微信支付 | 地址搜索、路线距离、天气风险、身份和支付能力 |
-| 接口与安全 | REST、Swagger、Token 鉴权、角色权限、Helmet、CORS | 接口文档、访问控制和基础安全防护 |
-| 测试与质量 | Jest、Node.js Test Runner、ESLint、Prettier | 后端测试、小程序测试、静态检查和格式化 |
-| 部署与运维 | Docker、Docker Compose、微信云托管 CLI、Bash | 本地编排、云托管服务发布和自动化检查 |
-
-## 系统组成
-
-| 模块 | 目录 | 技术 | 说明 |
-| --- | --- | --- | --- |
-| 用户端与骑手端 | `apps/customer-mp` | 微信原生小程序 | 用户下单、订单查询、地址簿、骑手申请及骑手履约 |
-| 商家运营后台 | `apps/merchant-web` | React 18、TypeScript、Vite | 订单调度、骑手审核与管理、价格和系统配置 |
-| 主后端 | `server/api` | NestJS、Prisma、MySQL 8.0 | 账号、订单、计价、支付、地图、骑手和运营接口 |
-| 生产部署 | `docs/deploy-wxcloud.md` | 微信云托管 CLI、云托管容器服务 | API、MySQL 和商家后台发布 |
-
-## 快速开始
-
-### 环境要求
-
-- Node.js 20 或更高版本（生产镜像使用 Node.js 22）
-- npm
-- Docker Desktop，并确保 Docker Engine 已启动
-- 微信开发者工具（运行小程序时需要）
-- macOS 或 Linux；一键脚本依赖 Bash、`curl`、`lsof` 和 Docker Compose
-
-### 一键启动
-
-在仓库根目录运行：
-
-```bash
-npm run start:dev
-```
-
-该命令会在后台启动前端、后端和 MySQL，等待前后端健康检查通过后返回终端。也可以双击 `启动开发环境.command`。
-
-如果需要在当前终端持续查看启动日志，可使用底层前台命令：
-
-```bash
-npm run dev
-```
-
-首次启动会自动：
-
-1. 从 `server/api/.env.example` 创建本地 `.env`；
-2. 安装后端和商家端依赖；
-3. 启动 MySQL；
-4. 生成 Prisma Client 并执行数据库迁移；
-5. 构建并启动 API；
-6. 启动商家运营后台。
-
-启动完成后访问：
-
-| 服务 | 地址 |
-| --- | --- |
-| 商家运营后台 | <http://127.0.0.1:5173> |
-| API 基础地址 | <http://127.0.0.1:3000/api> |
-| API 健康检查 | <http://127.0.0.1:3000/api/health> |
-| Swagger 文档 | <http://127.0.0.1:3000/api/docs> |
-
-> 直接打开 `/api` 返回 `Cannot GET /api`（404）是正常现象，因为 API 根路径没有页面路由。请使用 `/api/health` 判断后端是否启动成功。
-
-商家端使用“用户名 + 强密码”登录。本地示例账号参数位于 `server/api/.env.example`，生产账号必须通过一次性初始化脚本创建。
-
-### 停止项目
-
-```bash
-npm run dev:stop
-```
-
-该命令会停止前端、后端和 MySQL。macOS 也可以双击：
-
-- `启动开发环境.command`
-- `停止开发环境.command`
-- `打开启停控制台.command`（打开仅限本机访问的图形化启停面板）
-
-## 微信小程序
-
-使用微信开发者工具导入仓库根目录；根目录的 `project.config.json` 会指向小程序代码。开发环境默认请求：
-
-```text
-http://127.0.0.1:3000/api
-```
-
-接口地址由 `apps/customer-mp/config/runtime.js` 按微信环境决定。填写微信云托管环境 ID 后，用户端和骑手端优先通过 `wx.cloud.callContainer` 调用 API；未填写时仅保留 `127.0.0.1` 本地开发回退：
-
-- `develop`：本地 API，可使用本地存储中的开发覆盖地址；
-- `trial`：微信云托管 API；
-- `release`：微信云托管 API。
-
-上传体验版或正式版之前，必须填写 `WX_CLOUD_ENV_ID`，并确认小程序已授权访问该云托管环境。
-
-## 已实现功能
+## 功能概览
 
 ### 用户端
 
-- 顺风车、寄货/配送、运货、搬运装卸、急送、帮取、帮买、送货/送客八类服务；
-- 地图定位、地址搜索、手动填写、地址编辑和地址簿；
-- 粘贴文本自动识别联系人、手机号和地址；
-- 常用地址统计和最近使用推荐；
-- 后端统一计价、固定车型、线路价格和恶劣天气倍率；
-- 创建订单、报价确认、微信支付、取消、退款和订单状态跟踪；
-- 用户身份与骑手身份共用同一账号，可在小程序内切换。
+- 支持寄货、急送、帮取、帮买、运货、搬运、顺风车等同城服务
+- 地图选点、地址搜索、地址簿及粘贴文本智能识别
+- 服务端统一计价，支持车型、重量、固定线路和天气风险规则
+- 创建订单、确认报价、微信支付、取消、退款及进度查询
+- 同一微信账号可切换用户与骑手身份
 
 ### 骑手端
 
-- 提交骑手申请并查看审核结果；
-- 上线、手动下线和位置心跳；
-- 按车型、资质、距离和任务上限获取可抢订单；
-- 原子抢单，避免同一订单被多个骑手同时领取；
-- 在线接单大厅每 8 秒检查新订单，使用可静音的短提示音、振动和页面提示提醒骑手；
-- 当前任务、导航、联系用户、到达、取货、配送和完成；
-- 历史订单、收入统计和异常上报；
-- 上线状态保存在后端，不因切换回用户端而自动下线。
+- 骑手申请、审核状态查询及上下线管理
+- 根据服务范围、车型、资质和距离展示可抢订单
+- 原子抢单与幂等控制，避免订单被重复领取
+- 到达、取货、配送、完成等完整履约操作
+- 当前任务、历史订单、收入统计和异常上报
 
 ### 商家运营后台
 
-- 微信开放平台扫码登录、运营白名单和后端连接状态；
-- 当前订单及历史订单搜索、状态筛选和日期筛选；
-- 商家接单与报价；商家接单后订单才会进入骑手抢单大厅；
-- 每 5 秒检查新订单，使用可静音的短提示音和页面提示提醒运营人员；
-- 骑手申请独立审核，导航数字显示待处理申请数量；
-- 按姓名、手机号或骑手编号搜索骑手；
-- 暂停、恢复或标记骑手离职；
-- 价格规则、服务范围、营业状态、公告和调度参数配置；
-- 订单小票打印。
+- 运营人员登录及权限控制
+- 新订单提醒、接单、报价和订单调度
+- 订单搜索、状态与日期筛选、小票打印
+- 骑手申请审核、人员查询及状态管理
+- 价格规则、服务范围、营业状态和公告配置
 
-### 后端
+### 服务端
 
-- 微信登录 Mock 与正式微信登录配置；
-- 用户、运营员和骑手多角色授权；
-- MySQL 8.0 + Prisma 数据持久化及 MySQL GIS 服务区域查询；
-- 单实例内存限流和后端骑手在线状态支持；
-- 订单状态机、幂等抢单和状态日志；
-- 后端计价与配置版本快照；
-- 腾讯地图 WebService 服务端代理；
-- 天气风险识别与恶劣天气计价；
-- 微信支付 Mock，以及正式支付、回调、退款和对账基础能力；
-- Swagger、健康检查、请求 ID 和审计日志。
+- 用户、运营员和骑手多角色鉴权
+- 订单状态机、状态日志、审计日志和请求 ID
+- 统一计价、规则版本快照和服务区域校验
+- 微信登录、微信支付、退款与对账基础能力
+- 腾讯地图服务端代理和天气风险识别
+- Swagger、健康检查、接口限流与生产配置校验
 
-## 核心业务流程
+## 技术栈
 
-普通配送订单：
+| 模块 | 技术 |
+| --- | --- |
+| 微信小程序 | JavaScript、WXML、WXSS、微信云托管调用 |
+| 商家后台 | React 18、TypeScript、Vite |
+| API | Node.js、NestJS 11、TypeScript |
+| 数据层 | Prisma 5、MySQL 8.0、MySQL GIS |
+| 外部服务 | 微信登录与支付、腾讯地图 WebService、Open-Meteo |
+| 工程化 | Jest、Node.js Test Runner、ESLint、Prettier、Docker、GitHub Actions |
 
-```text
-选择服务与地址
-  → 后端计算价格并创建订单
-  → 用户支付
-  → 商家接单
-  → 骑手抢单
-  → 前往取货并确认到达
-  → 配送中
-  → 已完成
-```
-
-需要商家报价的订单：
+## 系统架构
 
 ```text
-用户提交需求
-  → 商家填写报价
-  → 用户确认报价
-  → 用户支付
-  → 商家接单
-  → 骑手抢单与履约
-```
-
-订单状态由后端状态机控制，不能跨级推进、倒退，已完成或已取消订单不能再次履约。
-
-## 技术架构
-
-```text
-微信小程序（用户 / 骑手） ───────┐
-                                 │ HTTP API
-React 商家运营后台 ──────────────┤
-                                 ▼
-                       NestJS API
-                        │
-                        ▼
-                  MySQL 8.0 + GIS
-                        │
-                        ├── 腾讯地图 WebService
-                        ├── 天气预报服务
-                        └── 微信登录 / 微信支付
+微信小程序（用户 / 骑手） ──┐
+                            ├── NestJS API ── MySQL 8.0 + GIS
+React 商家运营后台 ─────────┘       │
+                                   ├── 微信登录 / 微信支付
+                                   ├── 腾讯地图 WebService
+                                   └── 天气服务
 ```
 
 ## 项目结构
@@ -211,74 +68,140 @@ React 商家运营后台 ──────────────┤
 ```text
 city-flash-delivery/
 ├── apps/
-│   ├── customer-mp/          # 用户端与骑手端微信小程序
-│   └── merchant-web/         # 商家运营后台
-├── server/
-│   └── api/                  # NestJS 主后端
-├── packages/shared/          # 多端共享状态约定
-├── scripts/                  # 启停、验收和发布检查脚本
-├── deploy/                   # 小程序发布辅助说明
-├── docs/                     # 产品需求和 UI 参考资料
-├── project.config.json       # 微信开发者工具项目配置
-└── package.json              # 根目录统一命令
+│   ├── customer-mp/       # 用户端与骑手端微信小程序
+│   └── merchant-web/      # React 商家运营后台
+├── server/api/            # NestJS API 与 Prisma Schema
+├── packages/shared/       # 多端共享的订单状态约定
+├── scripts/               # 本地启停、测试和发布检查脚本
+├── deploy/                # 小程序发布说明
+├── docs/                  # 部署、需求与界面参考资料
+├── docker-compose.yml     # 容器编排配置
+└── package.json           # 根目录统一命令
 ```
+
+## 快速开始
+
+### 环境要求
+
+- Node.js 20+（CI 与生产镜像使用 Node.js 22）
+- npm
+- Docker Desktop
+- Bash、`curl`、`lsof` 和 Docker Compose
+- 微信开发者工具（调试小程序时需要）
+
+一键脚本面向 macOS 和 Linux。Windows 建议使用 WSL，或分别启动数据库、API 与商家后台。
+
+### 1. 获取代码
+
+```bash
+git clone https://github.com/yimi528/city-flash-delivery.git
+cd city-flash-delivery
+```
+
+### 2. 启动开发环境
+
+```bash
+npm run start:dev
+```
+
+首次运行会自动完成以下工作：
+
+1. 从 `server/api/.env.example` 创建本地 `.env`
+2. 安装 API 与商家后台依赖
+3. 启动本地 MySQL
+4. 生成 Prisma Client 并执行数据库迁移
+5. 构建并启动 API 与商家后台
+
+启动完成后可访问：
+
+| 服务 | 地址 |
+| --- | --- |
+| 商家运营后台 | <http://127.0.0.1:5173> |
+| API 健康检查 | <http://127.0.0.1:3000/api/health> |
+| Swagger 文档 | <http://127.0.0.1:3000/api/docs> |
+
+若希望在当前终端持续查看日志，请运行：
+
+```bash
+npm run dev
+```
+
+停止开发环境：
+
+```bash
+npm run dev:stop
+```
+
+macOS 也可使用根目录中的 `启动开发环境.command`、`停止开发环境.command` 和 `打开启停控制台.command`。
+
+## 微信小程序调试
+
+使用微信开发者工具导入仓库根目录，根目录 `project.config.json` 已指向 `apps/customer-mp`。
+
+开发环境默认请求：
+
+```text
+http://127.0.0.1:3000/api
+```
+
+运行时配置位于 `apps/customer-mp/config/runtime.js`：
+
+- `develop` 可回退到本地 API
+- `trial` 和 `release` 使用 `wx.cloud.callContainer`
+- 上传体验版或正式版前，必须填写微信云托管环境 ID，并确认小程序拥有访问权限
+
+真机无法访问 `127.0.0.1`。本地真机联调需要使用同一局域网内可访问的电脑 IP；体验版与正式版应使用微信云托管。
 
 ## 环境配置
 
-本地后端配置文件：
+后端本地配置：
 
 ```bash
 cp server/api/.env.example server/api/.env
 ```
 
-常用配置：
+常用变量：
 
-| 变量 | 用途 | 本地默认值 |
+| 变量 | 说明 | 本地默认行为 |
 | --- | --- | --- |
-| `DATABASE_URL` | MySQL 连接 | 本地 Docker MySQL |
-| `JWT_SECRET` | 登录令牌签名 | 仅限本地的占位密钥 |
-| `WECHAT_LOGIN_MOCK_ENABLED` | 微信登录 Mock | `true` |
+| `DATABASE_URL` | MySQL 连接串 | 连接本地 Docker MySQL |
+| `JWT_SECRET` | Token 签名密钥 | 仅限本地的占位值 |
+| `WECHAT_LOGIN_MOCK_ENABLED` | 微信登录 Mock | 开启 |
 | `WECHAT_PAY_MODE` | `mock`、`disabled` 或 `wechat` | `mock` |
-| `TENCENT_MAP_KEY` | 腾讯地图 WebService Key | 空，使用降级逻辑 |
-| `ENABLE_SWAGGER` | 是否启用 Swagger | `true` |
-| `CORS_ORIGINS` | 允许访问 API 的 Web 来源 | 本地商家端地址 |
+| `TENCENT_MAP_KEY` | 腾讯地图 WebService Key | 未配置时使用降级逻辑 |
+| `CORS_ORIGINS` | 允许访问 API 的 Web 来源 | 本地商家后台 |
+| `ENABLE_SWAGGER` | 是否开放 Swagger | 开启 |
 
-不要提交 `.env`、数据库密码、微信密钥、支付私钥或生产证书。
+请勿提交 `.env`、数据库密码、微信 AppSecret、支付私钥、证书或其他生产凭证。
 
-## 常用开发命令
+## 常用命令
 
 ### 根目录
 
 ```bash
-npm run dev                 # 一键启动本地项目
-npm run dev:stop            # 停止本地项目及数据库容器
-npm run test:mvp            # 小程序、后端、商家端完整代码验收
-npm run test:start-stop     # 验证一键启动和停止
-npm run test:security       # 检查生产依赖漏洞
-npm run test:containers     # 构建并验证三个生产镜像
-npm run release:check       # 检查生产发布配置
+npm run start:dev          # 后台启动完整开发环境
+npm run dev                # 前台启动并持续输出日志
+npm run dev:stop           # 停止前后端与本地数据库
+npm run test:mvp           # 执行完整代码验收
+npm run test:start-stop    # 验证一键启停流程
+npm run test:security      # 检查生产依赖漏洞
+npm run test:containers    # 构建并检查生产镜像
+npm run release:check      # 校验微信云托管生产配置
 ```
 
-执行包含真实数据库订单履约的测试：
-
-```bash
-RUN_LIVE=1 npm run test:start-stop
-```
-
-### 后端
+### API
 
 ```bash
 cd server/api
-npm run start:dev           # 开发模式
-npm test -- --runInBand     # 单元与集成测试
-npm run lint                # ESLint
-npm run build               # NestJS 构建
-npx prisma validate         # 校验 Prisma Schema
-npm run prisma:deploy       # 执行已有数据库迁移
-npm run test:live           # 真实 API 订单履约流程
+npm run start:dev
+npm test -- --runInBand
+npm run lint
+npm run build
+npm run prisma:deploy
+npx prisma validate
 ```
 
-### 商家端
+### 商家后台
 
 ```bash
 cd apps/merchant-web
@@ -286,59 +209,70 @@ npm run dev
 npm run build
 ```
 
-### 小程序
-
-小程序测试使用 Node.js 内置测试运行器，无需额外测试框架：
+### 微信小程序
 
 ```bash
 node --test apps/customer-mp/tests/*.test.js
 ```
 
-## 当前验证基线
+## 核心订单流程
 
-最近一次基础回归日期：**2026-08-14**；微信云托管 API、MySQL 和商家后台验收也在 **2026-08-14** 完成。
+普通计价订单：
 
-- 小程序自动化测试：53 项通过；
-- 后端 Jest：12 个测试套件、70 项测试通过；
-- 后端 lint、构建和 Prisma 校验通过；
-- 商家端生产构建通过；
-- 商家端首页和 `/healthz` 通过；
-- API `/api/health/live`、`/api/health/ready`、MySQL 就绪检查和 CORS 预检通过；
-- 云端用户 Mock 登录和服务范围检查接口通过；
-- 报价、下单、支付、接单、取货、配送、完成真实数据库链路通过；
+```text
+选择服务与地址
+  → 服务端计价并创建订单
+  → 用户支付
+  → 商家接单
+  → 骑手抢单
+  → 到达取货
+  → 配送中
+  → 已完成
+```
 
-这些结果表示当前提交可用于本地验收，不表示已经满足正式上线条件。
+需要人工报价的订单：
+
+```text
+用户提交需求
+  → 商家报价
+  → 用户确认报价并支付
+  → 商家接单
+  → 骑手抢单与履约
+```
+
+订单状态由服务端状态机控制，不允许跳级、倒退或重复完成。
 
 ## 生产部署
 
-详细步骤见 [`docs/deploy-wxcloud.md`](docs/deploy-wxcloud.md)。
+正式部署目标为微信云托管：
 
-正式部署前至少需要：
+- `city-flash-api`：NestJS API，容器端口 `3000`
+- `city-flash-merchant`：商家后台静态站点，容器端口 `80`
+- 数据库：微信云托管 MySQL 8.0
+- 小程序：通过 `wx.cloud.callContainer` 访问 API
 
-1. 微信云托管环境和 MySQL 8.0；
-2. API 服务和商家后台服务；
-3. 正式微信小程序 AppID 和 Secret；
-4. 商家运营账号和符合规则的强密码；
-5. 商家后台 HTTPS 来源和 API CORS 配置；
-6. 腾讯地图 WebService Key；
-7. 至少 32 字符的随机 `JWT_SECRET`；
-8. 微信支付商户号、APIv3 密钥、商户私钥、平台证书和回调域名（启用支付时）；
-9. 云托管 MySQL 备份、日志、监控、告警和恢复演练。
+部署前至少需要配置：
 
-准备生产配置：
+- 微信云托管环境、API 服务和商家后台服务
+- 正式小程序 AppID、AppSecret 与服务授权
+- MySQL 连接、随机强 `JWT_SECRET` 和正式运营账号
+- 腾讯地图 WebService Key
+- 商家后台 HTTPS 来源与 API CORS
+- 微信支付商户信息、APIv3 密钥、私钥、平台证书和回调地址（启用支付时）
+
+生产环境必须关闭 Mock 登录、Mock 支付和运营账号自动初始化，禁止使用默认密钥。数据库迁移仅使用 `prisma migrate deploy`。
+
+完整操作步骤、环境变量和 CI/CD 配置请阅读 [微信云托管部署说明](docs/deploy-wxcloud.md)。执行发布前可运行：
 
 ```bash
-cp .env.docker.example .env
 npm run release:check -- .env.cloud
 ```
 
-发布检查全部通过后再执行部署。商家后台通过微信云托管容器提供 HTTPS 地址；小程序通过云托管 `callContainer` 调用 API。当前部署和验收过程见 [`docs/deploy-wxcloud.md`](docs/deploy-wxcloud.md)。
-
 ## 常见问题
 
-### 打开 `http://127.0.0.1:3000/api` 显示 404
+### 访问 `/api` 返回 404
 
-正常。这里是 API 前缀，不是网页。请访问：
+这是正常现象，`/api` 是接口前缀而不是网页。请使用健康检查：
 
 ```text
 http://127.0.0.1:3000/api/health
@@ -346,97 +280,44 @@ http://127.0.0.1:3000/api/health
 
 ### 端口 3000 或 5173 被占用
 
-先执行：
-
 ```bash
 npm run dev:stop
+npm run start:dev
 ```
-
-再重新运行 `npm run dev`。停止脚本会清理项目占用的两个开发端口。
-
-### 小程序请求不到 API
-
-- 确认 `/api/health` 可访问；
-- 检查 `apps/customer-mp/config/runtime.js` 是否已填写云托管环境 ID；
-- 微信开发者工具本地调试时可关闭合法域名校验；
-- 开发者工具本地回退访问 `127.0.0.1`；真机、体验版和正式版应使用云托管 `callContainer`，不依赖临时 Tunnel。
-
-#### 局域网真机调试注意事项
-
-历史上如果使用局域网电脑上的本地后端，例如：
-
-```text
-http://<局域网IPv4>:3000/api
-```
-
-运行微信开发者工具的电脑和真机必须能够访问 Windows 的局域网 IP 与 3000 端口。不要求一定连接同一个 Wi-Fi，但网络必须互通；最简单的方式是让 Windows、Mac 和手机连接同一个普通 Wi-Fi，不要使用访客网络。
-
-Windows PowerShell 检查命令：
-
-```powershell
-ipconfig
-Get-NetTCPConnection -LocalPort 3000 -State Listen
-curl.exe http://127.0.0.1:3000/api/health
-curl.exe http://<Windows局域网IPv4>:3000/api/health
-```
-
-正常情况下，API 应监听在 `0.0.0.0:3000`，健康检查应返回 `status: ok`，且 `database` 为 `true`。如果 Windows 本机访问正常、其他设备访问失败，可在管理员 PowerShell 中执行：
-
-```powershell
-Set-NetConnectionProfile -InterfaceAlias "WLAN" -NetworkCategory Private
-New-NetFirewallRule -DisplayName "City Flash API 3000" -Direction Inbound -Protocol TCP -LocalPort 3000 -Action Allow
-```
-
-Mac 或朋友电脑可执行：
-
-```bash
-nc -vz <Windows局域网IPv4> 3000
-curl http://<Windows局域网IPv4>:3000/api/health
-```
-
-如果 `nc` 超时，检查 Windows 防火墙、路由器的无线客户端隔离、访客网络，以及 Windows IPv4 是否发生变化。不要把开发用的 3000 端口直接暴露到公网。
-
-微信开发者工具运行在哪台电脑，就要检查哪台电脑的代理和 VPN。Mac 上的 iKuuu、Clash 或系统 HTTP/HTTPS/SOCKS 代理可能导致：
-
-```text
-ERR_PROXY_CONNECTION_FAILED
-ERR_CONNECTION_TIMED_OUT
-request:fail timeout
-```
-
-排查时应完全退出代理/VPN，并在 macOS“系统设置 → 网络 → Wi-Fi → 代理”中关闭 HTTP、HTTPS 和 SOCKS 代理，然后重启微信开发者工具。可以用下面的命令检查：
-
-```bash
-scutil --proxy
-```
-
-`HTTPEnable`、`HTTPSEnable` 和 `SOCKSEnable` 应为 `0`。
-
-如果 Windows 的局域网 IPv4 发生变化，需要同步修改 `apps/customer-mp/config/runtime.js` 的开发地址，或在开发者工具控制台设置：
-
-```js
-wx.setStorageSync('developerApiBaseUrl', 'http://<Windows局域网IPv4>:3000/api')
-```
-
-使用公网 HTTPS 后端时，朋友不需要和 Windows 在同一个网络，只需要能够上网，并在微信公众平台配置 request 合法域名。真机调试时，手机本身也必须能够访问 API。
 
 ### 地图搜索没有真实结果
 
-在 `server/api/.env` 中配置 `TENCENT_MAP_KEY`。未配置或地图服务不可用时，项目会使用本地建议和距离估算降级逻辑。
+在 `server/api/.env` 中填写 `TENCENT_MAP_KEY`。未配置或地图服务不可用时，系统会使用本地建议和距离估算。
 
-### 骑手上线后没有附近订单
+### 小程序请求不到 API
 
-检查位置权限、骑手审核状态、车型和资格、订单服务范围、抢单半径以及最大进行中订单数量。切换回用户端不会主动下线骑手；只有手动下线、账号状态变化或心跳超时才会结束在线状态。
+请依次确认：
 
-## 安全说明
+1. `/api/health` 能正常访问
+2. 本地调试地址或微信云托管环境 ID 配置正确
+3. 微信开发者工具中的合法域名校验设置符合当前环境
+4. 真机能够访问对应局域网地址，或已切换到云托管调用
 
-- 本地演示账号、Mock 登录和 Mock 支付不得直接用于公开生产环境；
-- 生产环境应关闭 Swagger、关闭登录 Mock，并按发布阶段配置支付模式；
-- 所有地图、微信和支付密钥只保存在服务端；
-- 生产镜像必须使用完整 Git SHA，不要使用 `latest`；
-- 云托管 MySQL 不应直接暴露到公网，API 只通过云托管内网连接数据库；
-- 仓库中的功能和支付接入代码不能替代微信平台审核、备案、隐私合规和真实设备验收。
+### 骑手上线后看不到订单
+
+检查骑手审核状态、位置权限、车型与资质、抢单半径、订单服务范围以及最大进行中任务数量。
+
+## 安全与上线说明
+
+- Mock 登录、Mock 支付和示例运营账号仅用于本地或测试环境
+- 正式环境应关闭 Swagger，并使用明确的 HTTPS CORS 来源
+- 地图、微信和支付密钥仅保存在服务端或云端密钥配置中
+- 生产镜像建议使用完整 Git SHA 标识，不使用 `latest`
+- MySQL 不应直接暴露到公网
+- 上线前仍需完成备案、隐私合规、微信平台审核和真实设备验收
+
+## 文档
+
+- [微信云托管部署](docs/deploy-wxcloud.md)
+- [小程序 CI 发布](deploy/miniprogram-ci.md)
+- [商家后台说明](apps/merchant-web/README.md)
+- [API 说明](server/api/README.md)
 
 ## License
 
-当前项目为私有业务项目，未声明开源许可证。
+本项目尚未声明开源许可证。未获得授权前，请勿将代码用于商业分发。
