@@ -2,6 +2,19 @@
 
 本项目的正式部署目标是微信云托管，不再依赖 osako、Quick Tunnel、Sealos 或其他服务器。
 
+## 正式发布参数
+
+当前已确定的客户正式发布目标如下：
+
+```text
+微信小程序 AppID：wxee631108a5a95efc
+微信云托管环境 ID：ding-delivery-prod-d8c1eea132b4c
+API 服务名：city-flash-api
+商家端服务名：city-flash-merchant
+```
+
+当前仓库的 `project.config.json` 仍保留测试 AppID `wx4878475053d6a722`，用于本地开发和测试；正式上传时必须显式使用客户正式 AppID。
+
 官方资料必须优先于本文件：
 
 - [微信云托管文档](https://developers.weixin.qq.com/miniprogram/dev/wxcloudservice/wxcloudrun/src/)
@@ -39,14 +52,14 @@ wxcloud --help
 ```bash
 WX_CLOUD_PRIVATE_KEY="$(< /绝对路径/cloud-cli-private-key.pem)"
 wxcloud login \
-  --appId wx4878475053d6a722 \
+  --appId "$WX_CLOUD_APP_ID" \
   --privateKey "$WX_CLOUD_PRIVATE_KEY"
 wxcloud env:list --region ap-shanghai --json
 ```
 
 当前 CLI 的 `--privateKey` 接收私钥内容，不是文件路径；上面的 shell 变量只存在于当前终端，不要写入仓库或 shell 脚本。
 
-当前环境 `prod-d0gpn0x7a421ec215` 先作为体验测试环境使用，并在微信云托管控制台确认 MySQL 8.0 已创建、数据库连接信息可供服务使用。正式上线前应另建生产环境，避免测试数据和真实业务数据混用。
+当前环境 `prod-d0gpn0x7a421ec215` 作为体验测试环境使用；客户正式环境为 `ding-delivery-prod-d8c1eea132b4c`。正式环境仍需完成 MySQL 8.0、服务、环境变量和生产数据初始化，避免测试数据和真实业务数据混用。
 
 ## 3. 创建 API 服务
 
@@ -132,7 +145,7 @@ https://city-flash-merchant-296677-11-1468253816.sh.run.tcloudbase.com
 
 ```js
 const WX_CLOUD_TEST_ENV_ID = 'prod-d0gpn0x7a421ec215'
-const WX_CLOUD_PROD_ENV_ID = '' // 正式上线前填写独立生产环境 ID
+const WX_CLOUD_PROD_ENV_ID = 'ding-delivery-prod-d8c1eea132b4c'
 const WX_CLOUD_SERVICE_NAME = 'city-flash-api'
 ```
 

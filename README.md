@@ -314,6 +314,7 @@ npm run start:dev
 ## 文档
 
 - [微信云托管部署](docs/deploy-wxcloud.md)
+- [小程序账号基本信息](docs/miniprogram-account-info.md)
 - [小程序 CI 发布](deploy/miniprogram-ci.md)
 - [商家后台说明](apps/merchant-web/README.md)
 - [API 说明](server/api/README.md)
