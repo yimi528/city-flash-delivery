@@ -1,0 +1,161 @@
+name: Deploy to WeChat Cloud Hosting
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    name: Tests and quality checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_DATABASE: city_flash_ci
+          MYSQL_USER: ci
+          MYSQL_PASSWORD: ci
+          MYSQL_ROOT_PASSWORD: root-ci
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uci -pci --silent"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            server/api/package-lock.json
+            apps/merchant-web/package-lock.json
+
+      - name: Install dependencies
+        run: |
+          npm ci
+          npm --prefix server/api ci
+          npm --prefix apps/merchant-web ci
+
+      - name: Generate Prisma Client
+        run: npm --prefix server/api run prisma:generate
+
+      - name: Run tests and checks
+        env:
+          DATABASE_URL: mysql://ci:ci@127.0.0.1:3306/city_flash_ci
+          VITE_API_BASE_URL: https://api.example.com/api
+        run: |
+          node --test apps/customer-mp/tests/*.test.js
+          npm --prefix server/api test -- --runInBand
+          npm --prefix server/api run lint
+          npm --prefix server/api run build
+          (cd server/api && npm run prisma:deploy)
+          (cd server/api && npm exec -- prisma validate)
+          npm --prefix apps/merchant-web run build
+
+  deploy:
+    needs: quality
+    if: github.event_name != 'pull_request' && vars.WX_CLOUD_DEPLOY_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    env:
+      WX_CLOUD_ENV_ID: ${{ secrets.WX_CLOUD_ENV_ID }}
+      WX_CLOUD_APP_ID: ${{ secrets.WX_CLOUD_APP_ID }}
+      WX_CLOUD_PRIVATE_KEY: ${{ secrets.WX_CLOUD_PRIVATE_KEY }}
+      WX_CLOUD_API_SERVICE_NAME: ${{ secrets.WX_CLOUD_API_SERVICE_NAME }}
+      WX_CLOUD_MERCHANT_SERVICE_NAME: ${{ secrets.WX_CLOUD_MERCHANT_SERVICE_NAME }}
+      WX_CLOUD_API_PUBLIC_DOMAIN: ${{ secrets.WX_CLOUD_API_PUBLIC_DOMAIN }}
+      WX_CLOUD_API_ENV_PARAMS: ${{ secrets.WX_CLOUD_API_ENV_PARAMS }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/merchant-web/package-lock.json
+
+      - name: Install WeChat Cloud Hosting CLI
+        run: npm install --global @wxcloud/cli
+
+      - name: Validate deployment secrets
+        run: |
+          test -n "$WX_CLOUD_ENV_ID"
+          test -n "$WX_CLOUD_APP_ID"
+          test -n "$WX_CLOUD_PRIVATE_KEY"
+          test -n "$WX_CLOUD_API_SERVICE_NAME"
+          test -n "$WX_CLOUD_MERCHANT_SERVICE_NAME"
+          test -n "$WX_CLOUD_API_PUBLIC_DOMAIN"
+
+      - name: Login to WeChat Cloud Hosting
+        run: wxcloud login --appId "$WX_CLOUD_APP_ID" --privateKey "$WX_CLOUD_PRIVATE_KEY"
+
+      - name: Deploy API
+        working-directory: server/api
+        run: |
+          args=(
+            --targetDir .
+            --dockerfile Dockerfile
+            --containerPort 3000
+            --envId "$WX_CLOUD_ENV_ID"
+            --serviceName "$WX_CLOUD_API_SERVICE_NAME"
+            --region ap-shanghai
+            --releaseType FULL
+            --remark "GitHub Actions $GITHUB_SHA"
+          )
+          if [ -n "$WX_CLOUD_API_ENV_PARAMS" ]; then
+            args+=(--envParams "$WX_CLOUD_API_ENV_PARAMS")
+          else
+            args+=(--override)
+          fi
+          wxcloud run:deploy "${args[@]}" --noConfirm
+
+      - name: Build merchant web
+        working-directory: apps/merchant-web
+        env:
+          VITE_API_BASE_URL: https://${{ secrets.WX_CLOUD_API_PUBLIC_DOMAIN }}/api
+          VITE_TENCENT_MAP_JS_KEY: ${{ secrets.WX_CLOUD_MERCHANT_MAP_KEY }}
+        run: |
+          npm ci
+          npm run build
+
+      - name: Deploy merchant web
+        run: |
+          merchant_package_dir="$(mktemp -d)"
+          cp apps/merchant-web/Dockerfile.cloud "$merchant_package_dir/Dockerfile"
+          cp apps/merchant-web/nginx.conf "$merchant_package_dir/nginx.conf"
+          cp -R apps/merchant-web/dist "$merchant_package_dir/dist"
+          wxcloud run:deploy "$merchant_package_dir" \
+            --targetDir . \
+            --dockerfile Dockerfile \
+            --containerPort 80 \
+            --envId "$WX_CLOUD_ENV_ID" \
+            --serviceName "$WX_CLOUD_MERCHANT_SERVICE_NAME" \
+            --region ap-shanghai \
+            --releaseType FULL \
+            --remark "GitHub Actions merchant $GITHUB_SHA" \
+            --noConfirm
+
+  deployment-not-configured:
+    name: Cloud deployment status
+    needs: quality
+    if: github.event_name != 'pull_request' && vars.WX_CLOUD_DEPLOY_ENABLED != 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Explain deployment is disabled
+        run: echo "Quality checks passed. Set repository variable WX_CLOUD_DEPLOY_ENABLED=true and configure the wxcloud secrets to enable deployment."

@@ -35,5 +35,5 @@ if lsof -tiTCP:3000 -sTCP:LISTEN >/dev/null 2>&1 || lsof -tiTCP:5173 -sTCP:LISTE
   exit 1
 fi
 
-printf '[通过] 一键停止已关闭前端、后端、PostgreSQL 与 Redis。\n'
+printf '[通过] 一键停止已关闭前端、后端和 MySQL。\n'
 trap - EXIT INT TERM

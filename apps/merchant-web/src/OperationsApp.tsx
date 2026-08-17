@@ -511,7 +511,7 @@ export function OperationsApp() {
   const [toast, setToast] = useState('')
   const [soundEnabled, setSoundEnabled] = useState(() => localStorage.getItem('merchantNewOrderSound') !== 'off')
   const [soundArmed, setSoundArmed] = useState(false)
-  const [healthText, setHealthText] = useState('请先启动 NestJS 后端：cd server/api && npm run start:dev')
+  const [healthText, setHealthText] = useState('请先启动本地 API：docker compose up -d')
   const toastTimer = useRef(0)
   const refreshingRef = useRef(false)
   const orderAlertRef = useRef(new NewOrderAlert())
@@ -586,7 +586,7 @@ export function OperationsApp() {
       setManagedRiders(riderList)
       setConnected(true)
       setDataError('')
-      setHealthText('已连接 NestJS 后端，订单状态会和用户端同步')
+      setHealthText('已连接 API，订单状态会和用户端同步')
       if (!silent) showToast('订单已刷新')
     } catch (error) {
       setConnected(false)
@@ -625,7 +625,7 @@ export function OperationsApp() {
       setManagedRiders(riderList)
       setConnected(true)
       setDataError('')
-      setHealthText('已连接 NestJS 后端，订单状态会和用户端同步')
+      setHealthText('已连接 API，订单状态会和用户端同步')
     } catch (error) {
       setConnected(false)
       const message = error instanceof Error ? error.message : '未知错误'

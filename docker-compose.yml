@@ -1,34 +1,19 @@
 services:
-  postgres:
-    build:
-      context: ./server/api/postgis
-      dockerfile: Dockerfile
-    image: city-flash-postgis:16
+  mysql:
+    image: mysql:8.0
     restart: unless-stopped
     environment:
-      POSTGRES_USER: "${POSTGRES_USER:-city_flash}"
-      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-city_flash_dev}"
-      POSTGRES_DB: "${POSTGRES_DB:-city_flash}"
+      MYSQL_DATABASE: "${MYSQL_DATABASE:-city_flash}"
+      MYSQL_USER: "${MYSQL_USER:-city_flash}"
+      MYSQL_PASSWORD: "${MYSQL_PASSWORD:-city_flash_dev}"
+      MYSQL_ROOT_PASSWORD: "${MYSQL_ROOT_PASSWORD:-city_flash_root_dev}"
     volumes:
-      - city_flash_pgdata:/var/lib/postgresql/data
-      - ./server/api/prisma/sql/001_enable_postgis.sql:/docker-entrypoint-initdb.d/001_enable_postgis.sql:ro
+      - city_flash_mysql_data:/var/lib/mysql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-city_flash} -d $${POSTGRES_DB:-city_flash}"]
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u$${MYSQL_USER:-city_flash} -p$${MYSQL_PASSWORD:-city_flash_dev} --silent"]
       interval: 5s
       timeout: 5s
-      start_period: 10s
-      retries: 20
-
-  redis:
-    image: redis:7-alpine
-    restart: unless-stopped
-    volumes:
-      - city_flash_redis:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 5s
-      start_period: 5s
+      start_period: 20s
       retries: 20
 
   api-migrate:
@@ -39,9 +24,9 @@ services:
     image: city-flash-api-migration:local
     restart: "no"
     environment:
-      DATABASE_URL: "${DATABASE_URL:-postgresql://city_flash:city_flash_dev@postgres:5432/city_flash?schema=public}"
+      DATABASE_URL: "${DATABASE_URL:-mysql://city_flash:city_flash_dev@mysql:3306/city_flash}"
     depends_on:
-      postgres:
+      mysql:
         condition: service_healthy
     command: ["sh", "-c", "npm run prisma:generate && npm run prisma:deploy"]
 
@@ -59,8 +44,8 @@ services:
       API_PREFIX: "${API_PREFIX:-api}"
       CORS_ORIGINS: "${CORS_ORIGINS:-http://127.0.0.1:8080,http://localhost:8080}"
       ENABLE_SWAGGER: "${ENABLE_SWAGGER:-true}"
-      DATABASE_URL: "${DATABASE_URL:-postgresql://city_flash:city_flash_dev@postgres:5432/city_flash?schema=public}"
-      REDIS_URL: "${REDIS_URL:-redis://redis:6379}"
+      RUN_MIGRATIONS_ON_STARTUP: "${RUN_MIGRATIONS_ON_STARTUP:-false}"
+      DATABASE_URL: "${DATABASE_URL:-mysql://city_flash:city_flash_dev@mysql:3306/city_flash}"
       JWT_SECRET: "${JWT_SECRET:-local-only-change-this-secret}"
       AUTH_TOKEN_TTL_SECONDS: "${AUTH_TOKEN_TTL_SECONDS:-604800}"
       CUSTOMER_AUTH_TOKEN_TTL_SECONDS: "${CUSTOMER_AUTH_TOKEN_TTL_SECONDS:-604800}"
@@ -96,9 +81,7 @@ services:
     expose:
       - "3000"
     depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
+      mysql:
         condition: service_healthy
       api-migrate:
         condition: service_completed_successfully
@@ -114,7 +97,7 @@ services:
       context: ./apps/merchant-web
       dockerfile: Dockerfile
       args:
-        VITE_API_BASE_URL: "${VITE_API_BASE_URL:-https://systematic-meaning-regardless-supplier.trycloudflare.com/api}"
+        VITE_API_BASE_URL: "${VITE_API_BASE_URL:-http://127.0.0.1:3000/api}"
         VITE_TENCENT_MAP_JS_KEY: "${VITE_TENCENT_MAP_JS_KEY:-}"
     image: city-flash-merchant-web:local
     restart: unless-stopped
@@ -132,39 +115,6 @@ services:
       start_period: 10s
       retries: 12
 
-  cloudflared:
-    profiles: ["tunnel"]
-    image: cloudflare/cloudflared:latest
-    restart: unless-stopped
-    environment:
-      CLOUDFLARE_TUNNEL_TOKEN: "${CLOUDFLARE_TUNNEL_TOKEN:-}"
-    command:
-      - tunnel
-      - --no-autoupdate
-      - run
-      - --token
-      - "${CLOUDFLARE_TUNNEL_TOKEN:-}"
-    depends_on:
-      api:
-        condition: service_healthy
-      merchant-web:
-        condition: service_healthy
-
-  cloudflared-quick:
-    profiles: ["quick-tunnel"]
-    image: cloudflare/cloudflared:latest
-    restart: unless-stopped
-    command:
-      - tunnel
-      - --no-autoupdate
-      - --url
-      - http://api:3000
-    depends_on:
-      api:
-        condition: service_healthy
-
 volumes:
-  city_flash_pgdata:
-    name: "${POSTGRES_VOLUME_NAME:-city_flash_pgdata}"
-  city_flash_redis:
-    name: "${REDIS_VOLUME_NAME:-city_flash_redis}"
+  city_flash_mysql_data:
+    name: "${MYSQL_VOLUME_NAME:-city_flash_mysql_data}"

@@ -1,4 +1,5 @@
-const DEFAULT_BASE_URL = 'https://systematic-meaning-regardless-supplier.trycloudflare.com/api'
+const DEFAULT_BASE_URL = 'http://127.0.0.1:3000/api'
+const cloudRequest = require('./cloud-request')
 
 const STATUS_LABELS = {
   PENDING: '待接单',
@@ -119,13 +120,28 @@ function buildHeaders() {
 
 function request(path, options) {
   const config = options || {}
+  const headers = buildHeaders()
+  if (config.header) Object.assign(headers, config.header)
+  if (cloudRequest.isConfigured()) {
+    return cloudRequest.requestCloud(path, {
+      method: config.method || 'GET',
+      data: config.data || {},
+      header: headers,
+      timeout: config.timeout || 10000
+    }).then((response) => {
+      if (response.statusCode >= 200 && response.statusCode < 300) return response.data
+      const data = response.data || {}
+      const detail = Array.isArray(data.message) ? data.message.join('；') : (data.message || data.error || '')
+      throw new Error(detail || `API ${path} failed with ${response.statusCode}`)
+    })
+  }
   return new Promise((resolve, reject) => {
     wx.request({
       url: `${getBaseUrl()}${path}`,
       method: config.method || 'GET',
       data: config.data || {},
       timeout: config.timeout || 10000,
-      header: buildHeaders(),
+      header: headers,
       success(res) {
         if (res.statusCode >= 200 && res.statusCode < 300) {
           resolve(res.data)

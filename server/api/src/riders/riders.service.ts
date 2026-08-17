@@ -82,7 +82,7 @@ export class RidersService {
           verificationStatus: dto.verificationStatus || 'UNVERIFIED',
           vehicleType: dto.vehicleType,
           vehicleName: dto.vehicleName || '',
-          vehicleTypes: this.vehicleTypes(dto),
+          vehicleTypes: this.vehicleTypes(dto) as Prisma.InputJsonValue,
           statement: dto.statement || '',
           agreementAccepted: dto.agreementAccepted !== false,
         },
@@ -120,7 +120,7 @@ export class RidersService {
       application: {
         requestedVehicleType: application.vehicleType,
         requestedVehicleName: application.vehicleName,
-        requestedVehicleTypes: application.vehicleTypes,
+        requestedVehicleTypes: this.jsonVehicleTypes(application.vehicleTypes, application.vehicleType),
         requestsHandling: application.rider?.handlingQualified || false,
         statement: application.statement,
         submittedAt: application.submittedAt,
@@ -537,6 +537,12 @@ export class RidersService {
 
   private vehicleTypes(source: { vehicleType?: VehicleType; vehicleTypes?: VehicleType[] }) {
     return Array.from(new Set([...(source.vehicleTypes || []), source.vehicleType].filter(Boolean))) as VehicleType[]
+  }
+
+  private jsonVehicleTypes(value: Prisma.JsonValue | null | undefined, fallback?: VehicleType) {
+    const allowed = new Set(Object.values(VehicleType))
+    const values = Array.isArray(value) ? value.filter((item): item is VehicleType => typeof item === 'string' && allowed.has(item as VehicleType)) : []
+    return Array.from(new Set([...values, ...(fallback ? [fallback] : [])]))
   }
 
   private riderVehicleTypes(rider: Awaited<ReturnType<RidersService['findRider']>>) {

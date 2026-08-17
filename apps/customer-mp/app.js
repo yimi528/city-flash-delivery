@@ -1,10 +1,22 @@
-let runtimeConfig = { resolveApiBaseUrl: () => 'https://systematic-meaning-regardless-supplier.trycloudflare.com/api' }
+let runtimeConfig = {
+  resolveApiBaseUrl: () => 'http://127.0.0.1:3000/api',
+  resolveCloudEnvId: () => '',
+  WX_CLOUD_SERVICE_NAME: 'city-flash-api'
+}
 try {
   if (typeof require === 'function') runtimeConfig = require('./config/runtime')
 } catch (error) {}
 
 App({
   onLaunch() {
+    const cloudEnvId = typeof runtimeConfig.resolveCloudEnvId === 'function'
+      ? runtimeConfig.resolveCloudEnvId(wx)
+      : ''
+    if (cloudEnvId && wx.cloud && typeof wx.cloud.init === 'function') {
+      wx.cloud.init({ env: cloudEnvId })
+    }
+    this.globalData.wxCloudEnvId = cloudEnvId
+    this.globalData.wxCloudServiceName = runtimeConfig.WX_CLOUD_SERVICE_NAME || 'city-flash-api'
     const systemInfo = wx.getWindowInfo ? wx.getWindowInfo() : (wx.getSystemInfoSync ? wx.getSystemInfoSync() : {})
     this.globalData.statusBarHeight = systemInfo.statusBarHeight || 24
     this.globalData.windowWidth = systemInfo.windowWidth || 375
@@ -38,6 +50,20 @@ App({
   onHide() {},
 
   refreshAppConfig() {
+    const applyConfig = (config) => {
+      this.globalData.appConfig = config
+      this.globalData.pricingVersion = Number(config.pricingVersion || (config.pricing && config.pricing.version) || 1)
+      this.globalData.businessOpen = Boolean(config.operating && config.operating.openNow)
+      this.globalData.announcement = config.announcement || null
+      this.globalData.remoteServices = config.services || []
+      this.globalData.customerServicePhone = String(config.customerService && config.customerService.phone || '').trim()
+      return config
+    }
+    let api = null
+    try {
+      if (typeof require === 'function') api = require('./utils/api')
+    } catch (error) {}
+    if (api && typeof api.request === 'function') return api.request('/v1/app-config').then(applyConfig).catch(() => null)
     return new Promise((resolve) => {
       if (!wx.request) { resolve(null); return }
       wx.request({
@@ -47,14 +73,7 @@ App({
         header: this.globalData.authToken ? { Authorization: `Bearer ${this.globalData.authToken}` } : {},
         success: (response) => {
           if (response.statusCode < 200 || response.statusCode >= 300 || !response.data) { resolve(null); return }
-          const config = response.data
-          this.globalData.appConfig = config
-          this.globalData.pricingVersion = Number(config.pricingVersion || (config.pricing && config.pricing.version) || 1)
-          this.globalData.businessOpen = Boolean(config.operating && config.operating.openNow)
-          this.globalData.announcement = config.announcement || null
-          this.globalData.remoteServices = config.services || []
-          this.globalData.customerServicePhone = String(config.customerService && config.customerService.phone || '').trim()
-          resolve(config)
+          resolve(applyConfig(response.data))
         },
         fail: () => resolve(null)
       })
@@ -237,6 +256,8 @@ App({
     announcement: null,
     pricingVersion: 0,
     apiBaseUrl: runtimeConfig.resolveApiBaseUrl(wx),
+    wxCloudEnvId: '',
+    wxCloudServiceName: runtimeConfig.WX_CLOUD_SERVICE_NAME || 'city-flash-api',
     city: '福鼎市',
     currentLocation: null,
     mapConfig: {

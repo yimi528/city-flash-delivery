@@ -1,13 +1,16 @@
-// 当前开发/真机/体验环境统一通过 Quick Tunnel 访问 osako 上的 API。
-const OSAKO_API_BASE_URL = 'https://systematic-meaning-regardless-supplier.trycloudflare.com/api'
-// 保留旧导出名，避免其他本地工具引用时失效；它不再指向局域网 IP。
-const LOCAL_API_BASE_URL = OSAKO_API_BASE_URL
+// 开发版只访问本机 API；体验版访问当前云托管测试环境。
+const LOCAL_API_BASE_URL = 'http://127.0.0.1:3000/api'
+
+// 当前云环境先作为体验测试环境使用。正式上线前创建独立生产环境并填写下方 ID。
+const WX_CLOUD_TEST_ENV_ID = 'prod-d0gpn0x7a421ec215'
+const WX_CLOUD_PROD_ENV_ID = ''
+const WX_CLOUD_SERVICE_NAME = 'city-flash-api'
 
 const API_BASE_URLS = Object.freeze({
-  develop: OSAKO_API_BASE_URL,
-  developDevice: OSAKO_API_BASE_URL,
-  trial: OSAKO_API_BASE_URL,
-  release: 'https://xian-api-img6c740.sealosbja.site/api'
+  develop: LOCAL_API_BASE_URL,
+  developDevice: LOCAL_API_BASE_URL,
+  trial: LOCAL_API_BASE_URL,
+  release: LOCAL_API_BASE_URL
 })
 
 function environmentVersion(wxApi) {
@@ -30,6 +33,14 @@ function isRealDevice(wxApi) {
   }
 }
 
+function resolveCloudEnvId(wxApi) {
+  const version = environmentVersion(wxApi)
+  if (version === 'develop') return ''
+  if (version === 'trial') return WX_CLOUD_TEST_ENV_ID
+  if (version === 'release') return WX_CLOUD_PROD_ENV_ID
+  return ''
+}
+
 function resolveApiBaseUrl(wxApi) {
   const version = environmentVersion(wxApi)
   if (version === 'develop') {
@@ -43,10 +54,13 @@ function resolveApiBaseUrl(wxApi) {
 }
 
 module.exports = {
-  OSAKO_API_BASE_URL,
   LOCAL_API_BASE_URL,
   API_BASE_URLS,
+  WX_CLOUD_TEST_ENV_ID,
+  WX_CLOUD_PROD_ENV_ID,
+  WX_CLOUD_SERVICE_NAME,
   environmentVersion,
   isRealDevice,
+  resolveCloudEnvId,
   resolveApiBaseUrl
 }

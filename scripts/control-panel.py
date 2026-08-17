@@ -62,7 +62,7 @@ HTML = r"""<!doctype html>
       <div class="links"><a href="http://127.0.0.1:5173" target="_blank">打开运营后台</a><br><a href="http://127.0.0.1:3000/api/docs" target="_blank">打开 API 文档</a></div>
     </div>
     <div class="actions"><button id="start" class="start">一键启动</button><button id="stop" class="stop">一键停机</button></div>
-    <div id="message" class="message">启动会自动运行前端、后端、PostgreSQL 和 Redis。</div>
+    <div id="message" class="message">启动会自动运行前端、后端和 MySQL。</div>
     <pre id="logs" class="logs">等待操作…</pre>
   </section>
 </main>
