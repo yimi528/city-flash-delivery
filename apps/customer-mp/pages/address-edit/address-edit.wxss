@@ -537,3 +537,47 @@
 .section-heading { margin-top: 24rpx; margin-bottom: 12rpx; }
 .section-title { font-size: 28rpx; }
 .form-card { border-radius: 24rpx; }
+
+/* Smart fill + save preference: one calm, stateful interaction surface. */
+.smart-card {
+  border-color: #dce9df;
+  background: linear-gradient(145deg, #f6fbf7, #eef7f0);
+  box-shadow: none;
+  transition: border-color 160ms ease, background-color 160ms ease;
+}
+
+.smart-card.is-recognizing { border-color: #a7d6b8; background: #edf9f1; }
+.smart-head { align-items: flex-start; }
+.smart-icon { background: #28745c; box-shadow: 0 8rpx 18rpx rgba(40, 116, 92, 0.14); }
+.smart-badge { color: #28745c; background: #e2f3e7; }
+.smart-input-row { border-top: 0; padding-top: 0; }
+.smart-input-wrap { background: #fffdf8; border-color: #d8e7dc; }
+.smart-input-wrap.has-text { border-color: #9dceb0; background: #fff; }
+.smart-input-meta { margin-top: 8rpx; display: flex; justify-content: space-between; gap: 10rpx; color: #94a198; font-size: 17rpx; }
+.smart-input-meta text:last-child { color: #28745c; font-weight: 800; }
+.smart-action { width: 132rpx; height: 64rpx; border-radius: 32rpx; background: #b9c9bd; box-shadow: none; font-size: 21rpx; }
+.smart-action.ready { background: #d95739; box-shadow: 0 10rpx 20rpx rgba(185, 47, 32, 0.16); }
+.smart-action[disabled] { color: #fff; background: #91b59d; opacity: .88; }
+.smart-action-arrow { margin-left: 5rpx; font-size: 26rpx; }
+.smart-preview,
+.smart-result { min-width: 0; margin-top: 14rpx; padding: 14rpx; border: 0; border-radius: 16rpx; display: flex; align-items: center; gap: 10rpx; background: rgba(255, 255, 255, .72); }
+.smart-result.warning { color: #94601a; background: #fff8e8; }
+.smart-result-icon { width: 34rpx; height: 34rpx; flex: 0 0 auto; border-radius: 50%; color: #fff; background: #c58a2b; display: flex; align-items: center; justify-content: center; font-size: 21rpx; font-weight: 900; }
+.smart-result-icon.success { background: #28745c; }
+.smart-result-copy { min-width: 0; flex: 1; }
+.smart-preview-title { color: #28745c; font-size: 21rpx; font-weight: 900; }
+.smart-result.warning .smart-preview-title { color: #94601a; }
+.smart-preview-sub { margin-top: 3rpx; overflow: hidden; color: #78867d; font-size: 18rpx; line-height: 1.35; text-overflow: ellipsis; white-space: nowrap; }
+.smart-result-chevron { color: #9cac9f; font-size: 30rpx; }
+.save-address-row { min-height: 104rpx; padding: 16rpx 20rpx; border-color: #e5e7df; background: rgba(255, 253, 248, .9); box-shadow: none; transition: border-color 160ms ease, background-color 160ms ease; }
+.save-address-row.is-selected { border-color: #9dceb0; background: #eff9f1; }
+.save-option-icon { color: #819087; background: #eef1eb; }
+.save-address-row.is-selected .save-option-icon { color: #fff; background: #28745c; }
+.save-toggle { width: 72rpx; height: 40rpx; flex: 0 0 auto; padding: 4rpx; border-radius: 24rpx; background: #d5d9d1; box-sizing: border-box; transition: background-color 160ms ease; }
+.save-toggle-thumb { width: 32rpx; height: 32rpx; border-radius: 50%; background: #fff; box-shadow: 0 3rpx 8rpx rgba(48, 60, 49, .18); transition: transform 160ms ease; }
+.save-address-row.is-selected .save-toggle { background: #28745c; }
+.save-address-row.is-selected .save-toggle-thumb { transform: translateX(32rpx); }
+
+@media (prefers-reduced-motion: reduce) {
+  .smart-card, .save-address-row, .smart-action, .save-toggle, .save-toggle-thumb { transition: none; }
+}

@@ -22,12 +22,12 @@
       <view class="default-row" role="checkbox" aria-checked="{{form.isDefault}}" bindtap="toggleDefault"><view class="check {{form.isDefault ? 'on' : ''}}">{{form.isDefault ? '✓' : ''}}</view><view class="default-copy"><view class="default-title">设为默认地址</view><view class="default-sub">下次填写时优先使用</view></view></view>
     </view>
 
-    <view class="smart-card">
-      <view class="smart-head"><view class="smart-mini">✦</view><view class="smart-copy"><view class="smart-title">智能识别</view><view class="smart-sub">粘贴收货信息，自动填写表单</view></view><view class="smart-badge">SMART</view></view>
-      <view class="smart-input-row"><view class="smart-input-wrap"><textarea class="smart-input" value="{{smartPasteText}}" bindinput="inputSmartPaste" maxlength="300" auto-height placeholder="姓名、手机号、地址" /><view class="smart-input-note">信息仅用于填写，请核对结果</view></view><button class="smart-action" bindtap="smartRecognize" loading="{{recognizing}}" disabled="{{recognizing}}">{{recognizing ? '识别中' : '识别'}}</button></view>
-      <view class="smart-result" wx:if="{{smartResult}}"><text class="result-check">✓</text>{{smartResult}}</view>
+    <view class="smart-card {{recognizing ? 'is-recognizing' : ''}}">
+      <view class="smart-head"><view class="smart-mini">✦</view><view class="smart-copy"><view class="smart-title">智能识别</view><view class="smart-sub">粘贴姓名、电话和地址，自动填入表单</view></view><view class="smart-badge">{{recognizing ? '识别中' : '一步填写'}}</view></view>
+      <view class="smart-input-row"><view class="smart-input-wrap {{smartPasteText ? 'has-text' : ''}}"><textarea class="smart-input" value="{{smartPasteText}}" bindinput="inputSmartPaste" maxlength="300" auto-height placeholder="例如：张三 13800138000 福鼎市..." /><view class="smart-input-meta"><text>仅用于本页填写，不会提交原文</text><text>{{smartPasteText ? '已输入' : '等待粘贴'}}</text></view></view><button class="smart-action {{smartPasteText ? 'ready' : ''}}" bindtap="smartRecognize" loading="{{recognizing}}" disabled="{{recognizing}}"><text>{{recognizing ? '识别中' : '识别'}}</text><text class="smart-action-arrow">→</text></button></view>
+      <view class="smart-result success" wx:if="{{smartResult}}"><view class="smart-result-icon">✓</view><view class="smart-result-copy"><view class="smart-preview-title">识别结果已填入</view><view class="smart-preview-sub">请核对联系人、手机号和门牌号</view></view></view>
     </view>
-    <view class="save-address-row" role="checkbox" aria-checked="{{saveToAddressBook}}" bindtap="toggleSaveToAddressBook"><view class="save-copy"><view class="save-title">保存到我的地址</view><view class="save-sub">不勾选也可以仅用于本次订单</view></view><view class="check {{saveToAddressBook ? 'on' : ''}}">{{saveToAddressBook ? '✓' : ''}}</view></view>
+    <view class="save-address-row {{saveToAddressBook ? 'is-selected' : ''}}" role="checkbox" aria-checked="{{saveToAddressBook}}" bindtap="toggleSaveToAddressBook"><view class="save-option-icon">{{saveToAddressBook ? '✓' : '＋'}}</view><view class="save-copy"><view class="save-title">保存到我的地址</view><view class="save-sub">{{saveToAddressBook ? '下次可直接使用这组联系人和位置' : '只用于本次订单，不会写入地址簿'}}</view></view><view class="save-toggle"><view class="save-toggle-thumb"></view></view></view>
   </scroll-view>
   <view class="confirm-dock"><view class="panel-safe-note">地址信息仅用于履约，已关联地图坐标</view><button class="confirm-button" disabled="{{resolving || moving || !selectedAddress || errorMessage}}" bindtap="confirmLocation">{{saveToAddressBook ? '保存并使用' : '使用此地址'}}</button></view>
 </view>
