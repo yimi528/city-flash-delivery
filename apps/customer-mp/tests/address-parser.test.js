@@ -41,3 +41,13 @@ test('recognizes 11 or 12 digits starting with 1 or 0 as a phone, including an a
   const twelveDigits = parseAddressText('联系人：王五\n电话：012345678901\n地址：福州市鼓楼区软件园A区1号')
   assert.equal(twelveDigits.phone, '012345678901')
 })
+
+test('recognizes common delivery labels, full-width digits and partial information', () => {
+  const result = parseAddressText('收件人：陈小美\n联系电话：１３８ ００１３ ８０００\n送货地址：福建省福鼎市桐城街道锦绣家园5栋802')
+
+  assert.equal(result.contact, '陈小美')
+  assert.equal(result.phone, '13800138000')
+  assert.equal(result.address, '福建省福鼎市桐城街道锦绣家园5栋802')
+  assert.equal(result.complete, true)
+  assert.deepEqual(parseAddressText('联系人：陈小美').missingFields, ['手机号', '地址'])
+})

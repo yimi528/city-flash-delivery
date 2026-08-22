@@ -70,6 +70,7 @@ Page({
     tags: ['家', '公司', '门店', '学校', '商场', '药店'],
     smartPasteText: '',
     smartResult: '',
+    smartResultTone: 'success',
     recognizing: false,
     saveToAddressBook: false,
     resolving: true,
@@ -240,7 +241,7 @@ Page({
   },
 
   inputSmartPaste(event) {
-    this.setData({ smartPasteText: event.detail.value, smartResult: '' })
+    this.setData({ smartPasteText: event.detail.value, smartResult: '', smartResultTone: 'success' })
   },
 
   smartRecognize() {
@@ -250,17 +251,26 @@ Page({
       const text = String(rawText || '').trim()
       const parsed = addressParser.parseAddressText(text)
       if (!parsed.contact && !parsed.phone && !parsed.address) {
-        this.setData({ smartResult: '未识别到有效信息，请补充姓名、电话或地址' })
+        this.setData({ smartResult: '未识别到有效信息，请补充姓名、电话或地址', smartResultTone: 'warning' })
         wx.showToast({ title: '暂未识别到有效信息', icon: 'none' })
         return
       }
+      const nextForm = Object.assign({}, this.data.form, {
+        name: parsed.name || this.data.form.name,
+        detail: parsed.address || this.data.form.detail,
+        contact: this.data.requiresContact ? (parsed.contact || this.data.form.contact) : '',
+        phone: this.data.requiresContact ? (parsed.phone || this.data.form.phone) : ''
+      })
+      const missingFields = [
+        !nextForm.contact ? '联系人' : '',
+        !nextForm.phone ? '手机号' : '',
+        !nextForm.name && !nextForm.detail && !this.data.selectedAddress ? '地址' : ''
+      ].filter(Boolean)
       this.setData({
         smartPasteText: text,
-        smartResult: '已识别，请核对下方信息',
-        'form.name': parsed.name || this.data.form.name,
-        'form.detail': parsed.address || this.data.form.detail,
-        'form.contact': this.data.requiresContact ? (parsed.contact || this.data.form.contact) : '',
-        'form.phone': this.data.requiresContact ? (parsed.phone || this.data.form.phone) : ''
+        smartResult: missingFields.length ? `已识别部分信息，还需补充${missingFields.join('、')}` : '已识别，请核对下方信息',
+        smartResultTone: missingFields.length ? 'warning' : 'success',
+        form: nextForm
       })
       wx.showToast({ title: '已识别，请核对信息', icon: 'success' })
     }

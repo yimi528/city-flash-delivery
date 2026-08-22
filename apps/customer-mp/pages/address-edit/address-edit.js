@@ -166,14 +166,21 @@ Page({
         name: parsed.name || this.data.form.name,
         detail: parsed.address || this.data.form.detail
       })
+      const missingFields = [
+        !nextForm.contact ? '联系人' : '',
+        !nextForm.phone ? '手机号' : '',
+        !parsed.address && !nextForm.detail ? '地址' : ''
+      ].filter(Boolean)
       this.setData({
         smartPasteText: text,
-        smartResult: '已识别，请核对下面的填写结果',
+        smartResult: missingFields.length ? `已识别部分信息，还需补充${missingFields.join('、')}` : '已识别，请核对下面的填写结果',
         smartPreview: {
           contact: nextForm.contact,
           phone: nextForm.phone,
           name: nextForm.name,
-          address: nextForm.detail
+          address: nextForm.detail,
+          complete: missingFields.length === 0,
+          missingText: missingFields.join('、')
         },
         form: nextForm,
         mapKeyword: parsed.address || parsed.name || this.data.mapKeyword,
@@ -201,7 +208,13 @@ Page({
             contact: recognizedForm.contact,
             phone: recognizedForm.phone,
             name: recognizedForm.name,
-            address: recognizedForm.detail
+            address: recognizedForm.detail,
+            complete: Boolean(recognizedForm.contact && recognizedForm.phone && recognizedForm.detail),
+            missingText: [
+              !recognizedForm.contact ? '联系人' : '',
+              !recognizedForm.phone ? '手机号' : '',
+              !recognizedForm.detail ? '门牌号' : ''
+            ].filter(Boolean).join('、')
           },
           mapKeyword: selected ? selected.name : (parsed.name || parsed.address),
           mapResults: []

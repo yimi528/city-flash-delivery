@@ -19,18 +19,17 @@
         <view class="smart-title">智能识别</view>
         <view class="smart-sub">粘贴姓名、电话和地址，自动填入表单</view>
       </view>
-      <view class="smart-badge">{{recognizing ? '识别中' : '一步填写'}}</view>
+      <button class="smart-head-action {{smartPasteText ? 'ready' : ''}}" bindtap="smartRecognize" loading="{{recognizing}}" disabled="{{recognizing}}"><text>{{recognizing ? '识别中' : '识别'}}</text><text class="smart-action-arrow">→</text></button>
     </view>
     <view class="smart-input-row">
       <view class="smart-input-wrap {{smartPasteText ? 'has-text' : ''}}">
         <textarea class="smart-input" value="{{smartPasteText}}" bindinput="inputSmartPaste" maxlength="300" auto-height placeholder="例如：张三 13800138000 福鼎市..." />
         <view class="smart-input-meta"><text>仅用于本页填写，不会提交原文</text><text>{{smartPasteText ? '已输入' : '等待粘贴'}}</text></view>
       </view>
-      <button class="smart-action recognize-btn {{smartPasteText ? 'ready' : ''}}" bindtap="smartRecognize" loading="{{recognizing}}" disabled="{{recognizing}}"><text>{{recognizing ? '识别中' : '识别'}}</text><text class="smart-action-arrow">→</text></button>
     </view>
     <view wx:if="{{smartPreview}}" class="smart-preview">
       <view class="smart-result-icon success">✓</view>
-      <view class="smart-result-copy"><view class="smart-preview-title">已识别并填入</view><view class="smart-preview-sub">{{smartPreview.contact || '联系人待补充'}} · {{smartPreview.phone || '手机号待补充'}}</view><view class="smart-preview-sub">{{smartPreview.name || '地址待补充'}} {{smartPreview.address || ''}}</view></view>
+      <view class="smart-result-copy"><view class="smart-preview-title">{{smartPreview.complete ? '已识别并填入' : '已识别部分信息'}}</view><view class="smart-preview-sub">{{smartPreview.complete ? (smartPreview.contact || '联系人待补充') + ' · ' + (smartPreview.phone || '手机号待补充') : '还需补充：' + smartPreview.missingText}}</view><view class="smart-preview-sub">{{smartPreview.name || '地址待补充'}} {{smartPreview.address || ''}}</view></view>
       <view class="smart-result-chevron">›</view>
     </view>
     <view wx:elif="{{smartResult}}" class="smart-result warning"><view class="smart-result-icon">!</view><view class="smart-result-copy"><view class="smart-preview-title">需要再看一眼</view><view class="smart-preview-sub">{{smartResult}}</view></view></view>

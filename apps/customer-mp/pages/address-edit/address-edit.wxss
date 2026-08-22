@@ -581,3 +581,15 @@
 @media (prefers-reduced-motion: reduce) {
   .smart-card, .save-address-row, .smart-action, .save-toggle, .save-toggle-thumb { transition: none; }
 }
+
+/* Give the pasted content the space; keep recognition as a compact commit action. */
+.smart-input-row { align-items: stretch; }
+.smart-input-wrap { height: 158rpx; min-height: 158rpx; padding: 16rpx 18rpx 10rpx; box-sizing: border-box; }
+.smart-input { display: block; height: 96rpx; min-height: 96rpx; max-height: 96rpx; }
+.smart-action,
+.recognize-btn { width: 82rpx; min-width: 82rpx; flex: 0 0 82rpx; height: 54rpx; align-self: flex-end; padding: 0 6rpx; border-radius: 27rpx; }
+.smart-action-arrow { font-size: 22rpx; }
+.smart-action:active { transform: scale(.95); opacity: .86; }
+.smart-head-action { width: 94rpx; min-width: 94rpx; height: 52rpx; flex: 0 0 94rpx; margin: 0; padding: 0 7rpx; border: 0; border-radius: 26rpx; color: #fffdf8; background: #b9c9bd; display: flex; align-items: center; justify-content: center; font-size: 20rpx; font-weight: 900; box-shadow: none; }
+.smart-head-action.ready { background: #d95739; box-shadow: 0 8rpx 16rpx rgba(185, 47, 32, .14); }
+.smart-head-action[disabled] { color: #fff; background: #91b59d; opacity: .9; }
