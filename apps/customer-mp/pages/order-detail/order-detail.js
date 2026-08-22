@@ -1,6 +1,7 @@
 const app = getApp()
 const api = require('../../utils/api')
 const map = require('../../utils/map')
+const navigation = require('../../utils/navigation')
 
 const SYNC_INTERVAL_MS = 2000
 const fulfillmentStatusFlow = ['待商家接单', '待骑手接单', '取货中', '配送中', '已完成']
@@ -157,8 +158,10 @@ Page({
   onShow() {
     const order = app.globalData.orders.find((item) => item.id === this.orderId) || app.globalData.orders[0]
     this.applyOrder(order)
-    this.syncOrder({ silent: false })
-    this.startOrderPolling()
+    navigation.afterVisible(() => {
+      this.syncOrder({ silent: false })
+      this.startOrderPolling()
+    })
   },
 
   onHide() {

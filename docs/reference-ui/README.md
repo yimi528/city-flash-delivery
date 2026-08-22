@@ -10,4 +10,4 @@
 - `jd-miaosong-messages-empty-reference.png`：消息中心空状态参考。
 - `jd-miaosong-profile-center-reference.png`：个人中心会员卡、订单和服务宫格参考。
 
-当前小程序继续使用自有品牌“同城速送”，避免复制第三方品牌标识、文案和商标元素。
+当前小程序使用自有品牌“鼎温榕同城配送”，避免复制第三方品牌标识、文案和商标元素。

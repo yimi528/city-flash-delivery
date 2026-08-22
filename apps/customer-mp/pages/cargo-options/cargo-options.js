@@ -1,6 +1,7 @@
 const app = getApp()
 const vehicleConfig = require('../../utils/vehicle-config')
 const map = require('../../utils/map')
+const navigation = require('../../utils/navigation')
 
 function formatLine(draft) {
   if (!draft) return '按当前任务推荐车型'
@@ -63,11 +64,15 @@ Page({
       routeText: formatLine(draft),
       ...mapData
     })
-    this.loadTencentRoute(mapData)
+    this.pendingMapData = mapData
+  },
+
+  onReady() {
+    navigation.afterVisible(() => this.loadTencentRoute(this.pendingMapData))
   },
 
   loadTencentRoute(mapData) {
-    if (!mapData.mapHasRoute || !mapData.mapStartPoint || !mapData.mapEndPoint) return
+    if (!mapData.mapHasRoute || !mapData.mapStartPoint || !mapData.mapEndPoint) return Promise.resolve()
     const routeKey = [
       mapData.mapStartPoint.latitude,
       mapData.mapStartPoint.longitude,
@@ -75,7 +80,7 @@ Page({
       mapData.mapEndPoint.longitude
     ].join(',')
     this.mapRouteKey = routeKey
-    map.route(mapData.mapStartPoint, mapData.mapEndPoint, {
+    return map.route(mapData.mapStartPoint, mapData.mapEndPoint, {
       mode: app.globalData.mapConfig && app.globalData.mapConfig.distanceMode || 'bicycling'
     }).then((result) => {
       if (this.mapRouteKey !== routeKey) return

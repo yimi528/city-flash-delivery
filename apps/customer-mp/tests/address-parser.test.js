@@ -20,3 +20,24 @@ test('recognizes labelled multiline receiver information', () => {
   assert.equal(result.address, '福建省宁德市福鼎市太姥山镇海滨花园6栋802')
   assert.equal(result.name, '海滨花园')
 })
+
+test('recognizes multiline smart-fill text with a separated address line and formatted phone', () => {
+  const result = parseAddressText('姓名：王小宁\n手机号：138 0013 8000\n地址：\n福建省宁德市福鼎市桐城街道锦绣家园3栋2单元901')
+
+  assert.equal(result.contact, '王小宁')
+  assert.equal(result.phone, '13800138000')
+  assert.equal(result.address, '福建省宁德市福鼎市桐城街道锦绣家园3栋2单元901')
+  assert.equal(result.name, '锦绣家园')
+})
+
+test('recognizes 11 or 12 digits starting with 1 or 0 as a phone, including an address-adjacent tail', () => {
+  const result = parseAddressText('砖头🧱火星市哈迪斯社区66栋60311451448990')
+
+  assert.equal(result.contact, '砖头')
+  assert.equal(result.phone, '11451448990')
+  assert.equal(result.address, '火星市哈迪斯社区66栋603')
+  assert.equal(result.name, '哈迪斯社区')
+
+  const twelveDigits = parseAddressText('联系人：王五\n电话：012345678901\n地址：福州市鼓楼区软件园A区1号')
+  assert.equal(twelveDigits.phone, '012345678901')
+})

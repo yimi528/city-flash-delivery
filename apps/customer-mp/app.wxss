@@ -123,6 +123,56 @@ button:active,
 .tag-green { background: var(--jade); }
 .tag-blue { background: #2378ff; }
 
+/* Shared navigation affordance for every nested page. The top offset is
+ * supplied by the page so it can follow the device status bar height. */
+.floating-back {
+  position: fixed !important;
+  z-index: 999 !important;
+  top: 0;
+  left: 24rpx !important;
+  width: 76rpx !important;
+  height: 76rpx !important;
+  border: 2rpx solid rgba(18, 28, 52, 0.08) !important;
+  border-radius: 24rpx !important;
+  color: #121c34 !important;
+  background: rgba(255, 255, 255, 0.9) !important;
+  box-shadow: 0 10rpx 28rpx rgba(18, 28, 52, 0.14) !important;
+  font-size: 60rpx !important;
+  line-height: 70rpx !important;
+  text-align: center;
+  backdrop-filter: blur(18rpx);
+}
+
+.floating-actions {
+  position: fixed !important;
+  z-index: 999 !important;
+  top: 0;
+  left: 24rpx !important;
+  border: 2rpx solid rgba(18, 28, 52, 0.08) !important;
+  border-radius: 40rpx !important;
+  background: rgba(255, 255, 255, 0.84) !important;
+  box-shadow: 0 10rpx 28rpx rgba(18, 28, 52, 0.14) !important;
+  backdrop-filter: blur(18rpx);
+}
+
+.floating-actions-spacer {
+  width: 168rpx;
+  height: 66rpx;
+  flex: 0 0 auto;
+}
+
+.floating-map-nav {
+  position: fixed !important;
+  z-index: 999 !important;
+  top: 0;
+}
+
+.floating-back:active,
+.floating-actions:active {
+  opacity: 0.78;
+  transform: scale(0.96);
+}
+
 @media (prefers-reduced-motion: reduce) {
   button,
   .task-card,
@@ -137,6 +187,11 @@ button:active,
   .price-strip:active,
   .route-row:active,
   .locate:active {
+    transform: none;
+  }
+
+  .floating-back:active,
+  .floating-actions:active {
     transform: none;
   }
 }

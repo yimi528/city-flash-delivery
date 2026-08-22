@@ -1,11 +1,10 @@
 <view class="orders-page">
   <view style="height: {{statusBarHeight}}px"></view>
-
   <view class="nav-shell">
     <view><view class="nav-eyebrow">MY ORDERS</view><view class="nav-title">订单</view></view>
   </view>
 
-  <scroll-view class="status-scroll" scroll-x="true" show-scrollbar="false" enhanced="true">
+  <view class="status-scroll">
     <view class="status-row">
       <block wx:for="{{filters}}" wx:for-item="filterItem" wx:key="key">
         <view class="status-filter {{filter === filterItem.key ? 'active' : ''}}" data-filter="{{filterItem.key}}" bindtap="changeFilter">
@@ -13,7 +12,7 @@
         </view>
       </block>
     </view>
-  </scroll-view>
+  </view>
 
   <view class="order-list" wx:if="{{orders.length}}">
     <block wx:for="{{orders}}" wx:key="id">
@@ -45,6 +44,9 @@
             <text>{{item.createTime}}</text>
           </view>
           <view class="amount-wrap"><text class="amount-label">{{item.needsQuote ? '预估' : '合计'}}</text><text class="fee">{{item.feeText}}</text></view>
+        </view>
+        <view class="order-actions" wx:if="{{item.canDelete}}">
+          <button class="delete-order-button" data-id="{{item.id}}" catchtap="deleteOrder">删除订单</button>
         </view>
       </view>
     </block>

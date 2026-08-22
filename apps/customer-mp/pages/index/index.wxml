@@ -1,11 +1,10 @@
 <view class="safe-page home-page">
   <view style="height: {{statusBarHeight}}px"></view>
-
   <view class="topbar">
     <view class="brand-lockup">
       <view class="brand-seal">速</view>
       <view>
-        <view class="brand">同城速送</view>
+        <view class="brand">鼎温榕同城配送</view>
         <view class="brand-caption">福鼎本地生活运力</view>
       </view>
     </view>
@@ -46,13 +45,13 @@
 
     <view class="core-task-grid">
       <block wx:for="{{coreTasks}}" wx:key="id">
-        <view class="task-card core-task {{draft.taskId === item.id ? 'active' : ''}}" data-task="{{item.id}}" bindtap="chooseTask">
+        <view class="task-card core-task {{selectedTaskId === item.id ? 'active' : ''}}" data-task="{{item.id}}" bindtap="chooseTask">
           <view class="task-icon">{{item.icon}}</view>
           <view class="task-copy">
             <view class="task-name">{{item.name}}</view>
             <view class="task-desc">{{item.subtitle}}</view>
           </view>
-          <view class="task-check">{{draft.taskId === item.id ? '✓' : ''}}</view>
+          <view class="task-check">{{selectedTaskId === item.id ? '✓' : ''}}</view>
         </view>
       </block>
     </view>
@@ -63,12 +62,18 @@
     </view>
     <view class="more-task-row">
       <block wx:for="{{moreTasks}}" wx:key="id">
-        <view class="more-task {{draft.taskId === item.id ? 'active' : ''}}" data-task="{{item.id}}" bindtap="chooseTask">
+        <view class="more-task {{selectedTaskId === item.id ? 'active' : ''}}" data-task="{{item.id}}" bindtap="chooseTask">
           <view class="more-icon">{{item.icon}}</view>
           <view>{{item.name}}</view>
         </view>
       </block>
     </view>
+
+    <view class="service-detail-stage">
+      <view class="service-change-mask" wx:if="{{isTaskTransitioning}}">
+        <view class="service-change-spinner"></view>
+        <view class="service-change-text">正在切换服务</view>
+      </view>
 
     <view class="price-strip" bindtap="openPricing">
       <view class="price-tag">¥</view>
@@ -112,13 +117,14 @@
     </view>
 
     <view class="handling-home-tip" wx:if="{{draft.taskId === 'moving_handling'}}">
-      <text>先预约上门人工服务</text>；如果需要把货送到其他地址，请选择“运货”并在备注中说明装卸需求
+      <text>填写发货地址</text>；商家接单后安排骑手到该地址上门服务
     </view>
-    <button class="primary-btn order-btn" bindtap="goOrder">
+    <button class="primary-btn order-btn" wx:if="{{!isOpeningOrder}}" bindtap="goOrder">
       <text class="order-btn-label">去下单</text><text class="button-arrow">→</text>
     </button>
     <view class="trust-row">
       <text>平台计价</text><text>·</text><text>骑手认证</text><text>·</text><text>全程可追踪</text>
+    </view>
     </view>
   </view>
 </view>

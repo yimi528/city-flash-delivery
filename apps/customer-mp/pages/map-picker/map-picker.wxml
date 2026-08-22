@@ -1,51 +1,33 @@
 <view class="picker-page">
   <view class="map-shell">
-    <map
-      id="pickerMap"
-      class="picker-map"
-      latitude="{{latitude}}"
-      longitude="{{longitude}}"
-      scale="{{scale}}"
-      show-location
-      enable-zoom
-      enable-scroll
-      enable-rotate="{{false}}"
-      enable-overlooking="{{false}}"
-      bindregionchange="onRegionChange"
-    ></map>
-
-    <cover-view class="map-nav" style="top: {{statusBarHeight + 12}}px">
-      <cover-view class="back" bindtap="goBack">‹</cover-view>
-      <cover-view class="nav-title">{{title}}</cover-view>
-      <cover-view class="nav-space"></cover-view>
-    </cover-view>
-
-    <cover-image
-      class="center-pin {{moving ? 'moving' : ''}}"
-      src="../../assets/map-pin.png"
-    ></cover-image>
-
-    <cover-view class="locate-button" bindtap="useCurrentLocation">
-      <cover-view class="locate-glyph">⌖</cover-view>
-      <cover-view class="locate-text">{{locating ? '定位中' : '当前位置'}}</cover-view>
-    </cover-view>
+    <map id="pickerMap" class="picker-map" latitude="{{latitude}}" longitude="{{longitude}}" scale="{{scale}}" show-location enable-zoom enable-scroll enable-rotate="{{false}}" enable-overlooking="{{false}}" bindregionchange="onRegionChange"></map>
+    <cover-view class="map-nav" style="top: {{statusBarHeight + 12}}px"><cover-view class="back" bindtap="goBack">‹</cover-view><cover-view class="nav-title">{{title}}</cover-view><cover-view class="nav-space"></cover-view></cover-view>
+    <cover-image class="center-pin {{moving ? 'moving' : ''}}" src="../../assets/map-pin.png"></cover-image>
+    <cover-view class="map-tip">拖动地图，选择准确位置</cover-view>
+    <cover-view class="locate-button" bindtap="useCurrentLocation"><cover-view class="locate-glyph">⌖</cover-view><cover-view class="locate-text">{{locating ? '定位中' : '当前位置'}}</cover-view></cover-view>
   </view>
 
-  <view class="result-panel">
+  <scroll-view class="result-panel" scroll-y="true" enhanced="true" show-scrollbar="false">
     <view class="drag-handle"></view>
-    <view class="result-kicker">红色图钉所在位置</view>
-    <view class="result-row">
-      <view class="result-pin">{{type === 'pickup' ? '发' : (type === 'purchase' ? '买' : '收')}}</view>
-      <view class="result-copy">
-        <view class="result-name" wx:if="{{selectedAddress && !resolving}}">{{selectedAddress.name}}</view>
-        <view class="result-name muted" wx:else>{{moving ? '正在移动图钉…' : '正在识别地址…'}}</view>
-        <view class="result-detail" wx:if="{{selectedAddress && !resolving}}">{{selectedAddress.detail}}</view>
-        <view class="result-detail" wx:else>拖动地图，红色图钉会固定在地图中心</view>
-      </view>
+    <view class="panel-head"><view><view class="panel-kicker">新增地址</view><view class="panel-title">确认位置，补充信息</view></view><view class="panel-status {{resolving || moving ? 'pending' : ''}}"><text class="status-dot">●</text>{{resolving || moving ? '识别中' : '已定位'}}</view></view>
+    <view class="selected-place"><view class="result-pin">{{type === 'pickup' ? '发' : (type === 'purchase' ? '买' : '收')}}</view><view class="result-copy"><view class="result-name" wx:if="{{selectedAddress && !resolving}}">{{selectedAddress.name}}</view><view class="result-name muted" wx:else>{{moving ? '正在移动图钉…' : '正在识别地址…'}}</view><view class="result-detail" wx:if="{{selectedAddress && !resolving}}">{{selectedAddress.detail}}</view><view class="result-detail" wx:else>地址会自动填入，门牌号请手动补充</view></view></view>
+    <view class="error-message" wx:if="{{errorMessage}}">{{errorMessage}}</view>
+
+    <view class="form-card">
+      <view class="field-row"><view class="field-label">地址</view><view class="field-value">{{form.name || '正在识别…'}}</view></view>
+      <view class="field-row"><view class="field-label">门牌号 <text>*</text></view><input class="field-input" value="{{form.detail}}" placeholder="输入详细地址，例如 1单元101" data-field="detail" bindinput="inputField" /></view>
+      <view class="field-row" wx:if="{{requiresContact}}"><view class="field-label">联系人 <text>*</text></view><input class="field-input" value="{{form.contact}}" placeholder="输入收货人姓名" data-field="contact" bindinput="inputField" /></view>
+      <view class="field-row" wx:if="{{requiresContact}}"><view class="field-label">手机号 <text>*</text></view><input class="field-input" value="{{form.phone}}" placeholder="输入收货人手机号" type="number" maxlength="11" data-field="phone" bindinput="inputField" /></view>
+      <view class="tag-section"><view class="field-label">标签 <text class="optional">可选</text></view><view class="tags"><block wx:for="{{tags}}" wx:key="*this"><view class="tag {{form.tag === item ? 'active' : ''}}" data-tag="{{item}}" bindtap="selectTag">{{item}}</view></block></view></view>
+      <view class="default-row" role="checkbox" aria-checked="{{form.isDefault}}" bindtap="toggleDefault"><view class="check {{form.isDefault ? 'on' : ''}}">{{form.isDefault ? '✓' : ''}}</view><view class="default-copy"><view class="default-title">设为默认地址</view><view class="default-sub">下次填写时优先使用</view></view></view>
     </view>
 
-    <view class="coordinate" wx:if="{{selectedAddress && !resolving}}">腾讯地图坐标 · {{latitude}}, {{longitude}}</view>
-    <view class="error-message" wx:if="{{errorMessage}}">{{errorMessage}}</view>
-    <button class="confirm-button" disabled="{{resolving || moving || !selectedAddress || errorMessage}}" bindtap="confirmLocation">确认此位置</button>
-  </view>
+    <view class="smart-card">
+      <view class="smart-head"><view class="smart-mini">✦</view><view class="smart-copy"><view class="smart-title">智能识别</view><view class="smart-sub">粘贴收货信息，自动填写表单</view></view><view class="smart-badge">SMART</view></view>
+      <view class="smart-input-row"><view class="smart-input-wrap"><textarea class="smart-input" value="{{smartPasteText}}" bindinput="inputSmartPaste" maxlength="300" auto-height placeholder="姓名、手机号、地址" /><view class="smart-input-note">信息仅用于填写，请核对结果</view></view><button class="smart-action" bindtap="smartRecognize" loading="{{recognizing}}" disabled="{{recognizing}}">{{recognizing ? '识别中' : '识别'}}</button></view>
+      <view class="smart-result" wx:if="{{smartResult}}"><text class="result-check">✓</text>{{smartResult}}</view>
+    </view>
+    <view class="save-address-row" role="checkbox" aria-checked="{{saveToAddressBook}}" bindtap="toggleSaveToAddressBook"><view class="save-copy"><view class="save-title">保存到我的地址</view><view class="save-sub">不勾选也可以仅用于本次订单</view></view><view class="check {{saveToAddressBook ? 'on' : ''}}">{{saveToAddressBook ? '✓' : ''}}</view></view>
+  </scroll-view>
+  <view class="confirm-dock"><view class="panel-safe-note">地址信息仅用于履约，已关联地图坐标</view><button class="confirm-button" disabled="{{resolving || moving || !selectedAddress || errorMessage}}" bindtap="confirmLocation">{{saveToAddressBook ? '保存并使用' : '使用此地址'}}</button></view>
 </view>

@@ -1,4 +1,5 @@
 const app = getApp()
+const navigation = require('../../utils/navigation')
 
 const serviceConfigs = {
   drink: {
@@ -141,7 +142,7 @@ Page({
   },
 
   chooseAddress(event) {
-    wx.navigateTo({ url: `/pages/address/address?type=${event.currentTarget.dataset.type}` })
+    navigation.navigateTo(wx, { url: `/pages/address/address?type=${event.currentTarget.dataset.type}` })
   },
 
   goOrder() {
@@ -200,7 +201,7 @@ Page({
       weightLabel: getWeightLabel(this.data.weight)
     }
 
-    wx.navigateTo({ url: '/pages/order-create/order-create?from=quick-service' })
+    navigation.navigateTo(wx, { url: '/pages/order-create/order-create?from=quick-service' })
   },
 
   goBack() {

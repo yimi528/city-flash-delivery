@@ -6,6 +6,7 @@ describe('CatalogService quotes', () => {
   const prisma = {
     carpoolRoute: { findFirst: jest.fn() },
     serviceCatalog: { findFirstOrThrow: jest.fn(), findMany: jest.fn() },
+    pricingRule: { findFirst: jest.fn() },
     quote: quoteApi,
   }
   const maps = { distance: jest.fn() }
@@ -117,7 +118,7 @@ describe('CatalogService quotes', () => {
       pickupDetail: '仓库入口',
       pickupLat: 27.3245,
       pickupLng: 120.216,
-    })).rejects.toThrow('搬运装卸只提供人工服务，请使用运货')
+    })).rejects.toThrow('搬运装卸仅提供上门服务')
 
     expect(prisma.quote.create).not.toHaveBeenCalled()
   })

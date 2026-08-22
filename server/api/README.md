@@ -91,9 +91,9 @@ The `搬运装卸` service now uses a server-side fixed base fee. A destination 
 
 Buy-for-me orders persist `productFee` and `deliveryFee` separately. Their payable `totalFee` is always calculated as `productFee + deliveryFee`; the legacy `budget` and `serviceFee` response aliases remain available to older clients.
 
-Bad-weather pricing should be system-driven, not user-selected. The mini program calls `GET /api/maps/weather-risk` on the order confirmation page and applies the returned `isBadWeather` result to the estimate. The endpoint reads forecast data by coordinate, applies keyword/weather-code/wind/rain thresholds, and supports `BAD_WEATHER_OVERRIDE=true|false` for local demos.
+Bad-weather pricing should be system-driven, not user-selected. The mini program calls `GET /api/maps/weather-risk` on the order confirmation page and applies the returned `isBadWeather` result to the estimate. With a valid `TENCENT_MAP_KEY`, the endpoint queries Tencent weather by the delivery coordinates for hourly data and alerts, normalizes the response, and applies keyword/wind/rain thresholds. Open-Meteo remains an availability fallback for local development. Set `WEATHER_MOCK_ENABLED=true` for a temporary deterministic normal-weather demo; it skips all weather providers and never adds a weather fee. `BAD_WEATHER_OVERRIDE=true|false` is supported for local demos.
 
-Set `TENCENT_MAP_KEY` in `.env` to enable real address suggestions, reverse geocoding, and route matrix distance. The key stays on the server; the mini program calls the NestJS map endpoints and falls back to local suggestions and straight-line distance when the provider is unavailable. Published distance-weather rules use a fixed 5 yuan bad-weather surcharge.
+Set `TENCENT_MAP_KEY` in `.env` to enable real address suggestions, reverse geocoding, route matrix distance, and Tencent weather. The key stays on the server; the mini program calls the NestJS map endpoints and falls back to local suggestions and straight-line distance when the provider is unavailable. Published distance-weather rules use a fixed 5 yuan bad-weather surcharge.
 
 Core delivery flow:
 

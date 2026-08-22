@@ -106,6 +106,13 @@ export class CreateOrderDto {
   @Min(1)
   badWeatherMultiplier?: number
 
+  // Compatibility field; server pricing rules remain authoritative.
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  badWeatherSurcharge?: number
+
   @IsOptional()
   @IsBoolean()
   badWeather?: boolean

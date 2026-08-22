@@ -19,30 +19,6 @@
   font-weight: 950;
 }
 
-.menu-pill {
-  position: absolute;
-  right: 30rpx;
-  top: 30rpx;
-  width: 168rpx;
-  height: 66rpx;
-  padding: 0 24rpx;
-  border-radius: 40rpx;
-  background: rgba(255, 255, 255, 0.76);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  box-shadow: inset 0 0 0 2rpx rgba(18, 20, 31, 0.06);
-  color: #111;
-  font-size: 34rpx;
-}
-
-.pill-dot {
-  width: 42rpx;
-  height: 42rpx;
-  border: 8rpx solid #161922;
-  border-radius: 50%;
-}
-
 .member-card {
   position: relative;
   height: 260rpx;

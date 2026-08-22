@@ -211,6 +211,15 @@ export type ServiceAreaConfig = {
   version: number
 }
 
+export type ServiceCityConfig = {
+  id: string
+  name: string
+  enabled: boolean
+  serviceIds: string[]
+  sortOrder: number
+  version: number
+}
+
 export type SystemSettingsConfig = {
   id: string
   acceptingOrders: boolean

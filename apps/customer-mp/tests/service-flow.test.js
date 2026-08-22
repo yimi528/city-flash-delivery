@@ -392,6 +392,28 @@ test('switching from carpool to cargo clears the carpool-only destination', () =
   assert.equal(index.data.draft.dropoff.id, app.globalData.addresses[1].id)
 })
 
+test('switching away from buy-for-me clears the stale product budget before handling', () => {
+  const { app, event, loadPage } = createHarness()
+  const index = loadPage('pages/index/index.js')
+  index.onShow()
+  index.chooseTask(event({ task: 'buy_for_me' }))
+  app.globalData.draftOrder.budget = 50
+  app.globalData.draftOrder.buyItems = '测试商品'
+
+  index.chooseTask(event({ task: 'moving_handling' }))
+
+  assert.equal(app.globalData.draftOrder.budget, 0)
+  assert.equal(app.globalData.draftOrder.buyItems, '')
+  assert.equal(app.globalData.draftOrder.purchaseAddress, null)
+
+  app.globalData.draftOrder.pickup = app.globalData.addresses[0]
+  const orderPage = loadPage('pages/order-create/order-create.js')
+  orderPage.onShow()
+  orderPage.submitOrder()
+
+  assert.equal(app.globalData.orders[0].fee, 48)
+})
+
 test('switching from a remote fixed route to handling clears stale route choices', () => {
   const { app, event, loadPage } = createHarness()
   app.globalData.appConfig = {

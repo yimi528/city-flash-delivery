@@ -3,7 +3,8 @@ const api = require('../../utils/api')
 const map = require('../../utils/map')
 const carpool = require('../../utils/carpool')
 const addressParser = require('../../utils/address-parser')
-const addressBook = require('../../utils/address-book.js')
+
+const MAX_SAVED_ADDRESSES = 10
 
 function emptyForm() {
   return {
@@ -36,8 +37,8 @@ function normalizeAddress(form, requiresContact) {
     userId: app.globalData.userId,
     name: String(form.name || '').trim(),
     detail: String(form.detail || '').trim(),
-    contact: requiresContact ? String(form.contact || '').trim() : '',
-    phone: requiresContact ? String(form.phone || '').trim() : '',
+    contact: String(form.contact || '').trim(),
+    phone: String(form.phone || '').trim(),
     tag: form.tag || '',
     distanceKm: Number(form.distanceKm || 1),
     latitude,
@@ -84,6 +85,8 @@ Page({
     form: emptyForm(),
     tags: ['家', '公司', '门店', '学校', '商场', '药店'],
     smartPasteText: '',
+    smartResult: '',
+    smartPreview: null,
     recognizing: false,
     mapKeyword: '',
     mapResults: [],
@@ -93,12 +96,12 @@ Page({
 
   onLoad(query) {
     const id = query.id || ''
-    const savedAddresses = addressBook.mergeHistory(Array.isArray(app.globalData.addresses) ? app.globalData.addresses : [])
+    const savedAddresses = Array.isArray(app.globalData.addresses) ? app.globalData.addresses : []
     const pendingMapAddress = query.from === 'map' ? app.globalData.pendingMapAddress : null
     const source = id ? savedAddresses.find((item) => item.id === id) : pendingMapAddress
     const isCarpool = query.mode === 'carpool'
     const type = query.type || 'dropoff'
-    const requiresContact = type === 'dropoff'
+    const requiresContact = true
     const route = carpool.getRoute(query.route || (app.globalData.draftOrder.selectedLine && app.globalData.draftOrder.selectedLine.id))
     this.selectAfterSave = query.from === 'map'
     const initialForm = source
@@ -113,6 +116,8 @@ Page({
       isCarpool,
       routeId: isCarpool ? route.id : '',
       routeName: isCarpool ? route.name : '',
+      selectAfterSave: this.selectAfterSave,
+      saveToAddressBook: !this.selectAfterSave || Boolean(id),
       form: initialForm,
       mapKeyword: initialForm.name || ''
     })
@@ -135,19 +140,21 @@ Page({
   },
 
   inputSmartPaste(event) {
-    this.setData({ smartPasteText: event.detail.value })
+    this.setData({ smartPasteText: event.detail.value, smartResult: '', smartPreview: null })
   },
 
-  pasteAndRecognize() {
+  smartRecognize() {
     if (this.data.recognizing) return
     const recognize = (rawText) => {
       const text = String(rawText || '').trim()
       if (!text) {
+        this.setData({ smartResult: '', smartPreview: null })
         wx.showToast({ title: '请先复制或粘贴收货信息', icon: 'none' })
         return
       }
       const parsed = addressParser.parseAddressText(text)
       if (!parsed.contact && !parsed.phone && !parsed.address) {
+        this.setData({ smartPasteText: text, smartResult: '未识别到可用信息，请检查内容', smartPreview: null })
         wx.showToast({ title: '暂未识别到有效信息', icon: 'none' })
         return
       }
@@ -160,6 +167,13 @@ Page({
       })
       this.setData({
         smartPasteText: text,
+        smartResult: '已识别，请核对下面的填写结果',
+        smartPreview: {
+          contact: nextForm.contact,
+          phone: nextForm.phone,
+          name: nextForm.name,
+          address: nextForm.detail
+        },
         form: nextForm,
         mapKeyword: parsed.address || parsed.name || this.data.mapKeyword,
         recognizing: Boolean(parsed.address)
@@ -181,11 +195,19 @@ Page({
         recognizedForm.detail = parsed.address || recognizedForm.detail
         this.setData({
           form: recognizedForm,
+          smartResult: '已识别，请核对下面的填写结果',
+          smartPreview: {
+            contact: recognizedForm.contact,
+            phone: recognizedForm.phone,
+            name: recognizedForm.name,
+            address: recognizedForm.detail
+          },
           mapKeyword: selected ? selected.name : (parsed.name || parsed.address),
           mapResults: []
         })
         wx.showToast({ title: '已识别，请核对信息', icon: 'success' })
       }).catch(() => {
+        this.setData({ smartResult: '已识别文字，请核对下面的填写结果' })
         wx.showToast({ title: '已识别文字，请核对地址', icon: 'none' })
       }).finally(() => this.setData({ recognizing: false }))
     }
@@ -202,6 +224,10 @@ Page({
       success: (result) => recognize(result.data),
       fail: () => wx.showToast({ title: '无法读取剪贴板，请手动粘贴', icon: 'none' })
     })
+  },
+
+  pasteAndRecognize() {
+    return this.smartRecognize()
   },
 
   searchMap(keyword) {
@@ -257,6 +283,10 @@ Page({
     this.setData({ 'form.isDefault': !this.data.form.isDefault })
   },
 
+  toggleSaveToAddressBook() {
+    this.setData({ saveToAddressBook: !this.data.saveToAddressBook })
+  },
+
   saveLocal(payload) {
     const address = Object.assign({}, payload, {
       id: payload.id || `addr-${Date.now()}`,
@@ -271,7 +301,6 @@ Page({
     } else {
       app.globalData.addresses.unshift(address)
     }
-    addressBook.remember(address)
     return address
   },
 
@@ -289,9 +318,14 @@ Page({
       wx.showToast({ title: `请填写${this.data.routeName}境内地址`, icon: 'none' })
       return
     }
+    const shouldSave = Boolean(payload.id) || !this.selectAfterSave || this.data.saveToAddressBook
+    if (shouldSave && !payload.id && Array.isArray(app.globalData.addresses) && app.globalData.addresses.length >= MAX_SAVED_ADDRESSES) {
+      wx.showToast({ title: `我的地址最多保存${MAX_SAVED_ADDRESSES}个`, icon: 'none' })
+      return
+    }
 
     const done = (address, title) => {
-      const savedAddress = this.saveLocal(address)
+      const savedAddress = shouldSave ? this.saveLocal(address) : Object.assign({}, address, { id: '' })
       if (this.selectAfterSave) {
         if (this.data.isCarpool) {
           carpool.applySelectedAddress(app.globalData.draftOrder, savedAddress, this.data.type, this.data.routeId)
@@ -306,14 +340,12 @@ Page({
       setTimeout(() => wx.navigateBack({ delta: this.selectAfterSave ? 2 : 1 }), 350)
     }
 
-    if (!app.globalData.useBackend) {
-      done(payload, payload.id ? '已保存地址' : '已新增地址')
+    if (!shouldSave) {
+      done(payload, '已使用此地址')
       return
     }
 
-    // 起点地址不再提交联系人字段。当前地址接口仍按收货地址设计并要求联系人，
-    // 因此起点地址先保存在本地历史中，订单提交时直接使用该地址。
-    if (!this.data.requiresContact) {
+    if (!app.globalData.useBackend) {
       done(payload, payload.id ? '已保存地址' : '已新增地址')
       return
     }

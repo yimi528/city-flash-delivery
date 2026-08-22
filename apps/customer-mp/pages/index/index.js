@@ -2,6 +2,7 @@ const app = getApp()
 const map = require('../../utils/map')
 const serviceConfig = require('../../utils/service-config')
 const vehicleConfig = require('../../utils/vehicle-config')
+const navigation = require('../../utils/navigation')
 
 function defaultOrderAddresses() {
   if (typeof app.getDefaultOrderAddresses === 'function') return app.getDefaultOrderAddresses()
@@ -47,6 +48,13 @@ function ensureDraftTask(taskId) {
     draft.routeDistanceSource = ''
     draft.routeDuration = ''
     draft.quoteId = ''
+  }
+  if (isTaskChanged && nextTaskId !== 'buy_for_me') {
+    draft.budget = 0
+    draft.buyItems = ''
+    draft.purchaseAddress = null
+    draft.buyCategoryId = ''
+    draft.buyCategoryName = ''
   }
   if (!routeTask || draft.selectedLine) ensureDefaultOrderAddresses(draft)
   if (isTaskChanged || !draft.item) {
@@ -99,8 +107,11 @@ Page({
     coreTasks: serviceConfig.ALL_TASKS.slice(0, 4),
     moreTasks: serviceConfig.ALL_TASKS.slice(4),
     activeTask: serviceConfig.PRIMARY_TASKS[0],
+    selectedTaskId: serviceConfig.PRIMARY_TASKS[0].id,
     isRouteTask: false,
-    locationText: '定位附近'
+    locationText: '定位附近',
+    isOpeningOrder: false,
+    isTaskTransitioning: false
   },
 
   onShow() {
@@ -117,7 +128,9 @@ Page({
         coreTasks: tasks.slice(0, 4),
         moreTasks: tasks.slice(4),
         activeTask: serviceConfig.getTask(draft.taskId),
-        isRouteTask: serviceConfig.isRouteTask(draft.taskId)
+        selectedTaskId: draft.taskId,
+        isRouteTask: serviceConfig.isRouteTask(draft.taskId),
+        isOpeningOrder: false
       })
     }
     if (this.configSyncTimer) clearInterval(this.configSyncTimer)
@@ -144,11 +157,24 @@ Page({
       return
     }
     const taskId = event.currentTarget.dataset.task
-    const draft = ensureDraftTask(taskId)
+    const nextTask = serviceConfig.getTask(taskId)
     this.setData({
-      draft,
-      activeTask: serviceConfig.getTask(draft.taskId),
-      isRouteTask: serviceConfig.isRouteTask(draft.taskId)
+      selectedTaskId: taskId,
+      activeTask: nextTask,
+      isRouteTask: serviceConfig.isRouteTask(taskId),
+      isTaskTransitioning: true
+    }, () => {
+      const loadTask = () => {
+        const draft = ensureDraftTask(taskId)
+        this.setData({
+          draft,
+          activeTask: nextTask,
+          isRouteTask: serviceConfig.isRouteTask(draft.taskId),
+          isTaskTransitioning: false
+        })
+      }
+      if (typeof wx.nextTick === 'function') wx.nextTick(loadTask)
+      else setTimeout(loadTask, 0)
     })
   },
 
@@ -174,7 +200,7 @@ Page({
 
   chooseAddress(event) {
     const type = event.currentTarget.dataset.type
-    wx.navigateTo({ url: `/pages/address/address?type=${type}` })
+    navigation.navigateTo(wx, { url: `/pages/address/address?type=${type}` })
   },
 
   openPricing() {
@@ -182,6 +208,7 @@ Page({
   },
 
   goOrder() {
+    if (this.data.isOpeningOrder) return
     if (app.globalData.useBackend && !app.globalData.businessOpen) {
       wx.showToast({ title: app.globalData.appConfig && app.globalData.appConfig.operating && app.globalData.appConfig.operating.reason || '当前暂停接单', icon: 'none' })
       return
@@ -196,6 +223,11 @@ Page({
       wx.showToast({ title: '请先选择目的地', icon: 'none' })
       return
     }
-    wx.navigateTo({ url: '/pages/order-create/order-create' })
+    this.setData({ isOpeningOrder: true }, () => {
+      navigation.navigateTo(wx, {
+        url: '/pages/order-create/order-create',
+        fail: () => this.setData({ isOpeningOrder: false })
+      })
+    })
   }
 })

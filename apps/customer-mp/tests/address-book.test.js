@@ -40,6 +40,7 @@ test('selecting a saved address persists another use locally', () => {
   assert.equal(used.usageCount, 3)
   assert.equal(storage[STORAGE_KEY].home.usageCount, 3)
   assert.match(storage[STORAGE_KEY].home.lastUsedAt, /^\d{4}-\d{2}-\d{2}T/)
+  assert.deepEqual(storage['address-history-v1'], undefined)
 })
 
 test('deleting an address clears recommendations and matching order draft state', () => {

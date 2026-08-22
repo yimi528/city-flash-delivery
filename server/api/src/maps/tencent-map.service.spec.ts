@@ -52,4 +52,27 @@ describe('TencentMapService', () => {
 
     expect(result.route).toEqual({ distanceKm: 2.6, duration: 12, source: '腾讯地图' })
   })
+
+  it('queries hourly weather and alerts by the delivery coordinates', async () => {
+    const config = { get: jest.fn().mockReturnValue('valid-map-key') }
+    const service = new TencentMapService(config as never)
+    const fetchMock = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        status: 0,
+        result: { realtime: { weather: '晴' }, forecast_1h: [{ weather: '多云' }] },
+      }),
+    }) as jest.MockedFunction<typeof fetch>
+    global.fetch = fetchMock
+
+    const result = await service.weather(27.5364, 120.4164)
+    const url = new URL(String(fetchMock.mock.calls[0][0]))
+
+    expect(result).toMatchObject({ provider: 'tencent-weather', configured: true })
+    expect(result.result).toMatchObject({ realtime: { weather: '晴' } })
+    expect(url.pathname).toBe('/ws/weather/v1/')
+    expect(url.searchParams.get('location')).toBe('27.5364,120.4164')
+    expect(url.searchParams.get('type')).toBe('hours')
+    expect(url.searchParams.get('added_fields')).toBe('alarm')
+  })
 })

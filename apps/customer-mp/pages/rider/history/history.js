@@ -1,4 +1,5 @@
 const app = getApp()
+const navigation = require('../../../utils/navigation')
 const riderApi = require('../../../utils/rider-api')
 
 const RIDER_PAGES = {
@@ -56,7 +57,7 @@ Page({
       wx.switchTab({ url: '/pages/profile/profile' })
       return
     }
-    this.load()
+    navigation.afterVisible(() => this.load())
   },
 
   onPullDownRefresh() {
@@ -106,13 +107,13 @@ Page({
       app.globalData.orders = orders
     }
 
-    wx.navigateTo({
+    navigation.navigateTo(wx, {
       url: `/pages/order-detail/order-detail?id=${encodeURIComponent(orderId)}&mode=rider`
     })
   },
 
   goRiderPage(event) {
     const target = RIDER_PAGES[event.currentTarget.dataset.page]
-    if (target && target !== RIDER_PAGES.history) wx.redirectTo({ url: target })
+    if (target && target !== RIDER_PAGES.history) navigation.redirectTo(wx, { url: target })
   }
 })

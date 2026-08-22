@@ -14,7 +14,7 @@
       enable-overlooking="{{false}}"
       bindmarkertap="onMapMarkerTap"
     >
-      <cover-view class="map-page-nav" style="top: {{statusBarHeight + 12}}px">
+      <cover-view class="map-page-nav floating-map-nav" style="top: {{statusBarHeight + 12}}px">
         <cover-view class="left-actions">
           <cover-view class="back" bindtap="goBack">‹</cover-view>
           <cover-view class="home" bindtap="goHome">⌂</cover-view>

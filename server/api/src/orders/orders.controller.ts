@@ -1,4 +1,4 @@
-import { Body, Controller, ForbiddenException, Get, Param, Patch, Post, UseGuards } from '@nestjs/common'
+import { Body, Controller, Delete, ForbiddenException, Get, Param, Patch, Post, UseGuards } from '@nestjs/common'
 import { ApiTags } from '@nestjs/swagger'
 import { CurrentAuth } from '../auth/current-auth.decorator'
 import { CustomerAuthGuard } from '../auth/auth.guard'
@@ -31,6 +31,11 @@ export class OrdersController {
   @Patch(':id/cancel')
   cancel(@Param('id') id: string, @CurrentAuth() auth: AuthPrincipal) {
     return this.ordersService.cancel(id, auth.subjectId)
+  }
+
+  @Delete(':id')
+  hide(@Param('id') id: string, @CurrentAuth() auth: AuthPrincipal) {
+    return this.ordersService.hide(id, auth.subjectId)
   }
 
   @Patch(':id/quote/confirm')

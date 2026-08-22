@@ -49,9 +49,14 @@ printf '\n[微信云托管验收] 运行模式\n'
 [[ "$(value RUN_MIGRATIONS_ON_STARTUP)" == "true" ]] || fail '云托管发布必须明确开启 RUN_MIGRATIONS_ON_STARTUP'
 
 printf '\n[微信云托管验收] MySQL 与凭证\n'
-for key in DATABASE_URL JWT_SECRET WECHAT_MINI_APP_ID WECHAT_MINI_APP_SECRET TENCENT_MAP_KEY CORS_ORIGINS VITE_API_BASE_URL; do
+for key in DATABASE_URL JWT_SECRET WECHAT_MINI_APP_ID WECHAT_MINI_APP_SECRET CORS_ORIGINS VITE_API_BASE_URL; do
   required_value "$key"
 done
+if [[ "$(value WEATHER_MOCK_ENABLED)" != "true" ]]; then
+  required_value TENCENT_MAP_KEY
+else
+  pass '天气预报 Mock 已开启，跳过腾讯地图天气 Key 校验'
+fi
 
 database_url="$(value DATABASE_URL)"
 [[ "$database_url" == mysql://* ]] || fail 'DATABASE_URL 必须使用 mysql://，不能再使用 PostgreSQL'

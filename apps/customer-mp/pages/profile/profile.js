@@ -1,8 +1,8 @@
 const app = getApp()
 const api = require('../../utils/api')
+const navigation = require('../../utils/navigation')
 
 const services = [
-  { iconClass: 'bill', name: '我的订单', action: 'orders' },
   { iconClass: 'address', name: '地址簿', action: 'address' },
   { iconClass: 'service', name: '联系客服', action: 'service' },
   { iconClass: 'license', name: '平台资质', action: 'qualification' },
@@ -125,7 +125,7 @@ Page({
       })
       return
     }
-    wx.navigateTo({ url: '/pages/rider-apply/rider-apply' })
+    navigation.navigateTo(wx, { url: '/pages/rider-apply/rider-apply' })
   },
 
   login() {
@@ -180,7 +180,7 @@ Page({
       return true
     }
     if (action === 'address') {
-      wx.navigateTo({ url: '/pages/address/address?type=dropoff' })
+      navigation.navigateTo(wx, { url: '/pages/address/address?type=dropoff' })
       return true
     }
     return false
@@ -199,11 +199,11 @@ Page({
       return
     }
     if (action === 'qualification') {
-      wx.navigateTo({ url: '/pages/legal/legal?type=qualification' })
+      navigation.navigateTo(wx, { url: '/pages/legal/legal?type=qualification' })
       return
     }
     if (action === 'legal') {
-      wx.navigateTo({ url: '/pages/legal/legal?type=terms' })
+      navigation.navigateTo(wx, { url: '/pages/legal/legal?type=terms' })
       return
     }
   }

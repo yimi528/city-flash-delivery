@@ -3,6 +3,7 @@ const api = require('../../utils/api')
 const map = require('../../utils/map')
 const carpool = require('../../utils/carpool')
 const addressBook = require('../../utils/address-book.js')
+const navigation = require('../../utils/navigation')
 
 function addressMeta(type, isCarpool, routeName) {
   if (isCarpool) return { title: `填写${routeName || '顺风车'}地址`, pinLabel: '顺', pinClass: 'pickup', toast: '已选择顺风车地址' }
@@ -48,8 +49,8 @@ Page({
     pinClass: 'dropoff',
     keyword: '',
     addresses: [],
+    myAddresses: [],
     frequentAddresses: [],
-    recentAddresses: [],
     mapResults: [],
     currentAddress: null,
     isLocating: false,
@@ -61,7 +62,7 @@ Page({
   onLoad(query) {
     const globalData = app.globalData || {}
     const draftOrder = globalData.draftOrder || {}
-    const savedAddresses = addressBook.mergeHistory(Array.isArray(globalData.addresses) ? globalData.addresses : [])
+    const savedAddresses = Array.isArray(globalData.addresses) ? globalData.addresses : []
     const type = query.type || 'dropoff'
     const isCarpool = query.mode === 'carpool'
     const route = carpool.getRoute(query.route || (draftOrder.selectedLine && draftOrder.selectedLine.id))
@@ -90,16 +91,16 @@ Page({
     const loginReady = app.globalData.useBackend && !app.globalData.isLoggedIn && app.loginReady
       ? app.loginReady
       : Promise.resolve()
-    loginReady.then(() => this.loadAddresses())
+    navigation.afterVisible(() => loginReady.then(() => this.loadAddresses()))
   },
 
   loadAddresses() {
-    const savedAddresses = addressBook.mergeHistory(Array.isArray(app.globalData.addresses) ? app.globalData.addresses : [])
+    const savedAddresses = Array.isArray(app.globalData.addresses) ? app.globalData.addresses : []
     if (!app.globalData.useBackend) {
       this.applySearch(savedAddresses)
-      return
+      return Promise.resolve()
     }
-    api.getAddresses(app.globalData.userId).then((addresses) => {
+    return api.getAddresses(app.globalData.userId).then((addresses) => {
       Object.keys(this.deletedAddressIds || {}).forEach((id) => {
         if (!addresses.some((item) => item.id === id)) delete this.deletedAddressIds[id]
       })
@@ -121,27 +122,26 @@ Page({
   applySearch(source) {
     const keyword = this.data.keyword.trim()
     const origin = app.globalData.currentLocation
-    const allAddresses = addressBook.mergeHistory(source || [])
+    // 地址簿只展示用户明确保存过的地址；使用历史不能升级为已保存地址。
+    const allAddresses = Array.isArray(source) ? source : []
     const isVisible = (item) => {
       if (this.pendingDeleteIds && this.pendingDeleteIds[item.id]) return false
       if (this.deletedAddressIds && this.deletedAddressIds[item.id]) return false
       if (this.data.isCarpool && !carpool.isSelectedCityAddress(item, this.data.routeId)) return false
       return !keyword || item.name.indexOf(keyword) > -1 || item.detail.indexOf(keyword) > -1 || (item.tag || '').indexOf(keyword) > -1
     }
-    const localAddresses = addressBook.rank(allAddresses).filter(isVisible).map((item) => decorateAddress(item, origin, { isMapResult: false, sourceLabel: item.tag || '常用' }))
+    const localAddresses = addressBook.rank(allAddresses).filter(isVisible).map((item) => decorateAddress(item, origin, { isMapResult: false, sourceLabel: item.tag || '' }))
 
     const mapResults = keyword || this.data.isCarpool ? this.data.mapResults : []
-    const recentIds = new Set()
-    const recentAddresses = keyword ? [] : addressBook.getHistory().sort((left, right) => new Date(right.historySavedAt || 0).getTime() - new Date(left.historySavedAt || 0).getTime()).filter(isVisible).slice(0, 3)
-      .map((item) => {
-        recentIds.add(item.id)
-        return decorateAddress(item, origin, { isMapResult: false, sourceLabel: '最近填写' })
-      })
-    const frequentAddresses = keyword ? [] : localAddresses.filter((item) => !recentIds.has(item.id) && (Number(item.usageCount || 0) > 0 || item.isDefault)).slice(0, 3)
+    const myAddresses = localAddresses.slice(0, 10)
+    const frequentAddresses = keyword ? [] : localAddresses.slice(0, 5)
       .map((item) => Object.assign({}, item, { sourceLabel: '你常去的' }))
-    const frequentIds = new Set(frequentAddresses.map((item) => item.id))
-    const addresses = mergeUnique(localAddresses.filter((item) => !frequentIds.has(item.id) && !recentIds.has(item.id)).concat(mapResults))
-    this.setData({ recentAddresses, frequentAddresses, addresses })
+    const addresses = mergeUnique(myAddresses.concat(mapResults))
+    this.setData({
+      myAddresses,
+      frequentAddresses,
+      addresses
+    })
   },
 
   onSearch(event) {
@@ -222,12 +222,12 @@ Page({
 
   openMapPicker() {
     const mode = this.data.isCarpool ? `&mode=carpool&route=${this.data.routeId}` : ''
-    wx.navigateTo({ url: `/pages/map-picker/map-picker?type=${this.data.type}${mode}` })
+    navigation.navigateTo(wx, { url: `/pages/map-picker/map-picker?type=${this.data.type}${mode}` })
   },
 
   chooseAddress(event) {
     const id = event.currentTarget.dataset.id
-    const selected = this.data.recentAddresses.find((item) => item.id === id) || this.data.frequentAddresses.find((item) => item.id === id) || this.data.addresses.find((item) => item.id === id) || app.globalData.addresses.find((item) => item.id === id)
+    const selected = this.data.frequentAddresses.find((item) => item.id === id) || this.data.addresses.find((item) => item.id === id) || app.globalData.addresses.find((item) => item.id === id)
     if (!selected) return
     if (selected.isMapResult) {
       this.openMapAddress(selected)
@@ -239,15 +239,11 @@ Page({
   openMapAddress(address) {
     app.globalData.pendingMapAddress = Object.assign({}, address, { id: '', isDefault: false })
     const mode = this.data.isCarpool ? `&mode=carpool&route=${this.data.routeId}` : ''
-    wx.navigateTo({ url: `/pages/address-edit/address-edit?type=${this.data.type}&from=map${mode}` })
+    navigation.navigateTo(wx, { url: `/pages/address-edit/address-edit?type=${this.data.type}&from=map${mode}` })
   },
 
   selectAddress(address) {
     const selected = Object.assign({}, address)
-    if (this.data.type === 'pickup') {
-      selected.contact = ''
-      selected.phone = ''
-    }
     if (this.data.isCarpool) {
       const route = carpool.applySelectedAddress(app.globalData.draftOrder, selected, this.data.type, this.data.routeId)
       if (!route) {
@@ -271,13 +267,13 @@ Page({
 
   addAddress() {
     const mode = this.data.isCarpool ? `&mode=carpool&route=${this.data.routeId}` : ''
-    wx.navigateTo({ url: `/pages/address-edit/address-edit?type=${this.data.type}${mode}` })
+    navigation.navigateTo(wx, { url: `/pages/map-picker/map-picker?type=${this.data.type}&from=add${mode}` })
   },
 
   editAddress(event) {
     const id = event.currentTarget.dataset.id
     const mode = this.data.isCarpool ? `&mode=carpool&route=${this.data.routeId}` : ''
-    wx.navigateTo({ url: `/pages/address-edit/address-edit?type=${this.data.type}&id=${id}${mode}` })
+    navigation.navigateTo(wx, { url: `/pages/address-edit/address-edit?type=${this.data.type}&id=${id}${mode}` })
   },
 
   recordUse(address) {

@@ -1,7 +1,8 @@
 <view class="legal-page">
   <view style="height: {{statusBarHeight}}px"></view>
   <view class="legal-nav">
-    <view class="back" bindtap="goBack">‹</view>
+    <view class="back floating-back" style="top: {{statusBarHeight + 12}}px;" bindtap="goBack" role="button" aria-label="返回">‹</view>
+    <view class="nav-space floating-back-spacer"></view>
     <view class="nav-title">{{title}}</view>
     <view class="nav-space"></view>
   </view>

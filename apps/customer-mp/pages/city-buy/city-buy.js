@@ -1,4 +1,5 @@
 const app = getApp()
+const navigation = require('../../utils/navigation')
 
 const categories = [
   { id: 'universal', icon: '骑', name: '万能帮买', sample: '帮我买一杯热美式，少冰少糖' },
@@ -131,11 +132,11 @@ Page({
   },
 
   choosePurchaseAddress() {
-    wx.navigateTo({ url: '/pages/address/address?type=purchase' })
+    navigation.navigateTo(wx, { url: '/pages/address/address?type=purchase' })
   },
 
   chooseDropoffAddress() {
-    wx.navigateTo({ url: '/pages/address/address?type=dropoff' })
+    navigation.navigateTo(wx, { url: '/pages/address/address?type=dropoff' })
   },
 
   openIntro() {
@@ -202,6 +203,6 @@ Page({
       routeDuration: ''
     })
 
-    wx.navigateTo({ url: '/pages/order-create/order-create?from=city-buy' })
+    navigation.navigateTo(wx, { url: '/pages/order-create/order-create?from=city-buy' })
   }
 })

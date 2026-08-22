@@ -168,7 +168,7 @@ export class CatalogService implements OnModuleInit {
 
   async quoteHandling(userId: string, dto: HandlingQuoteDto) {
     if (dto.item === '叉车') throw new BadRequestException('叉车服务请拨打 18705939528 电话预约')
-    if (dto.requiresDelivery) throw new BadRequestException('搬运装卸只提供人工服务，请使用运货')
+    if (dto.requiresDelivery) throw new BadRequestException('搬运装卸仅提供上门服务')
     const rule = await this.prisma.pricingRule.findFirst({ where: { serviceId: 'moving_handling', enabled: true } })
     if (!rule) throw new ServiceUnavailableException('搬运装卸价格尚未配置')
     const distanceMeters = 0

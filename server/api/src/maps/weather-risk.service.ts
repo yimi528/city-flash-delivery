@@ -1,11 +1,14 @@
-import { Injectable } from '@nestjs/common'
+import { Injectable, Optional } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
+import { TencentMapService, TencentWeatherResult } from './tencent-map.service'
 
 const BAD_WEATHER_KEYWORDS = [
   '暴雨',
   '大雨',
   '雷阵雨',
+  '雷雨',
   '强雷电',
+  '强对流',
   '台风',
   '大风',
   '暴雪',
@@ -63,16 +66,35 @@ export type WeatherRiskInput = {
 
 @Injectable()
 export class WeatherRiskService {
-  constructor(private readonly config: ConfigService) {}
+  constructor(
+    private readonly config: ConfigService,
+    @Optional() private readonly tencentMap?: TencentMapService,
+  ) {}
 
   async resolve(input: WeatherRiskInput = {}) {
     const override = this.parseOverride(this.config.get<string>('BAD_WEATHER_OVERRIDE'))
+    if (this.isWeatherMockEnabled()) {
+      return this.evaluate(
+        {
+          ...input,
+          weatherText: '晴',
+          forecastText: '晴 多云',
+          alertText: undefined,
+          windScale: undefined,
+          windSpeedKmh: undefined,
+          precipitationMm: undefined,
+          weatherCode: undefined,
+          forecastSource: 'weather-mock',
+        },
+        override,
+      )
+    }
     if (override !== null || this.hasForecastSignal(input) || !input.latitude || !input.longitude) {
       return this.evaluate(input, override)
     }
 
     try {
-      const forecast = await this.fetchOpenMeteoForecast(input.latitude, input.longitude)
+      const forecast = await this.fetchWeatherForecast(input.latitude, input.longitude)
       return this.evaluate({ ...input, ...forecast }, override)
     } catch {
       return {
@@ -82,6 +104,62 @@ export class WeatherRiskService {
         ),
         reason: '天气预报暂不可用，按正常天气计价',
       }
+    }
+  }
+
+  private async fetchWeatherForecast(latitude: number, longitude: number) {
+    if (this.tencentMap?.isConfigured()) {
+      return this.fetchTencentWeather(latitude, longitude)
+    }
+    // Local environments without a Tencent key retain the old provider for development.
+    return this.fetchOpenMeteoForecast(latitude, longitude)
+  }
+
+  private async fetchTencentWeather(latitude: number, longitude: number) {
+    if (!this.tencentMap) throw new Error('Tencent weather service is unavailable')
+    const response = await this.tencentMap.weather(latitude, longitude)
+    if (!response.configured || !response.result) throw new Error('Tencent weather is unavailable')
+    return this.normalizeTencentWeather(response.result)
+  }
+
+  private normalizeTencentWeather(result: TencentWeatherResult) {
+    const payload = this.record(result.data) || result
+    const current = this.recordFrom(payload, ['realtime', 'now', 'current', 'observe'])
+    const hourly = this.arrayFrom(payload, ['forecast_1h', 'hours', 'hourly', 'hourly_forecast', 'forecastHourly'])
+    const alerts = this.arrayFrom(payload, ['alarm', 'alarms', 'warning', 'warnings'])
+    const weatherTexts = [
+      this.textFrom(current, ['weather', 'info', 'condition', 'weather_desc', 'weatherText']),
+      ...hourly.map((item) => this.textFrom(this.record(item), ['weather', 'info', 'condition', 'weather_desc', 'weatherText'])),
+    ].filter((value): value is string => Boolean(value))
+    const alertText = alerts
+      .map((item) => this.textValue(item))
+      .filter(Boolean)
+      .join(' ')
+    const metricRecords = [current, ...hourly.map((item) => this.record(item))].filter(
+      (value): value is Record<string, unknown> => Boolean(value),
+    )
+    const windScale = this.maxMetric(metricRecords, [
+      'wind_scale', 'windScale', 'wind_power', 'windPower', 'wind_pow', 'power', 'wind_level', 'windLevel',
+    ])
+    const windSpeedKmh = this.maxMetric(metricRecords, [
+      'wind_speed_kmh', 'windSpeedKmh', 'wind_speed', 'windSpeed',
+    ])
+    const precipitationMm = this.maxMetric(metricRecords, [
+      'precipitation', 'precipitation_mm', 'precipitationMm', 'rainfall', 'rainfall_mm', 'rain',
+    ])
+    const weatherText = weatherTexts[0] || alertText || ''
+    const forecastText = weatherTexts.join(' ')
+    if (!weatherText && !forecastText && !alertText && windScale === undefined && windSpeedKmh === undefined && precipitationMm === undefined) {
+      throw new Error('Tencent weather response has no usable forecast data')
+    }
+    return {
+      weatherText,
+      forecastText,
+      alertText,
+      windScale,
+      windSpeedKmh,
+      precipitationMm,
+      forecastSource: 'tencent-weather',
     }
   }
 
@@ -105,6 +183,7 @@ export class WeatherRiskService {
       badByWind,
       badByWindSpeed,
       badByRain,
+      source: input.forecastSource,
     })
 
     return {
@@ -172,10 +251,68 @@ export class WeatherRiskService {
     )
   }
 
+  private record(value: unknown): Record<string, unknown> | null {
+    return value !== null && typeof value === 'object' && !Array.isArray(value)
+      ? value as Record<string, unknown>
+      : null
+  }
+
+  private recordFrom(source: Record<string, unknown>, keys: string[]) {
+    for (const key of keys) {
+      const value = this.record(source[key])
+      if (value) return value
+    }
+    return null
+  }
+
+  private arrayFrom(source: Record<string, unknown>, keys: string[]) {
+    for (const key of keys) {
+      if (Array.isArray(source[key])) return source[key]
+    }
+    return []
+  }
+
+  private textFrom(source: Record<string, unknown> | null, keys: string[]) {
+    if (!source) return ''
+    for (const key of keys) {
+      const value = source[key]
+      if (typeof value === 'string' && value.trim()) return value.trim()
+      if (typeof value === 'number' && Number.isFinite(value)) return String(value)
+    }
+    return ''
+  }
+
+  private textValue(value: unknown): string {
+    if (typeof value === 'string' || typeof value === 'number') return String(value)
+    const source = this.record(value)
+    if (!source) return ''
+    return this.textFrom(source, ['title', 'type', 'name', 'description', 'desc', 'content', 'text', 'alarm_type'])
+  }
+
+  private maxMetric(records: Array<Record<string, unknown>>, keys: string[]) {
+    const values = records
+      .map((record) => keys.map((key) => this.numericValue(record[key])).find((value): value is number => value !== undefined))
+      .filter((value): value is number => value !== undefined)
+    return values.length ? Math.max(...values) : undefined
+  }
+
+  private numericValue(value: unknown) {
+    if (typeof value === 'number' && Number.isFinite(value)) return value
+    if (typeof value !== 'string') return undefined
+    const match = value.match(/-?\d+(?:\.\d+)?/)
+    if (!match) return undefined
+    const parsed = Number(match[0])
+    return Number.isFinite(parsed) ? parsed : undefined
+  }
+
   private parseOverride(value?: string) {
     if (value === 'true') return true
     if (value === 'false') return false
     return null
+  }
+
+  private isWeatherMockEnabled() {
+    return this.config.get<string>('WEATHER_MOCK_ENABLED') === 'true'
   }
 
   private reason(input: {
@@ -185,9 +322,11 @@ export class WeatherRiskService {
     badByWind: boolean
     badByWindSpeed: boolean
     badByRain: boolean
+    source?: string
   }) {
     if (input.override === true) return '后台已开启恶劣天气强制判断'
     if (input.override === false) return '后台已关闭恶劣天气强制判断'
+    if (input.source === 'weather-mock') return '天气预报模拟已开启，按正常天气计价'
     if (input.matchedKeyword) return `天气预报包含“${input.matchedKeyword}”`
     if (input.badByCode) return '未来3小时预报命中恶劣天气代码'
     if (input.badByWind || input.badByWindSpeed) return '天气预报显示风力达到恶劣天气阈值'

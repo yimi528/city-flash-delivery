@@ -52,8 +52,8 @@ function ResultState({ kind, message }: { kind: 'loading' | 'error' | 'permissio
 }
 
 function getInitialApiBase() {
-  const saved = localStorage.getItem('merchantApiBase')
-  return saved || DEFAULT_API_BASE
+  localStorage.removeItem('merchantApiBase')
+  return DEFAULT_API_BASE
 }
 
 function getInitialToken() {
@@ -600,9 +600,9 @@ export function OperationsApp() {
     }
   }, [api, notifyNewActionableOrders, operatorId, showToast])
 
-  const completeOperatorLogin = useCallback(async (session: OperatorSession, cleanBase: string) => {
-    setApiBase(cleanBase)
-    localStorage.setItem('merchantApiBase', cleanBase)
+  const completeOperatorLogin = useCallback(async (session: OperatorSession) => {
+    setApiBase(DEFAULT_API_BASE)
+    localStorage.setItem('merchantApiBase', DEFAULT_API_BASE)
     try {
       const nextToken = session.token
       const nextOperatorId = session.operator?.id || operatorId
@@ -615,7 +615,7 @@ export function OperationsApp() {
       localStorage.setItem('merchantName', nextOperatorName)
       setShowLogin(false)
       showToast('安全登录成功')
-      const sessionApi = new OperationsApi(cleanBase, nextToken)
+      const sessionApi = new OperationsApi(DEFAULT_API_BASE, nextToken)
       const [payload, riderApplications, riderList] = await Promise.all([sessionApi.listOrders(), sessionApi.listRiderApplications(), sessionApi.listRiders()])
       const dashboard = normalizeDashboard(payload, nextOperatorId)
       notifyNewActionableOrders(dashboard.orders)
@@ -638,19 +638,19 @@ export function OperationsApp() {
   }, [notifyNewActionableOrders, operatorId, showToast])
 
   const loginOperator = useCallback(async (username: string, password: string) => {
-    const cleanBase = apiBase.replace(/\/$/, '') || DEFAULT_API_BASE
+    const cleanBase = DEFAULT_API_BASE
     setApiBase(cleanBase)
     localStorage.setItem('merchantApiBase', cleanBase)
     localStorage.setItem('merchantUsername', username)
     setLoggingIn(true)
     try {
       const session = await new OperationsApi(cleanBase, '').login(username, password)
-      await completeOperatorLogin(session, cleanBase)
+      await completeOperatorLogin(session)
     } catch (error) {
       setLoggingIn(false)
       showToast(`登录失败：${error instanceof Error ? error.message : '未知错误'}`)
     }
-  }, [apiBase, completeOperatorLogin, showToast])
+  }, [completeOperatorLogin, showToast])
 
   const logout = useCallback(() => {
     setToken('')
@@ -757,7 +757,7 @@ export function OperationsApp() {
   }, [])
 
   const pageTitle = view === 'pricing' ? '价格规则' : view === 'service-areas' ? '服务范围' : view === 'rider-applications' ? '骑手申请' : view === 'riders' ? '骑手管理' : view === 'settings' ? '系统设置' : '订单调度中心'
-  const pageSubtitle = view === 'pricing' ? '管理线路单价、距离计价和搬运服务费。' : view === 'service-areas' ? '圈定每项业务的服务边界，地址范围由后端最终判断。' : view === 'rider-applications' ? '审核骑手资料，记录每一次通过、拒绝和通知。' : view === 'riders' ? '管理骑手身份权限、在线状态和当前配送任务。' : view === 'settings' ? '管理营业状态、报价有效期和骑手履约边界。' : '集中处理用户订单、最终报价与配送进度。'
+  const pageSubtitle = view === 'pricing' ? '管理线路单价、距离计价和搬运服务费。' : view === 'service-areas' ? '按城市管理可接单区域和业务能力。' : view === 'rider-applications' ? '审核骑手资料，记录每一次通过、拒绝和通知。' : view === 'riders' ? '管理骑手身份权限、在线状态和当前配送任务。' : view === 'settings' ? '管理营业状态、报价有效期和骑手履约边界。' : '集中处理用户订单、最终报价与配送进度。'
 
   return (
     <div className="shell">
@@ -767,12 +767,12 @@ export function OperationsApp() {
           <div>
             <p className="eyebrow">今日运营</p>
             <h1>{pageTitle}</h1>
-            <p className="muted">{pageSubtitle}</p>
+            {pageSubtitle ? <p className="muted">{pageSubtitle}</p> : null}
           </div>
           <div className="top-actions">
             <label className="api-field">
               <span>服务地址</span>
-              <input value={apiBase} aria-label="API 地址" onChange={(event) => setApiBase(event.target.value)} />
+              <input value={DEFAULT_API_BASE} aria-label="API 地址" readOnly />
             </label>
             <button className={`sound-btn ${soundEnabled && soundArmed ? 'on' : ''}`} type="button" onClick={toggleOrderSound} aria-pressed={soundEnabled && soundArmed} title="新订单到达时播放短提示音">
               <span className="sound-glyph" aria-hidden="true" />

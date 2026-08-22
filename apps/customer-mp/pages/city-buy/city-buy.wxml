@@ -2,7 +2,8 @@
   <view style="height: {{statusBarHeight}}px"></view>
 
   <view class="buy-nav">
-    <view class="left-actions">
+    <view class="floating-actions-spacer"></view>
+    <view class="left-actions floating-actions" style="top: {{statusBarHeight + 12}}px;">
       <view class="back" bindtap="goBack">‹</view>
       <view class="home" bindtap="goHome">⌂</view>
     </view>

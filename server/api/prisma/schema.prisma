@@ -501,6 +501,7 @@ model Order {
   estimatedFee       Decimal                                @default(0) @db.Decimal(8, 2)
   totalFee           Decimal                                @db.Decimal(8, 2)
   remark             String                                 @default("")
+  hiddenAt           DateTime?
   statusLogs         OrderStatusLog[]
   payment            PaymentRecord?
   refund             RefundRecord?
@@ -509,6 +510,7 @@ model Order {
   updatedAt          DateTime                               @updatedAt
 
   @@index([userId, createdAt])
+  @@index([userId, hiddenAt, createdAt])
   @@index([status, createdAt])
   @@index([riderId, status])
   @@index([taskId, status, createdAt])

@@ -1,42 +1,90 @@
 <view class="page">
-  <view class="topbar" style="padding-top: {{statusBarHeight}}px; height: {{statusBarHeight + 92}}px;">
-    <button class="back" bindtap="goBack">‹</button>
-    <text class="title">骑手身份</text>
-    <text class="topbar-mark">同城速送</text>
+  <view class="ambient ambient-one"></view>
+  <view class="ambient ambient-two"></view>
+
+  <view class="topbar" style="padding-top: {{statusBarHeight}}px; height: {{statusBarHeight + 112}}px;">
+    <view class="back floating-back" style="top: {{statusBarHeight + 12}}px;" hover-class="back-pressed" bindtap="goBack" role="button" aria-label="返回"><text>‹</text></view>
+    <view class="nav-copy">
+      <text class="nav-kicker">鼎温榕同城配送</text>
+      <text class="title">骑手身份</text>
+    </view>
+    <view class="nav-spacer"></view>
   </view>
 
-  <view wx:if="{{mode === 'loading'}}" class="loading-card">正在读取骑手身份…</view>
+  <view wx:if="{{mode === 'loading'}}" class="loading-card">
+    <view class="loading-icon"></view>
+    <view class="loading-copy"><view class="loading-line short"></view><view class="loading-line"></view></view>
+  </view>
 
   <view wx:elif="{{mode === 'apply' || mode === 'rejected'}}" class="content">
-    <view class="intro-card">
-      <text class="eyebrow">ONE ACCOUNT, TWO MODES</text>
-      <text class="headline">用现在的账号，开通骑手身份</text>
-      <text class="intro-copy">审核通过后，你仍然可以正常下单；骑手权限暂停或离职，也不会影响用户端。</text>
+    <view class="hero-card">
+      <view class="hero-glow"></view>
+      <view class="hero-topline"><text class="eyebrow">ONE ACCOUNT · TWO MODES</text><text class="hero-mark">骑</text></view>
+      <text class="headline">开通骑手身份</text>
+      <text class="intro-copy">用现在的账号接单配送。审核通过后，用户端和骑手端可以随时切换。</text>
+      <view class="hero-foot"><view class="hero-dot"></view><text>审核通过即可上线接单</text><text class="hero-arrow">↗</text></view>
     </view>
-    <view wx:if="{{mode === 'rejected'}}" class="notice-card rejected">
-      <text class="notice-title">上次申请未通过</text>
-      <text class="notice-copy">{{application.rejectionReason || '请修改资料后重新申请。'}}</text>
-      <button class="text-button" bindtap="reapply">修改资料重新申请</button>
+
+    <view wx:if="{{mode === 'rejected'}}" class="notice-card" hover-class="card-pressed">
+      <view class="notice-icon">!</view>
+      <view class="notice-body"><text class="notice-title">需要补充申请资料</text><text class="notice-copy">{{application.rejectionReason || '请修改资料后重新申请。'}}</text></view>
+      <button class="text-button" bindtap="reapply">重新填写</button>
     </view>
+
     <view class="form-card">
-      <view class="section-label">申请资料</view>
-      <label class="field"><text>真实姓名</text><input data-field="name" value="{{form.name}}" placeholder="用于审核和配送记录" bindinput="input" /></label>
-      <label class="field"><text>联系电话</text><input data-field="phone" type="number" value="{{form.phone}}" placeholder="仅商家审核和配送联系使用" bindinput="input" /></label>
-      <view class="field"><text>配送工具 <small>可多选</small></text><view class="apply-vehicle-grid"><view wx:for="{{vehicleOptions}}" wx:key="value" class="apply-vehicle {{item.selected ? 'selected' : ''}}" data-type="{{item.value}}" bindtap="toggleVehicle"><view class="apply-vehicle-check">{{item.selected ? '✓' : ''}}</view><text>{{item.label}}</text></view></view></view>
-      <label class="field field-textarea"><text>申请说明 <small>选填</small></text><textarea data-field="statement" value="{{form.statement}}" maxlength="120" placeholder="例如：熟悉宁德市区路线，平时可配送时段…" bindinput="input"></textarea></label>
-      <view class="agreement" bindtap="toggleAgreement"><view class="agreement-box {{form.agreementAccepted ? 'checked' : ''}}">{{form.agreementAccepted ? '✓' : ''}}</view><text>我已阅读并同意用户协议和隐私政策</text></view>
-      <button class="submit-button" bindtap="submit">提交骑手申请</button>
+      <view class="form-heading"><view><text class="section-label">申请资料</text><text class="section-note">提交后由商家人工审核</text></view><text class="form-step">1 / 1</text></view>
+
+      <label class="field">
+        <view class="field-label"><text>真实姓名</text><text class="required">必填</text></view>
+        <input class="field-input" data-field="name" value="{{form.name}}" placeholder="请输入真实姓名" placeholder-class="field-placeholder" bindinput="input" />
+      </label>
+
+      <label class="field">
+        <view class="field-label"><text>联系电话</text><text class="required">必填</text></view>
+        <input class="field-input" data-field="phone" type="number" value="{{form.phone}}" placeholder="用于审核和配送联系" placeholder-class="field-placeholder" bindinput="input" />
+      </label>
+
+      <view class="field vehicle-field">
+        <view class="field-label"><text>配送工具</text><text class="field-hint">可多选</text></view>
+        <view class="apply-vehicle-grid">
+          <view wx:for="{{vehicleOptions}}" wx:key="value" class="apply-vehicle {{item.selected ? 'selected' : ''}}" data-type="{{item.value}}" hover-class="vehicle-pressed" bindtap="toggleVehicle">
+            <view class="vehicle-glyph {{item.value}}"><text>{{item.value === 'MANUAL' ? '人' : item.value === 'VAN' ? '车' : '骑'}}</text></view>
+            <text class="vehicle-name">{{item.label}}</text>
+            <view class="apply-vehicle-check">{{item.selected ? '✓' : ''}}</view>
+          </view>
+        </view>
+      </view>
+
+      <label class="field field-textarea">
+        <view class="field-label"><text>申请说明</text><text class="field-hint">选填</text></view>
+        <textarea class="field-input textarea-input" data-field="statement" value="{{form.statement}}" maxlength="120" placeholder="例如：熟悉宁德市区路线，平时可配送时段…" placeholder-class="field-placeholder" bindinput="input"></textarea>
+        <text class="textarea-count">{{form.statement.length || 0}} / 120</text>
+      </label>
+
+      <view class="agreement" hover-class="agreement-pressed" bindtap="toggleAgreement">
+        <view class="agreement-box {{form.agreementAccepted ? 'checked' : ''}}">{{form.agreementAccepted ? '✓' : ''}}</view>
+        <text>我已阅读并同意<text class="agreement-link">用户协议</text>和<text class="agreement-link">隐私政策</text></text>
+      </view>
+      <button class="submit-button" hover-class="submit-pressed" bindtap="submit"><text>提交骑手申请</text><text class="submit-arrow">→</text></button>
+      <text class="form-footnote">资料仅用于身份审核与配送服务联系</text>
     </view>
   </view>
 
   <view wx:elif="{{mode === 'pending'}}" class="content">
-    <view class="state-card pending"><view class="state-mark">⌛</view><text class="state-title">申请审核中</text><text class="state-copy">商家会核对你的资料。审核结果会通知到当前账号，无需重新注册。</text></view>
-    <view class="detail-card"><text class="section-label">已提交资料</text><view class="detail-row"><text>姓名</text><text>{{application.realName}}</text></view><view class="detail-row"><text>配送工具</text><text>{{application.vehicleName}}</text></view><view class="detail-row"><text>提交时间</text><text>{{application.submittedAt}}</text></view></view>
+    <view class="state-card pending">
+      <view class="state-icon pending-icon"><view class="pending-orbit"></view><text>⌛</text></view>
+      <text class="state-kicker">APPLICATION RECEIVED</text>
+      <text class="state-title">申请审核中</text>
+      <text class="state-copy">资料已安全提交，商家会在审核完成后通知你。期间仍可正常使用用户端。</text>
+      <view class="status-steps"><view class="status-step done"><view class="step-dot">✓</view><text>已提交</text></view><view class="step-line active"></view><view class="status-step current"><view class="step-dot">2</view><text>审核中</text></view><view class="step-line"></view><view class="status-step"><view class="step-dot">3</view><text>审核结果</text></view></view>
+    </view>
+    <view class="detail-card"><view class="detail-heading"><text class="section-label">已提交资料</text><text class="detail-badge">审核中</text></view><view class="detail-row"><text>姓名</text><text>{{application.realName}}</text></view><view class="detail-row"><text>配送工具</text><text>{{application.vehicleName}}</text></view><view class="detail-row"><text>提交时间</text><text>{{application.submittedAt}}</text></view></view>
   </view>
 
   <view wx:elif="{{mode === 'active'}}" class="content">
-    <view class="state-card active"><view class="state-mark">✓</view><text class="state-title">骑手身份已生效</text><text class="state-copy">可以切换到骑手端上线接单。用户身份和历史订单仍保留。</text><button class="submit-button" bindtap="switchRider">进入骑手模式</button></view>
+    <view class="state-card active"><view class="state-icon active-icon"><text>✓</text></view><text class="state-kicker">RIDER MODE READY</text><text class="state-title">骑手身份已生效</text><text class="state-copy">可以切换到骑手端上线接单。用户身份和历史订单仍然保留。</text><button class="submit-button" hover-class="submit-pressed" bindtap="switchRider"><text>进入骑手模式</text><text class="submit-arrow">→</text></button></view>
+    <view class="tip-card"><view class="tip-icon">i</view><text>你可以在个人中心随时切换用户和骑手身份。</text></view>
   </view>
 
-  <view wx:else class="content"><view class="state-card blocked"><view class="state-mark">!</view><text class="state-title">骑手权限当前不可用</text><text class="state-copy">当前状态：{{rider.roleStatus}}。你仍可正常使用用户端，请联系商家了解详情。</text></view></view>
+  <view wx:else class="content"><view class="state-card blocked"><view class="state-icon blocked-icon"><text>!</text></view><text class="state-kicker">RIDER MODE PAUSED</text><text class="state-title">骑手权限当前不可用</text><text class="state-copy">当前状态：{{rider.roleStatus}}。你仍可正常使用用户端，请联系商家了解详情。</text></view></view>
 </view>

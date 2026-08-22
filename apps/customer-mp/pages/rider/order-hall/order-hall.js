@@ -1,4 +1,5 @@
 const app = getApp()
+const navigation = require('../../../utils/navigation')
 const api = require('../../../utils/rider-api')
 const { createOrderAlert } = require('../../../utils/order-alert')
 
@@ -23,8 +24,10 @@ Page({
     const storedSound = wx.getStorageSync(SOUND_STORAGE_KEY)
     const rider = app.globalData.rider
     this.setData({ rider, online: Boolean(rider && rider.online), soundEnabled: storedSound !== 'off' })
-    this.refresh()
-    this.startPolling()
+    navigation.afterVisible(() => {
+      this.refresh()
+      this.startPolling()
+    })
   },
 
   onHide() { this.stopPolling() },
@@ -164,7 +167,7 @@ Page({
     api.claim(id).then(() => {
       wx.showToast({ title: '抢单成功', icon: 'success' })
       this.setData({ orders: this.data.orders.filter((order) => order.id !== id) })
-      setTimeout(() => wx.redirectTo({ url: RIDER_PAGES.tasks }), 500)
+      setTimeout(() => navigation.redirectTo(wx, { url: RIDER_PAGES.tasks }), 500)
     }).catch((error) => {
       wx.showToast({ title: error.message, icon: 'none' })
       this.loadOrders(false)
@@ -173,7 +176,7 @@ Page({
 
   goRiderPage(event) {
     const target = RIDER_PAGES[event.currentTarget.dataset.page]
-    if (target && target !== RIDER_PAGES.hall) wx.redirectTo({ url: target })
+    if (target && target !== RIDER_PAGES.hall) navigation.redirectTo(wx, { url: target })
   },
 
   returnToUser(message) {

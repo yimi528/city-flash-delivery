@@ -1,37 +1,33 @@
 const app = getApp()
 const api = require('../../utils/api')
+const navigation = require('../../utils/navigation')
 
 const FILTERS = [
   { key: 'ALL', label: '全部' },
-  { key: 'MERCHANT', label: '待商家接单' },
-  { key: 'RIDER', label: '待骑手接单' },
-  { key: 'QUOTE', label: '报价中' },
-  { key: 'PAYMENT', label: '待支付' },
+  { key: 'PENDING', label: '待处理' },
   { key: 'ACTIVE', label: '进行中' },
   { key: 'COMPLETED', label: '已完成' },
   { key: 'CANCELLED', label: '已取消' }
 ]
 
+const PENDING_STATUSES = ['待接单', '待商家接单', '待骑手接单', '待商家报价', '待确认报价', '报价中', '待支付']
+
 function filterKey(value) {
   const text = String(value || '')
   if (!text || text === '全部') return 'ALL'
-  if (text === '待接单' || text === '待商家接单') return 'MERCHANT'
-  if (text === '待骑手接单') return 'RIDER'
-  if (text === '待商家报价' || text === '待确认报价' || text === '报价中') return 'QUOTE'
-  if (text === '待支付') return 'PAYMENT'
+  if (['ALL', 'PENDING', 'ACTIVE', 'COMPLETED', 'CANCELLED'].includes(text)) return text
+  if (PENDING_STATUSES.includes(text) || ['MERCHANT', 'RIDER', 'QUOTE', 'PAYMENT'].includes(text)) return 'PENDING'
   if (text === '已完成') return 'COMPLETED'
   if (text === '已取消') return 'CANCELLED'
   if (text === '已接单' || text === '进行中') return 'ACTIVE'
+  if (text === '待处理') return 'PENDING'
   return text
 }
 
 function matchesFilter(order, key) {
   const displayStatus = order.displayStatus
   if (key === 'ALL') return true
-  if (key === 'MERCHANT') return displayStatus === '待商家接单'
-  if (key === 'RIDER') return displayStatus === '待骑手接单'
-  if (key === 'QUOTE') return displayStatus === '待商家报价' || displayStatus === '待确认报价'
-  if (key === 'PAYMENT') return displayStatus === '待支付'
+  if (key === 'PENDING') return PENDING_STATUSES.includes(displayStatus)
   if (key === 'COMPLETED') return displayStatus === '已完成'
   if (key === 'CANCELLED') return displayStatus === '已取消'
   if (key === 'ACTIVE') return ['取货中', '前往取货', '上门途中', '前往上车点', '已到达取货点', '已到达上车点', '已到达服务地点', '配送中', '搬运中', '行程中'].includes(displayStatus)
@@ -88,6 +84,7 @@ Page({
     const orders = allOrders.filter((item) => matchesFilter(item, filter)).map((item) => {
       const meta = statusMeta(item)
       return Object.assign({}, item, meta, {
+        canDelete: item.status === '已完成' || item.status === '已取消',
         feeText: item.feeText || (item.needsQuote ? '待报价' : `¥${item.fee}`),
         orderNoText: item.orderNo ? `订单 ${item.orderNo}` : `下单于 ${item.createTime}`,
         routeLabel: item.dropoffName ? `${item.pickupName} → ${item.dropoffName}` : item.pickupName,
@@ -102,7 +99,35 @@ Page({
   },
 
   openOrder(event) {
-    wx.navigateTo({ url: `/pages/order-detail/order-detail?id=${event.currentTarget.dataset.id}` })
+    navigation.navigateTo(wx, { url: `/pages/order-detail/order-detail?id=${event.currentTarget.dataset.id}` })
+  },
+
+  deleteOrder(event) {
+    const id = event.currentTarget.dataset.id
+    const order = this.data.orders.find((item) => item.id === id)
+    if (!order || !order.canDelete) return
+    wx.showModal({
+      title: '删除这条订单？',
+      content: '订单会从“我的订单”中隐藏，履约和售后记录不会被删除。',
+      confirmText: '删除',
+      confirmColor: '#d4472d',
+      success: (result) => {
+        if (!result.confirm) return
+        const removeLocal = () => {
+          app.globalData.orders = (app.globalData.orders || []).filter((item) => item.id !== id)
+          this.refresh()
+          wx.showToast({ title: '订单已删除', icon: 'success' })
+        }
+        if (!app.globalData.useBackend) {
+          removeLocal()
+          return
+        }
+        wx.showLoading({ title: '删除中' })
+        api.deleteOrder(id).then(removeLocal).catch((error) => {
+          wx.showToast({ title: error.message || '删除失败，请稍后重试', icon: 'none' })
+        }).finally(() => wx.hideLoading())
+      }
+    })
   },
 
   goHome() {

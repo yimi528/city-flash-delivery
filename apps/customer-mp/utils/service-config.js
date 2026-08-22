@@ -78,7 +78,7 @@ const HANDLING_TYPES = [
     vehicleId: 'manual_labor',
     vehicleName: '人力服务',
     serviceSurcharge: 0,
-    priceSummary: '上门人工固定48元；运输请使用运货并在备注中说明装卸需求'
+    priceSummary: '搬运装卸固定48元；填写上门服务地址'
   },
   {
     name: '叉车',
@@ -135,7 +135,7 @@ const COMMON_TASKS = [
     desc: '统一提交搬运需求',
     vehicleType: 'manual_labor',
     vehicleName: '人力服务',
-    priceSummary: '上门人工固定48元；运输请使用运货并在备注中说明装卸需求',
+    priceSummary: '搬运装卸固定48元；填写上门服务地址',
     pricingMode: 'handling_fixed',
     baseDistanceKm: 0,
     basePrice: 48,

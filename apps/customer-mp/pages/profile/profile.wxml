@@ -1,9 +1,7 @@
 <view class="profile-page">
   <view style="height: {{statusBarHeight}}px"></view>
-
   <view class="nav-shell">
     <view class="nav-title">个人中心</view>
-    <view class="menu-pill"><text>•••</text><view class="pill-dot"></view></view>
   </view>
 
   <view class="member-card">

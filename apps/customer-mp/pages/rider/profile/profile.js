@@ -1,4 +1,5 @@
 const app = getApp()
+const navigation = require('../../../utils/navigation')
 const customerApi = require('../../../utils/api')
 const riderApi = require('../../../utils/rider-api')
 
@@ -68,7 +69,7 @@ Page({
       vehicleOptions: vehicleOptionsFor(rider),
       vehicleSummary: vehicleSummaryFor(rider)
     })
-    this.load()
+    navigation.afterVisible(() => this.load())
   },
 
   onPullDownRefresh() {
@@ -129,6 +130,6 @@ Page({
 
   goRiderPage(event) {
     const target = RIDER_PAGES[event.currentTarget.dataset.page]
-    if (target && target !== RIDER_PAGES.profile) wx.redirectTo({ url: target })
+    if (target && target !== RIDER_PAGES.profile) navigation.redirectTo(wx, { url: target })
   }
 })

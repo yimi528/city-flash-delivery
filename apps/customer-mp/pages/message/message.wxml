@@ -1,8 +1,7 @@
 <view class="message-page">
   <view style="height: {{statusBarHeight}}px"></view>
-
   <view class="nav-shell">
-    <view class="back" bindtap="goBack">‹</view>
+    <view class="back floating-back" style="top: {{statusBarHeight + 12}}px;" bindtap="goBack" role="button" aria-label="返回">‹</view>
     <view class="nav-title">我的消息</view>
     <view class="menu-pill" bindtap="openMenu"><text>•••</text><view class="pill-dot"></view></view>
   </view>

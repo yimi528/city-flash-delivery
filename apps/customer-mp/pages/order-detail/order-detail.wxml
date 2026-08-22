@@ -1,7 +1,8 @@
 <view class="detail-page" wx:if="{{order}}">
   <view style="height: {{statusBarHeight}}px"></view>
   <view class="page-nav">
-    <view class="back" bindtap="goBack">‹</view>
+    <view class="back floating-back" style="top: {{statusBarHeight + 12}}px;" bindtap="goBack" role="button" aria-label="返回">‹</view>
+    <view class="nav-action-placeholder floating-back-spacer"></view>
     <view class="nav-title">订单详情</view>
     <view class="nav-action sync-action" bindtap="manualSync">{{isSyncing ? '同步中' : '刷新'}}</view>
   </view>

@@ -1,5 +1,6 @@
 const app = getApp()
 const api = require('../../utils/api')
+const navigation = require('../../utils/navigation')
 
 Page({
   data: {
@@ -48,7 +49,7 @@ Page({
   },
 
   loadState() {
-    api.getCurrentRiderApplication().then((state) => {
+    return api.getCurrentRiderApplication().then((state) => {
       const application = state.application
       const rider = state.rider || {}
       const roleStatus = String(rider.roleStatus || '').toLowerCase()

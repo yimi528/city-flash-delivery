@@ -21,7 +21,6 @@ function loadPicker(options) {
       currentLocation: null
     }
   }
-  const redirects = []
   let pageDefinition = null
   let centerLocation = options.centerLocation
   const mapModule = {
@@ -47,7 +46,11 @@ function loadPicker(options) {
   }
   const carpoolModule = {
     getRoute() { return { id: 'cangnan', name: '苍南' } },
-    isSelectedCityAddress(address) { return address && address.adcode === '330327' }
+    isSelectedCityAddress(address) { return address && address.adcode === '330327' },
+    applySelectedAddress(draft, address, type) {
+      draft[type] = address
+      return { id: 'cangnan', name: '苍南' }
+    }
   }
   const wx = {
     createMapContext() {
@@ -55,7 +58,6 @@ function loadPicker(options) {
         getCenterLocation(callbacks) { callbacks.success(centerLocation) }
       }
     },
-    redirectTo(payload) { redirects.push(payload.url) },
     navigateBack() {},
     showToast() {}
   }
@@ -69,6 +71,7 @@ function loadPicker(options) {
       throw new Error(`Unexpected module: ${request}`)
     },
     wx,
+    setTimeout,
     console
   }, { filename: 'map-picker.js' })
 
@@ -79,7 +82,7 @@ function loadPicker(options) {
       if (callback) callback()
     }
   })
-  return { app, page, redirects, setCenter(value) { centerLocation = value } }
+  return { app, page, setCenter(value) { centerLocation = value } }
 }
 
 test('map picker is registered and uses the native Tencent map center pin flow', () => {
@@ -97,7 +100,7 @@ test('map picker is registered and uses the native Tencent map center pin flow',
   assert.match(addressEdit, /draftOrder\[draftKey\(this\.data\.type\)\]/)
 })
 
-test('moving the map resolves its center coordinate and keeps it on confirmation', async () => {
+test('moving the map resolves its center coordinate and uses it after the form is completed', async () => {
   const fixture = loadPicker({ centerLocation: { latitude: 27.50999, longitude: 120.40555 } })
   fixture.page.onLoad({ type: 'pickup' })
   fixture.page.onReady()
@@ -112,10 +115,11 @@ test('moving the map resolves its center coordinate and keeps it on confirmation
   assert.equal(fixture.page.data.selectedAddress.latitude, 27.50999)
   assert.equal(fixture.page.data.selectedAddress.longitude, 120.40555)
 
+  fixture.page.data.form.detail = '测试路1号'
   fixture.page.confirmLocation()
-  assert.equal(fixture.app.globalData.pendingMapAddress.latitude, 27.50999)
-  assert.equal(fixture.app.globalData.pendingMapAddress.longitude, 120.40555)
-  assert.equal(fixture.redirects[0], '/pages/address-edit/address-edit?type=pickup&from=map')
+  assert.equal(fixture.app.globalData.draftOrder.pickup.latitude, 27.50999)
+  assert.equal(fixture.app.globalData.draftOrder.pickup.longitude, 120.40555)
+  assert.equal(fixture.app.globalData.draftOrder.pickup.detail, '测试路1号')
 })
 
 test('carpool map confirmation preserves route parameters', async () => {
@@ -123,7 +127,11 @@ test('carpool map confirmation preserves route parameters', async () => {
   fixture.page.onLoad({ type: 'dropoff', mode: 'carpool', route: 'cangnan' })
   fixture.page.onReady()
   await flushPromises()
+  fixture.page.data.form.detail = '苍南测试路1号'
+  fixture.page.data.form.contact = '测试用户'
+  fixture.page.data.form.phone = '13800000000'
   fixture.page.confirmLocation()
 
-  assert.equal(fixture.redirects[0], '/pages/address-edit/address-edit?type=dropoff&from=map&mode=carpool&route=cangnan')
+  assert.equal(fixture.app.globalData.draftOrder.dropoff.detail, '苍南测试路1号')
+  assert.equal(fixture.app.globalData.draftOrder.dropoff.latitude, 27.52)
 })

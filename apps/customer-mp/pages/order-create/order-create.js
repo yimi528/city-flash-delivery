@@ -4,6 +4,7 @@ const map = require('../../utils/map')
 const carpool = require('../../utils/carpool')
 const serviceConfig = require('../../utils/service-config')
 const vehicleConfig = require('../../utils/vehicle-config')
+const navigation = require('../../utils/navigation')
 
 const HANDLING_TYPES = serviceConfig.HANDLING_TYPES
 const WEATHER_TASK_IDS = new Set(['urgent_delivery', 'pickup', 'buy_for_me'])
@@ -315,6 +316,11 @@ function normalizeHandlingDraft(draft) {
   const handlingType = serviceConfig.applyHandlingType(draft, normalizedName)
   draft.pricingMode = 'handling_fixed'
   draft.requiresDelivery = false
+  draft.budget = 0
+  draft.buyItems = ''
+  draft.purchaseAddress = null
+  draft.buyCategoryId = ''
+  draft.buyCategoryName = ''
   draft.dropoff = null
   vehicleConfig.applyVehicleToDraft(draft, handlingType.vehicleId)
 }
@@ -345,6 +351,8 @@ function prepareFormState(draft) {
   }
   return {
     taskLines,
+    requiresLine: serviceConfig.isRouteTask(task && task.id),
+    addressLocked: serviceConfig.isRouteTask(task && task.id) && !(draft && draft.selectedLine),
     selectedLineId: draft && draft.selectedLine ? draft.selectedLine.id : '',
     fieldConfig,
     itemTypes: fieldConfig.itemTypes,
@@ -407,6 +415,8 @@ function buildLocalOrder(draft, estimate) {
 function buildBackendPayload(draft) {
   const cargoOptions = draft.cargoOptions || {}
   const purchaseAddress = draft.purchaseAddress || draft.pickup
+  const isBuyForMe = draft.taskId === 'buy_for_me' || draft.service === '帮买'
+  const productFee = isBuyForMe ? Number(draft.budget || 0) : 0
   return {
     userId: app.globalData.userId,
     service: draft.service,
@@ -424,8 +434,8 @@ function buildBackendPayload(draft) {
     purchaseAddressId: purchaseAddress ? purchaseAddress.id : '',
     purchase: purchaseAddress,
     buyItems: draft.buyItems || '',
-    productFee: Number(draft.budget || 0),
-    budget: Number(draft.budget || 0),
+    productFee,
+    budget: productFee,
     distanceKm: getRouteDistance(draft),
     weightKg: Number(draft.weight || 1),
     vehicleId: cargoOptions.vehicleId || 'ebike',
@@ -453,6 +463,9 @@ function requestBackendQuote(draft) {
     latitude: Number(address.latitude || (address.location && address.location.latitude) || 0),
     longitude: Number(address.longitude || (address.location && address.location.longitude) || 0)
   } : undefined
+  const productFee = draft.taskId === 'buy_for_me' || draft.service === '帮买'
+    ? Number(draft.budget || 0)
+    : 0
   return api.quoteOrder({
     taskId: draft.taskId,
     routeId: draft.selectedLine ? draft.selectedLine.id : '',
@@ -463,7 +476,7 @@ function requestBackendQuote(draft) {
     pickup: point(pickup),
     dropoff: point(dropoff),
     weightKg: Math.round(Number(draft.weight || 1)),
-    productFeeFen: Math.round(Number(draft.budget || 0) * 100)
+    productFeeFen: Math.round(productFee * 100)
   })
 }
 
@@ -502,6 +515,8 @@ Page({
     itemTypes: ['普通货物', '宠物'],
     weights: DEFAULT_WEIGHT_OPTIONS,
     taskLines: [],
+    requiresLine: false,
+    addressLocked: false,
     selectedLineId: '',
     fieldConfig: FIELD_PRESETS.urgent_delivery,
     handlingTypes: HANDLING_TYPES,
@@ -515,12 +530,14 @@ Page({
     isRouteLoading: false,
     isWeatherLoading: false,
     isSubmitting: false,
+    pricingReady: false,
     passengerCount: 1,
     weatherRisk: buildWeatherRisk()
   },
 
   onShow() {
     const draft = app.globalData.draftOrder
+    const backendPricing = Boolean(app.globalData.useBackend)
     normalizeHandlingDraft(draft)
     applyRemotePricing(draft)
     const selectedVehicle = ensureDraftVehicle(draft)
@@ -531,6 +548,8 @@ Page({
       estimate: estimateFee(draft),
       selectedVehicle,
       taskLines: formState.taskLines,
+      requiresLine: formState.requiresLine,
+      addressLocked: formState.addressLocked,
       selectedLineId: formState.selectedLineId,
       fieldConfig: formState.fieldConfig,
       itemTypes: formState.itemTypes,
@@ -541,15 +560,18 @@ Page({
       routeSource: getRouteSource(draft),
       routeDuration: draft.routeDuration || '',
       weatherRisk: draft.weatherRisk || buildWeatherRisk(),
-      passengerCount: Number(draft.passengerCount || 1)
+      passengerCount: Number(draft.passengerCount || 1),
+      pricingReady: !backendPricing
     })
-    const sync = app.globalData.useBackend && app.refreshAppConfig
-      ? this.syncRemotePricing()
-      : Promise.resolve()
-    sync.then(() => {
-      this.refreshRouteEstimate()
-      this.refreshWeatherRisk()
-      this.refreshRouteOptions()
+    navigation.afterVisible(() => {
+      const sync = app.globalData.useBackend && app.refreshAppConfig
+        ? this.syncRemotePricing()
+        : Promise.resolve()
+      sync.then(() => Promise.all([
+        this.refreshRouteEstimate(),
+        this.refreshWeatherRisk(),
+        this.refreshRouteOptions()
+      ])).finally(() => this.setData({ pricingReady: true }))
     })
     if (this.pricingSyncTimer) clearInterval(this.pricingSyncTimer)
     if (app.globalData.useBackend && app.refreshAppConfig) this.pricingSyncTimer = setInterval(() => this.syncRemotePricing(true), 30000)
@@ -576,20 +598,25 @@ Page({
 
   refreshRouteOptions() {
     const draft = app.globalData.draftOrder
-    if (!app.globalData.useBackend || !serviceConfig.isRouteTask(draft.taskId)) return
+    if (!app.globalData.useBackend || !serviceConfig.isRouteTask(draft.taskId)) return Promise.resolve()
     const remoteService = (app.globalData.appConfig && app.globalData.appConfig.services || []).find((item) => item.id === draft.taskId)
     if (remoteService && Array.isArray(remoteService.routes)) {
       applyRemotePricing(draft)
       this.refreshLocalEstimate()
-      return
+      return Promise.resolve()
     }
-    if (draft.taskId !== 'carpool_ride') return
-    api.getCarpoolRoutes().then((routes) => {
+    if (draft.taskId !== 'carpool_ride') return Promise.resolve()
+    return api.getCarpoolRoutes().then((routes) => {
       const taskLines = routes.map((route) => ({ id: route.id, name: route.city, price: Number(route.unitPriceFen || 0) / 100, priceUnit: 'PER_PERSON', pending: Number(route.unitPriceFen || 0) <= 1 }))
       const selected = taskLines.find((line) => draft.selectedLine && line.id === draft.selectedLine.id) || null
       draft.selectedLine = selected
       const formState = prepareFormState(draft)
-      this.setData({ taskLines: formState.taskLines, selectedLineId: formState.selectedLineId })
+      this.setData({
+        taskLines: formState.taskLines,
+        requiresLine: formState.requiresLine,
+        addressLocked: formState.addressLocked,
+        selectedLineId: formState.selectedLineId
+      })
       this.refreshLocalEstimate()
     }).catch(() => wx.showToast({ title: '线路价格同步失败，请稍后重试', icon: 'none' }))
   },
@@ -602,6 +629,8 @@ Page({
       estimate: estimateFee(draft),
       selectedVehicle: (draft.cargoOptions && draft.cargoOptions.vehicleId) || this.data.selectedVehicle,
       taskLines: formState.taskLines,
+      requiresLine: formState.requiresLine,
+      addressLocked: formState.addressLocked,
       selectedLineId: formState.selectedLineId,
       fieldConfig: formState.fieldConfig,
       itemTypes: formState.itemTypes,
@@ -626,7 +655,7 @@ Page({
         weatherRisk: draft.weatherRisk,
         isWeatherLoading: false
       })
-      return
+      return Promise.resolve()
     }
 
     if (!app.globalData.useBackend) {
@@ -638,14 +667,14 @@ Page({
         weatherRisk: draft.weatherRisk,
         isWeatherLoading: false
       })
-      return
+      return Promise.resolve()
     }
 
     const weatherSeq = (this.weatherSeq || 0) + 1
     this.weatherSeq = weatherSeq
     this.setData({ isWeatherLoading: true })
     const point = getWeatherPoint(draft)
-    api.getWeatherRisk({
+    return api.getWeatherRisk({
       city: app.globalData.city || '宁德市',
       latitude: point.latitude,
       longitude: point.longitude
@@ -674,13 +703,13 @@ Page({
 
   refreshRouteEstimate() {
     const draft = app.globalData.draftOrder
-    if (!draft.dropoff) return
+    if (!draft.dropoff) return Promise.resolve()
     const origin = getRouteOrigin(draft)
-    if (!origin) return
+    if (!origin) return Promise.resolve()
     const routeSeq = (this.routeSeq || 0) + 1
     this.routeSeq = routeSeq
     this.setData({ isRouteLoading: true })
-    map.estimateDistance(origin, draft.dropoff).then((route) => {
+    return map.estimateDistance(origin, draft.dropoff).then((route) => {
       if (this.routeSeq !== routeSeq) return
       draft.routeDistanceKm = route.distanceKm
       draft.routeDistanceSource = route.source
@@ -688,6 +717,7 @@ Page({
       this.setData({
         draft,
         estimate: estimateFee(draft),
+        addressLocked: serviceConfig.isRouteTask(draft.taskId) && !draft.selectedLine,
         selectedLineId: draft.selectedLine ? draft.selectedLine.id : '',
         routeSource: route.source,
         routeDuration: route.duration,
@@ -808,18 +838,22 @@ Page({
     }
     const routeId = draft.selectedLine && draft.selectedLine.id
     const mode = draft.taskId === 'carpool_ride' ? `&mode=carpool&route=${routeId}` : ''
-    wx.navigateTo({ url: `/pages/address/address?type=${type}${mode}` })
+    navigation.navigateTo(wx, { url: `/pages/address/address?type=${type}${mode}` })
+  },
+
+  promptSelectLine() {
+    wx.showToast({ title: '请先选择线路', icon: 'none' })
   },
 
   toggleHandlingDelivery() {
     const draft = app.globalData.draftOrder
     draft.requiresDelivery = false
     draft.dropoff = null
-    wx.showToast({ title: '如需运输，请选择运货', icon: 'none' })
+    wx.showToast({ title: '搬运装卸仅提供上门服务', icon: 'none' })
   },
 
   chooseHandlingDestination() {
-    wx.showToast({ title: '如需运输，请选择运货', icon: 'none' })
+    wx.showToast({ title: '搬运装卸仅提供上门服务', icon: 'none' })
   },
 
   inputRemark(event) {
@@ -859,6 +893,10 @@ Page({
         return
       }
     }
+    if (!draft.pickup) {
+      wx.showToast({ title: '请先选择发货地址', icon: 'none' })
+      return
+    }
     if (draft.taskId === 'moving_handling') {
       draft.requiresDelivery = false
       draft.dropoff = null
@@ -867,14 +905,11 @@ Page({
       wx.showToast({ title: '请先选择收货地址', icon: 'none' })
       return
     }
-    // 起点只需要地址；联系人和手机号仅属于终点的收货信息。
-    const pickupContactError = ''
+    const pickupContactError = draft.taskId === 'carpool_ride' && draft.pickup && draft.pickup.isCarpoolFixedStop
+      ? ''
+      : contactError(draft.pickup, '发货')
     const dropoffContactError = draft.dropoff ? contactError(draft.dropoff, '目的地') : ''
-    if (draft.taskId === 'carpool_ride' && pickupContactError && dropoffContactError) {
-      wx.showToast({ title: '乘车地址缺少有效联系人或手机号，请返回修改', icon: 'none', duration: 2600 })
-      return
-    }
-    if (draft.taskId !== 'carpool_ride' && (pickupContactError || dropoffContactError)) {
+    if (pickupContactError || dropoffContactError) {
       wx.showToast({ title: pickupContactError || dropoffContactError, icon: 'none', duration: 2600 })
       return
     }
@@ -885,6 +920,10 @@ Page({
     if (app.globalData.useBackend && (!app.globalData.isLoggedIn || !app.globalData.authToken)) {
       wx.showToast({ title: '请先登录后下单', icon: 'none' })
       setTimeout(() => wx.switchTab({ url: '/pages/profile/profile' }), 500)
+      return
+    }
+    if (app.globalData.useBackend && !this.data.pricingReady) {
+      wx.showToast({ title: '正在同步最新价格，请稍候', icon: 'none' })
       return
     }
     if (this.data.isSubmitting) return
@@ -901,7 +940,7 @@ Page({
       cacheOrder(order)
       wx.showToast({ title: toastTitle || '下单成功', icon: 'success' })
       setTimeout(() => {
-        wx.redirectTo({ url: `/pages/order-detail/order-detail?id=${order.id}` })
+        navigation.redirectTo(wx, { url: `/pages/order-detail/order-detail?id=${order.id}` })
       }, 450)
     }
 
@@ -929,7 +968,7 @@ Page({
       })
     }).then((order) => {
       if (!order) return
-      setTimeout(() => wx.redirectTo({ url: `/pages/order-detail/order-detail?id=${order.id}` }), 450)
+      setTimeout(() => navigation.redirectTo(wx, { url: `/pages/order-detail/order-detail?id=${order.id}` }), 450)
     }).catch((error) => {
       if (error && error.cancelled) return
       wx.showToast({ title: error.message || '下单失败', icon: 'none' })

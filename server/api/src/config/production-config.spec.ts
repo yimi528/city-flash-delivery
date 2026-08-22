@@ -92,6 +92,15 @@ describe('validateProductionConfig', () => {
     }))).not.toThrow()
   })
 
+  it('allows the temporary weather mock without a Tencent weather key', () => {
+    const mockConfig = {
+      ...validConfig,
+      WEATHER_MOCK_ENABLED: 'true',
+      TENCENT_MAP_KEY: '',
+    }
+    expect(() => validateProductionConfig(reader(mockConfig))).not.toThrow()
+  })
+
   it('does not constrain local development', () => {
     expect(() => validateProductionConfig(reader({ NODE_ENV: 'development' }))).not.toThrow()
   })

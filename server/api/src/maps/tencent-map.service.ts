@@ -35,6 +35,8 @@ type TencentDirectionResult = {
   routes?: Array<{ distance?: number; duration?: number; polyline?: number[] }>
 }
 
+export type TencentWeatherResult = Record<string, unknown>
+
 @Injectable()
 export class TencentMapService {
   constructor(private readonly config: ConfigService) {}
@@ -135,6 +137,18 @@ export class TencentMapService {
         polyline,
       },
     }
+  }
+
+  async weather(latitude: number, longitude: number) {
+    if (!this.isConfigured()) {
+      return { provider: 'tencent-weather', configured: false, result: null as TencentWeatherResult | null }
+    }
+    const result = await this.request<TencentWeatherResult>('/ws/weather/v1/', {
+      location: `${latitude},${longitude}`,
+      type: 'hours',
+      added_fields: 'alarm',
+    })
+    return { provider: 'tencent-weather', configured: true, result }
   }
 
   private async request<T>(path: string, params: Record<string, string | number | undefined>) {

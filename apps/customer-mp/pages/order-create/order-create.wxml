@@ -1,7 +1,8 @@
 <view class="confirm-page">
   <view style="height: {{statusBarHeight}}px"></view>
   <view class="page-nav">
-    <view class="back" bindtap="goBack">‹</view>
+    <view class="back floating-back" style="top: {{statusBarHeight + 12}}px;" bindtap="goBack" role="button" aria-label="返回">‹</view>
+    <view class="nav-action-placeholder floating-back-spacer"></view>
     <view class="nav-title">{{draft.taskId === 'moving_handling' ? '搬运装卸' : '确认订单'}}</view>
     <view class="nav-action">明细</view>
   </view>
@@ -9,7 +10,7 @@
   <view class="handling-intro" wx:if="{{draft.taskId === 'moving_handling'}}">
     <view class="handling-kicker">一站式搬运</view>
     <view class="handling-title">搬运装卸统一下单</view>
-    <view class="handling-sub">只提供上门人工服务；如需把货物送到其他地址，请选择“运货”</view>
+    <view class="handling-sub">填写上门服务地址，商家接单后安排骑手到场</view>
   </view>
 
   <view class="card handling-card" wx:if="{{draft.taskId === 'moving_handling'}}">
@@ -43,44 +44,90 @@
     <textarea class="handling-remark" value="{{draft.remark}}" placeholder="{{fieldConfig.remarkPlaceholder}}" auto-height maxlength="160" bindinput="inputRemark" />
   </view>
 
-  <view class="route-card card">
+  <view class="route-address-card card">
     <view class="service-badge" wx:if="{{draft.service === '帮买'}}">帮买 · 商品价格 ￥{{estimate.productFee}}</view>
     <view class="service-badge" wx:else>{{draft.service}} · 预计 {{estimate.distance}}km</view>
     <view class="route-meter" wx:if="{{draft.taskId !== 'moving_handling'}}">{{isRouteLoading ? '正在获取腾讯地图距离...' : routeSource}} · {{routeDuration ? '约 ' + routeDuration + ' 分钟' : '预计 ' + estimate.distance + 'km'}}</view>
-    <view class="route-line" data-type="{{draft.service === '帮买' ? 'purchase' : 'pickup'}}" bindtap="chooseRouteAddress">
-      <view class="{{draft.service === '帮买' ? 'tag-buy' : 'tag-red'}}">{{draft.service === '帮买' ? '买' : '发'}}</view>
-      <view class="route-info">
-        <view class="title">{{draft.pickup ? draft.pickup.name : (draft.service === '帮买' ? '请选择购买地址' : '请选择发货地址')}}</view>
-        <view class="sub" wx:if="{{draft.pickup && draft.service === '帮买'}}">购买地址 · {{draft.pickup.detail}}</view>
-        <view class="sub" wx:elif="{{draft.pickup}}">{{draft.pickup.detail}}<text wx:if="{{draft.pickup.phone}}"> · {{draft.pickup.phone}}</text></view>
-      </view>
-    </view>
-    <view class="connector {{draft.service === '帮买' ? 'buy' : ''}}" wx:if="{{draft.taskId !== 'moving_handling'}}"></view>
-    <view class="route-line" wx:if="{{draft.taskId !== 'moving_handling'}}" data-type="dropoff" bindtap="chooseRouteAddress">
-      <view class="tag-green">收</view>
-      <view class="route-info">
-        <view class="title">{{draft.dropoff ? draft.dropoff.name : '请选择收货地址'}}</view>
-        <view class="sub" wx:if="{{draft.dropoff}}">{{draft.dropoff.detail}}<text wx:if="{{draft.dropoff.phone}}"> · {{draft.dropoff.phone}}</text></view>
-      </view>
-    </view>
-  </view>
-
-  <view class="card line-card" wx:if="{{taskLines.length}}">
-    <view class="section-head">
-      <view class="section-title">选择线路</view>
-      <view class="muted">{{draft.taskId === 'carpool_ride' ? '单人票价' : (draft.taskId === 'send_parcel' ? '按物品和重量' : '固定价格')}}</view>
-    </view>
-    <view class="direction-switch" wx:if="{{draft.taskId === 'carpool_ride'}}">
-      <view class="direction-option {{draft.direction !== 'RETURN' ? 'active' : ''}}" data-direction="OUTBOUND" bindtap="selectDirection">去程 · 福鼎出发</view>
-      <view class="direction-option {{draft.direction === 'RETURN' ? 'active' : ''}}" data-direction="RETURN" bindtap="selectDirection">返程 · 回福鼎</view>
-    </view>
-    <view class="line-grid">
-      <block wx:for="{{taskLines}}" wx:key="id">
-        <view class="line-option {{selectedLineId === item.id ? 'active' : ''}}" data-id="{{item.id}}" bindtap="selectLine">
-          <view class="line-name">{{item.name}}</view>
-          <view class="line-price">{{item.pending ? '待定' : (item.priceUnit === 'PER_PERSON' ? '￥' + item.price + '/人' : '￥' + item.price)}}</view>
+    <view class="line-section" wx:if="{{taskLines.length || requiresLine}}">
+      <view class="section-head line-section-head">
+        <view>
+          <view class="step-label">01</view>
+          <view class="section-title">选择线路</view>
         </view>
-      </block>
+        <view class="muted">{{draft.taskId === 'carpool_ride' ? '单人票价' : (draft.taskId === 'send_parcel' ? '按物品和重量' : '固定价格')}}</view>
+      </view>
+      <view class="line-helper" wx:if="{{requiresLine && !selectedLineId}}">先选定目的地线路，再填写发货与收货地址</view>
+      <view class="direction-switch" wx:if="{{draft.taskId === 'carpool_ride'}}">
+        <view class="direction-option {{draft.direction !== 'RETURN' ? 'active' : ''}}" data-direction="OUTBOUND" bindtap="selectDirection">去程 · 福鼎出发</view>
+        <view class="direction-option {{draft.direction === 'RETURN' ? 'active' : ''}}" data-direction="RETURN" bindtap="selectDirection">返程 · 回福鼎</view>
+      </view>
+      <view class="route-cascader" wx:if="{{taskLines.length}}">
+        <view class="cascader-column cascader-parent-column">
+          <view class="cascader-column-label">目的地线路</view>
+          <block wx:for="{{taskLines}}" wx:key="id">
+            <view class="cascader-option {{selectedLineId === item.id ? 'active' : ''}}" data-id="{{item.id}}" bindtap="selectLine">
+              <view class="cascader-option-copy">
+                <view class="line-name">{{item.name}}</view>
+                <view class="cascader-option-meta">{{item.originName || '福鼎'}} 出发</view>
+              </view>
+              <view class="cascader-arrow">›</view>
+            </view>
+          </block>
+        </view>
+        <view class="cascader-column cascader-child-column {{selectedLineId ? '' : 'is-disabled'}}">
+          <view class="cascader-column-label">线路信息</view>
+          <view class="cascader-line-preview {{selectedLineId ? '' : 'is-disabled'}}">
+            <view class="cascader-child-title">{{selectedLineId ? (draft.selectedLine.name + '线路') : '请选择左侧线路'}}</view>
+            <view class="cascader-child-sub" wx:if="{{selectedLineId}}">{{draft.selectedLine.originName || '福鼎'}} 出发 · {{draft.selectedLine.pending ? '价格待定' : (draft.selectedLine.priceUnit === 'PER_PERSON' ? '￥' + draft.selectedLine.price + '/人' : '￥' + draft.selectedLine.price)}}</view>
+            <view class="cascader-child-sub" wx:else>选择后可继续填写地址</view>
+          </view>
+        </view>
+      </view>
+      <view class="line-empty" wx:if="{{requiresLine && !taskLines.length}}">线路正在加载，请稍候</view>
+    </view>
+
+    <view class="route-divider" wx:if="{{draft.taskId !== 'moving_handling'}}"></view>
+
+    <view class="address-section {{addressLocked ? 'is-locked' : ''}}">
+      <view class="section-head address-section-head">
+        <view>
+          <view class="step-label">{{requiresLine ? '02' : '01'}}</view>
+          <view class="section-title">{{draft.taskId === 'moving_handling' ? '填写发货地址' : '填写地址'}}</view>
+        </view>
+        <view class="muted">{{addressLocked ? '选择线路后可填写' : (draft.taskId === 'moving_handling' ? '骑手到该地址上门服务' : '选择发货与收货地址')}}</view>
+      </view>
+      <view class="address-cascader {{addressLocked ? 'is-disabled' : ''}}">
+        <view class="cascader-column cascader-address-parent">
+          <view class="cascader-column-label">地址类型</view>
+          <view class="address-cascader-parent {{addressLocked ? 'is-disabled' : (draft.pickup ? 'active' : '')}}">
+            <view class="cascader-child-dot {{draft.service === '帮买' ? 'tag-buy' : 'tag-red'}}">{{draft.service === '帮买' ? '买' : '发'}}</view>
+            <view>{{draft.service === '帮买' ? '购买地址' : '发货地址'}}</view>
+          </view>
+          <view class="address-cascader-parent {{addressLocked ? 'is-disabled' : (draft.dropoff ? 'active' : '')}}" wx:if="{{draft.taskId !== 'moving_handling'}}">
+            <view class="cascader-child-dot tag-green">收</view>
+            <view>收货地址</view>
+          </view>
+        </view>
+        <view class="cascader-column cascader-address-child {{addressLocked ? 'is-disabled' : ''}}">
+          <view class="cascader-column-label">地址详情</view>
+          <view class="address-cascader-child {{addressLocked ? 'is-disabled' : ''}}" data-type="{{draft.service === '帮买' ? 'purchase' : 'pickup'}}" bindtap="chooseRouteAddress">
+            <view class="cascader-child-copy">
+              <view class="cascader-child-title">{{draft.pickup ? draft.pickup.name : (draft.service === '帮买' ? '请选择购买地址' : '请选择发货地址')}}</view>
+              <view class="cascader-child-sub" wx:if="{{draft.pickup}}">{{draft.pickup.detail}}</view>
+              <view class="cascader-child-sub" wx:else>{{addressLocked ? '请先选择上方线路' : '点击选择地址'}}</view>
+            </view>
+            <view class="cascader-arrow">›</view>
+          </view>
+          <view class="address-cascader-child {{addressLocked ? 'is-disabled' : ''}}" wx:if="{{draft.taskId !== 'moving_handling'}}" data-type="dropoff" bindtap="chooseRouteAddress">
+            <view class="cascader-child-copy">
+              <view class="cascader-child-title">{{draft.dropoff ? draft.dropoff.name : '请选择收货地址'}}</view>
+              <view class="cascader-child-sub" wx:if="{{draft.dropoff}}">{{draft.dropoff.detail}}</view>
+              <view class="cascader-child-sub" wx:else>{{addressLocked ? '请先选择上方线路' : '点击选择地址'}}</view>
+            </view>
+            <view class="cascader-arrow">›</view>
+          </view>
+        </view>
+      </view>
     </view>
   </view>
 
@@ -183,6 +230,6 @@
       <view class="muted">需支付</view>
       <view class="money">{{estimate.totalText}}</view>
     </view>
-    <button class="pay-btn" disabled="{{isSubmitting}}" bindtap="submitOrder">{{isSubmitting ? '处理中...' : '微信支付并下单'}}</button>
+    <button class="pay-btn" disabled="{{isSubmitting || !pricingReady}}" bindtap="submitOrder">{{isSubmitting ? '处理中...' : (pricingReady ? '微信支付并下单' : '同步价格中...')}}</button>
   </view>
 </view>

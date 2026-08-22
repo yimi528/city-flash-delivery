@@ -1,7 +1,6 @@
 import type { ApiOrder, BackendStatus, ConfigCategory, ConfigEnvelope, DashboardPayload, Order, PricingConfig, RiderApplication, ServiceAreaConfig, Stats, Store, SystemSettingsConfig } from './types'
 
-const configuredApiBase = import.meta.env.VITE_API_BASE_URL?.trim()
-export const DEFAULT_API_BASE = configuredApiBase || 'http://127.0.0.1:3000/api'
+export const DEFAULT_API_BASE = 'https://city-flash-api-296677-11-1468253816.sh.run.tcloudbase.com/api'
 export const DEFAULT_OPERATOR_ID = 'admin'
 
 const STATUS_LABELS: Record<string, string> = {

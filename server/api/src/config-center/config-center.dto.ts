@@ -1,4 +1,5 @@
-import { IsIn, IsInt, IsObject, IsOptional, IsString, Max, Min } from 'class-validator'
+import { IsIn, IsInt, IsNumber, IsObject, IsOptional, IsString, Max, Min } from 'class-validator'
+import { Type } from 'class-transformer'
 
 export class SaveConfigDraftDto {
   @IsIn(['PRICING', 'SERVICE_AREA', 'SYSTEM'])
@@ -71,4 +72,11 @@ export class PricingQuoteDto {
 
   @IsOptional()
   requiresDelivery?: boolean
+
+  // Compatibility field; quote calculation always uses the stored pricing rule.
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  badWeatherSurcharge?: number
 }

@@ -26,7 +26,7 @@ function readHistory() {
 
 function writeHistory(history) {
   try {
-    if (wx.setStorageSync) wx.setStorageSync(HISTORY_KEY, history.slice(0, 20))
+    if (wx.setStorageSync) wx.setStorageSync(HISTORY_KEY, history.slice(0, 5))
   } catch (error) {}
 }
 
@@ -93,7 +93,6 @@ function recordUse(address) {
   }
   stats[address.id] = next
   writeStats(stats)
-  remember(Object.assign({}, address, next))
   return Object.assign({}, address, next)
 }
 

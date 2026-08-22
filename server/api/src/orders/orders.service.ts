@@ -56,7 +56,7 @@ export class OrdersService {
 
   async list(userId?: string) {
     const orders = await this.prisma.order.findMany({
-      where: userId ? { userId } : undefined,
+      where: userId ? { userId, hiddenAt: null } : { hiddenAt: null },
       include: {
         vehicle: true,
         user: { select: { nickname: true, phone: true } },
@@ -123,6 +123,16 @@ export class OrdersService {
       }),
     ])
     return this.toApiOrder(updated)
+  }
+
+  async hide(id: string, userId: string) {
+    const order = await this.findOrderEntity(id)
+    if (order.userId !== userId) throw new ForbiddenException('无权删除该订单')
+    if (order.status !== PrismaOrderStatus.COMPLETED && order.status !== PrismaOrderStatus.CANCELLED) {
+      throw new ConflictException('进行中的订单不能删除')
+    }
+    await this.prisma.order.update({ where: { id: order.id }, data: { hiddenAt: new Date() } })
+    return { id: order.id, deleted: true }
   }
 
   async create(dto: CreateOrderDto) {

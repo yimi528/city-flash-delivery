@@ -167,6 +167,26 @@ describe('OrdersService quote confirmation', () => {
     }))
   })
 
+  it('hides only terminal customer orders instead of deleting fulfillment records', async () => {
+    const completed = { ...manualQuoteOrder(QuoteStatus.ACCEPTED), status: OrderStatus.COMPLETED }
+    orderApi.findFirst.mockResolvedValue(completed)
+    orderApi.update.mockResolvedValue({ ...completed, hiddenAt: new Date() })
+
+    await expect(service.hide(completed.id, completed.userId)).resolves.toEqual({ id: completed.id, deleted: true })
+    expect(orderApi.update).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: completed.id },
+      data: expect.objectContaining({ hiddenAt: expect.any(Date) }),
+    }))
+  })
+
+  it('does not hide an order that is still in progress', async () => {
+    const pending = manualQuoteOrder(QuoteStatus.ACCEPTED)
+    orderApi.findFirst.mockResolvedValue(pending)
+
+    await expect(service.hide(pending.id, pending.userId)).rejects.toThrow('进行中的订单不能删除')
+    expect(orderApi.update).not.toHaveBeenCalled()
+  })
+
   it('returns the same business status used by customer and merchant clients', async () => {
     const unpaid = {
       ...manualQuoteOrder(QuoteStatus.ACCEPTED),

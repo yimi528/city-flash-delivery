@@ -175,10 +175,15 @@ export class ConfigCenterService implements OnModuleInit {
   }
 
   async checkServiceArea(dto: ServiceAreaCheckDto) {
+    const latestRevision = await this.prisma.configRevision.findFirst({ where: { category: ConfigCategory.SERVICE_AREA }, orderBy: { version: 'desc' }, select: { payload: true } })
+    const coveragePayload = record(latestRevision?.payload)
+    const hasServiceIds = Array.isArray(coveragePayload.serviceIds)
+    const enabledServiceIds = hasServiceIds ? coveragePayload.serviceIds.map((item: unknown) => String(item)) : []
+    if (hasServiceIds && !enabledServiceIds.includes(dto.serviceId)) return { enforced: true, available: false, pickupInside: false, dropoffInside: false, reason: '当前业务未在服务范围中启用' }
     const policy = await this.prisma.serviceCoveragePolicy.findUnique({ where: { serviceId: dto.serviceId } })
     if (!policy?.enforcementEnabled) return { enforced: false, available: true, pickupInside: true, dropoffInside: true }
     const areaCount = await this.prisma.serviceAreaBinding.count({ where: { serviceId: dto.serviceId, serviceArea: { enabled: true } } })
-    if (!areaCount) return { enforced: true, available: false, pickupInside: false, dropoffInside: false, reason: '当前业务尚未配置服务范围' }
+    if (!areaCount) return { enforced: false, available: true, pickupInside: true, dropoffInside: true }
     const pickupInside = dto.pickup ? await this.pointInside(dto.serviceId, dto.pickup) : true
     const dropoffInside = dto.dropoff ? await this.pointInside(dto.serviceId, dto.dropoff) : true
     return { enforced: true, available: pickupInside && dropoffInside, pickupInside, dropoffInside, reason: pickupInside && dropoffInside ? '' : '地址超出当前服务范围' }
@@ -189,7 +194,6 @@ export class ConfigCenterService implements OnModuleInit {
     if (settings && (!settings.acceptingOrders || !this.isWithinHours(settings.weeklyHours))) throw new ServiceUnavailableException(settings.closureReason || '当前不在营业时间，暂不接受新订单')
     const rule = await this.prisma.pricingRule.findFirst({ where: { serviceId: dto.taskId, enabled: true } })
     if (!rule) throw new BadRequestException('该业务尚未配置价格规则')
-    if (dto.taskId === 'moving_handling' && dto.requiresDelivery) throw new BadRequestException('搬运装卸只提供人工服务，请使用运货')
     const pickup = point(dto.pickup)
     const dropoff = point(dto.dropoff)
     const requiresDropoff = dto.taskId !== 'moving_handling'
@@ -236,7 +240,9 @@ export class ConfigCenterService implements OnModuleInit {
     const weatherFeeFen = weatherRisk.isBadWeather && WEATHER_SERVICE_IDS.has(dto.taskId) ? rule.weatherSurchargeFen : 0
     const startFeeFen = rule.baseFeeFen + rule.serviceSurchargeFen
     const deliveryFen = startFeeFen + distanceFeeFen + weatherFeeFen
-    const productFeeFen = Math.max(0, Math.round(numberValue(dto.productFeeFen)))
+    const productFeeFen = dto.taskId === 'buy_for_me'
+      ? Math.max(0, Math.round(numberValue(dto.productFeeFen)))
+      : 0
     return this.createQuote(userId, dto, rule.version, { route: null, distanceMeters, baseFeeFen: startFeeFen, distanceFeeFen, weatherFeeFen, productFeeFen, totalFen: deliveryFen + productFeeFen, vehicleName: this.vehicleName(dto.taskId, dto.item) })
   }
 
@@ -269,7 +275,14 @@ export class ConfigCenterService implements OnModuleInit {
         this.prisma.serviceArea.findMany({ include: { bindings: true }, orderBy: { sortOrder: 'asc' } }),
         this.prisma.serviceCoveragePolicy.findMany({ orderBy: { serviceId: 'asc' } }),
       ])
-      return { areas, policies }
+      const latestRevision = await this.prisma.configRevision.findFirst({ where: { category: ConfigCategory.SERVICE_AREA }, orderBy: { version: 'desc' }, select: { payload: true } })
+      const revisionPayload = record(latestRevision?.payload)
+      return {
+        areas,
+        policies,
+        serviceCities: Array.isArray(revisionPayload.serviceCities) ? revisionPayload.serviceCities : [],
+        serviceIds: Array.isArray(revisionPayload.serviceIds) ? revisionPayload.serviceIds : [],
+      }
     }
     return {
       settings: await this.prisma.platformSetting.findUnique({ where: { id: 'platform' } }),
@@ -303,6 +316,19 @@ export class ConfigCenterService implements OnModuleInit {
       }
     }
     if (category === 'SERVICE_AREA') {
+      const serviceIds = Array.isArray(payload.serviceIds) ? payload.serviceIds : []
+      for (const serviceId of serviceIds) if (!SERVICE_IDS.includes(String(serviceId))) throw new BadRequestException('服务范围包含未知业务')
+      const cityIds = new Set<string>()
+      const cityNames = new Set<string>()
+      for (const city of (Array.isArray(payload.serviceCities) ? payload.serviceCities : [])) {
+        const cityId = String(city?.id || '').trim()
+        const cityName = String(city?.name || '').trim()
+        if (!cityId || !cityName) throw new BadRequestException('服务城市必须包含城市 ID 和名称')
+        if (cityIds.has(cityId) || cityNames.has(cityName)) throw new BadRequestException('服务城市 ID 和名称不能重复')
+        cityIds.add(cityId)
+        cityNames.add(cityName)
+        for (const serviceId of (Array.isArray(city?.serviceIds) ? city.serviceIds : [])) if (!SERVICE_IDS.includes(String(serviceId))) throw new BadRequestException('服务城市包含未知业务')
+      }
       for (const area of (Array.isArray(payload.areas) ? payload.areas : [])) {
         const coordinates = record(area.geoJson || area.boundaryGeoJson).coordinates
         if (!Array.isArray(coordinates) || !Array.isArray(coordinates[0]) || coordinates[0].length < 4) throw new BadRequestException('服务区域至少需要 3 个顶点')

@@ -6,7 +6,7 @@
     </view>
     <view class="hero-identity">
       <view class="avatar">骑</view>
-      <view class="identity"><view class="name">{{rider.name}}</view><view class="hero-caption">同城速送认证骑手</view></view>
+      <view class="identity"><view class="name">{{rider.name}}</view><view class="hero-caption">鼎温榕同城配送认证骑手</view></view>
       <view class="role-badge">{{workStatusText}}</view>
     </view>
     <view class="hero-footer">

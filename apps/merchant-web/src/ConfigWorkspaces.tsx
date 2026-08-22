@@ -1,12 +1,21 @@
-import { useEffect, useRef, useState } from 'react'
-import type { ConfigCategory, ConfigEnvelope, ParcelPricingConfig, PricingConfig, PricingRuleConfig, ServiceAreaConfig, SystemSettingsConfig } from './types'
+import { useEffect, useState } from 'react'
+import type { ConfigCategory, ConfigEnvelope, ParcelPricingConfig, PricingConfig, PricingRuleConfig, ServiceAreaConfig, ServiceCityConfig, SystemSettingsConfig } from './types'
 import type { OperationsApi } from './api'
 
 type WorkspaceProps = { api: OperationsApi; onToast: (message: string) => void }
 
-const SERVICE_NAMES: Record<string, string> = {
-  carpool_ride: '顺风车', send_parcel: '寄货/配送', cargo_haul: '运货', urgent_delivery: '急送', pickup: '帮取', buy_for_me: '帮买', pedicab_delivery: '送货/送客', moving_handling: '搬运装卸'
-}
+const SERVICE_CATALOG = [
+  { id: 'send_parcel', name: '寄货/配送', icon: '📦', subtitle: '普通货物 · 宠物' },
+  { id: 'carpool_ride', name: '顺风车', icon: '🚘', subtitle: '固定线路顺风车' },
+  { id: 'cargo_haul', name: '运货', icon: '🚚', subtitle: '货三轮车' },
+  { id: 'moving_handling', name: '搬运装卸', icon: '🏗️', subtitle: '搬家 · 搬店 · 装卸' },
+  { id: 'urgent_delivery', name: '急送', icon: '⚡', subtitle: '二轮急送' },
+  { id: 'pickup', name: '帮取', icon: '📥', subtitle: '二轮车' },
+  { id: 'buy_for_me', name: '帮买', icon: '🛍️', subtitle: '二轮车' },
+  { id: 'pedicab_delivery', name: '送货/送客', icon: '🛺', subtitle: '人力三轮车' },
+] as const
+
+const SERVICE_NAMES: Record<string, string> = Object.fromEntries(SERVICE_CATALOG.map((service) => [service.id, service.name]))
 
 const WEATHER_SERVICE_IDS = new Set(['urgent_delivery', 'pickup', 'buy_for_me'])
 
@@ -204,57 +213,116 @@ export function PricingWorkspace({ api, onToast }: WorkspaceProps) {
   </section>
 }
 
-const defaultPolygon = { type: 'Polygon' as const, coordinates: [[[119.35, 27.0], [120.1, 27.0], [120.1, 27.6], [119.35, 27.6], [119.35, 27.0]]] }
+type ServiceAreaPayload = { areas: ServiceAreaConfig[]; serviceCities?: ServiceCityConfig[]; serviceIds?: string[]; policies: Array<{ serviceId: string; enforcementEnabled: boolean }> }
 
-function MapPreview({ boundary }: { boundary: ServiceAreaConfig['boundaryGeoJson'] }) {
-  const container = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    const key = import.meta.env.VITE_TENCENT_MAP_JS_KEY
-    if (!key || !container.current) return undefined
-    const mount = () => {
-      const tMap = (window as any).TMap
-      if (!tMap || !container.current) return
-      try {
-        const center = boundary?.coordinates?.[0]?.[0] || [119.7, 27.2]
-        const map = new tMap.Map(container.current, { center: new tMap.LatLng(center[1], center[0]), zoom: 9, pitch: 0 })
-        const points = boundary?.coordinates?.[0]?.map(([lng, lat]) => new tMap.LatLng(lat, lng)) || []
-        if (points.length > 3 && tMap.MultiPolygon) new tMap.MultiPolygon({ map, geometries: [{ paths: points, styleId: 'coverage' }] })
-      } catch {
-        // The coordinate editor remains available if the browser map SDK is unavailable.
-      }
-    }
-    const existing = document.getElementById('tencent-map-gl-sdk') as HTMLScriptElement | null
-    if (existing) { if ((window as any).TMap) mount(); else existing.addEventListener('load', mount, { once: true }); return undefined }
-    const script = document.createElement('script')
-    script.id = 'tencent-map-gl-sdk'
-    script.src = `https://map.qq.com/api/gljs?v=1.exp&key=${encodeURIComponent(key)}`
-    script.async = true
-    script.addEventListener('load', mount, { once: true })
-    document.head.appendChild(script)
-    return undefined
-  }, [boundary])
-  return <div className="area-map" ref={container}><span>{import.meta.env.VITE_TENCENT_MAP_JS_KEY ? '腾讯地图区域预览' : '未配置浏览器地图 Key，当前显示坐标预览'}</span><div className="area-shape" /></div>
+function serviceIdsFromAreas(areas: ServiceAreaConfig[] = []) {
+  return Array.from(new Set(areas.flatMap((area) => area.serviceIds || area.bindings?.map((item) => item.serviceId) || [])))
+}
+
+function serviceCitiesFromPayload(payload: ServiceAreaPayload): ServiceCityConfig[] {
+  if (Array.isArray(payload.serviceCities)) return payload.serviceCities
+  return (payload.areas || []).map((area, index) => ({
+    id: area.id,
+    name: area.name,
+    enabled: area.enabled !== false,
+    serviceIds: area.serviceIds || area.bindings?.map((item) => item.serviceId) || [],
+    sortOrder: area.sortOrder ?? index,
+    version: area.version || 1,
+  }))
+}
+
+function enabledServiceIds(cities: ServiceCityConfig[], fallback: string[]) {
+  const ids = Array.from(new Set(cities.filter((city) => city.enabled).flatMap((city) => city.serviceIds || [])))
+  return cities.length ? ids : fallback
 }
 
 export function ServiceAreasWorkspace({ api, onToast }: WorkspaceProps) {
-  const [envelope, setEnvelope] = useState<ConfigEnvelope<{ areas: ServiceAreaConfig[]; policies: Array<{ serviceId: string; enforcementEnabled: boolean }> }> | null>(null)
-  const [payload, setPayload] = useState<{ areas: ServiceAreaConfig[]; policies: Array<{ serviceId: string; enforcementEnabled: boolean }> } | null>(null)
-  const [activeId, setActiveId] = useState('')
+  const [envelope, setEnvelope] = useState<ConfigEnvelope<ServiceAreaPayload> | null>(null)
+  const [payload, setPayload] = useState<ServiceAreaPayload | null>(null)
+  const [selectedCityId, setSelectedCityId] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(true)
-  const load = () => { setLoading(true); api.getConfig<any>('SERVICE_AREA').then((data) => { setEnvelope(data); const next = clone(data.draft?.payload || data.live); next.areas = (next.areas || []).map((area: ServiceAreaConfig) => ({ ...area, serviceIds: area.serviceIds || area.bindings?.map((item) => item.serviceId) || [] })); setPayload(next); setActiveId(next.areas[0]?.id || 'new'); setLoading(false) }).catch((error) => { setLoading(false); onToast(`服务范围加载失败：${error instanceof Error ? error.message : '未知错误'}`) }) }
+
+  const load = () => {
+    setLoading(true)
+    api.getConfig<ServiceAreaPayload>('SERVICE_AREA').then((data) => {
+      const next = clone(data.draft?.payload || data.live)
+      const existingIds = Array.isArray(next.serviceIds) && next.serviceIds.length ? next.serviceIds : serviceIdsFromAreas(next.areas)
+      const fallbackIds = existingIds.length ? existingIds : SERVICE_CATALOG.map((service) => service.id)
+      next.areas = Array.isArray(next.areas) ? next.areas : []
+      next.serviceCities = serviceCitiesFromPayload(next).map((city) => ({ ...city, serviceIds: city.serviceIds?.length ? city.serviceIds : fallbackIds }))
+      next.serviceIds = fallbackIds
+      next.policies = SERVICE_CATALOG.map((service) => data.draft?.payload?.policies?.find((policy) => policy.serviceId === service.id) || data.live?.policies?.find((policy) => policy.serviceId === service.id) || { serviceId: service.id, enforcementEnabled: false })
+      setEnvelope(data)
+      setPayload(next)
+      setSelectedCityId(next.serviceCities[0]?.id || null)
+      setLoading(false)
+    }).catch((error) => {
+      setLoading(false)
+      onToast(`服务范围加载失败：${error instanceof Error ? error.message : '未知错误'}`)
+    })
+  }
+
   useEffect(load, [api])
-  const active = payload?.areas.find((item) => item.id === activeId)
-  const dirty = Boolean(envelope && payload && JSON.stringify(payload) !== JSON.stringify(envelope.live))
-  const updateActive = (updates: Partial<ServiceAreaConfig>) => { if (!payload) return; setPayload({ ...payload, areas: payload.areas.map((item) => item.id === activeId ? { ...item, ...updates } : item) }) }
-  const save = async () => { if (!envelope || !payload) return; setSaving(true); try { await api.saveConfigDraft('SERVICE_AREA', envelope.version, payload); onToast('服务范围草稿已保存'); load() } catch (error) { onToast(`保存失败：${error instanceof Error ? error.message : '未知错误'}`) } finally { setSaving(false) } }
-  const publish = async () => { if (!dirty || !envelope || !payload) return; if (!window.confirm('发布后启用的业务会立即校验服务范围，确认发布？')) return; try { await api.saveConfigDraft('SERVICE_AREA', envelope.version, payload); await api.publishConfig('SERVICE_AREA'); onToast('服务范围已发布'); load() } catch (error) { onToast(`发布失败：${error instanceof Error ? error.message : '未知错误'}`) } }
-  const addArea = () => { if (!payload) return; const id = `area-${Date.now()}`; setPayload({ ...payload, areas: [...payload.areas, { id, name: '新服务区域', enabled: true, boundaryGeoJson: defaultPolygon, serviceIds: ['urgent_delivery'], sortOrder: payload.areas.length + 1, version: envelope?.version || 1 }] }); setActiveId(id) }
-  const updatePolicy = (serviceId: string, enabled: boolean) => { if (!payload) return; const exists = payload.policies.some((item) => item.serviceId === serviceId); setPayload({ ...payload, policies: exists ? payload.policies.map((item) => item.serviceId === serviceId ? { ...item, enforcementEnabled: enabled } : item) : [...payload.policies, { serviceId, enforcementEnabled: enabled }] }) }
-  const updateCoordinates = (value: string) => { try { const parsed = JSON.parse(value); updateActive({ boundaryGeoJson: parsed }) } catch { /* Keep text editable until it becomes valid JSON. */ } }
+
+  const live = envelope?.live
+  const cities = payload?.serviceCities || []
+  const activeCity = cities.find((city) => city.id === selectedCityId) || cities[0] || null
+  const globalFallbackIds = payload?.serviceIds?.length ? payload.serviceIds : SERVICE_CATALOG.map((service) => service.id)
+  const desiredPayload = payload ? { ...payload, serviceIds: enabledServiceIds(cities, globalFallbackIds) } : null
+  const liveCities = live ? serviceCitiesFromPayload(live) : []
+  const liveIds = live?.serviceIds?.length ? live.serviceIds : serviceIdsFromAreas(live?.areas)
+  const normalizedLive = live ? { ...live, areas: live.areas || [], serviceCities: liveCities, serviceIds: liveIds.length ? liveIds : globalFallbackIds } : null
+  const dirty = Boolean(envelope && desiredPayload && normalizedLive && JSON.stringify(desiredPayload) !== JSON.stringify(normalizedLive))
+  const updateCity = (cityId: string, updates: Partial<ServiceCityConfig>) => {
+    if (!payload) return
+    setPayload({ ...payload, serviceCities: cities.map((city) => city.id === cityId ? { ...city, ...updates } : city) })
+  }
+  const updateCityService = (cityId: string, serviceId: string, enabled: boolean) => {
+    const city = cities.find((item) => item.id === cityId)
+    if (!city) return
+    updateCity(cityId, { serviceIds: enabled ? Array.from(new Set([...city.serviceIds, serviceId])) : city.serviceIds.filter((item) => item !== serviceId) })
+  }
+  const addCity = () => {
+    if (!payload) return
+    const id = `city-${Date.now()}`
+    const nextCity: ServiceCityConfig = { id, name: '新服务城市', enabled: true, serviceIds: globalFallbackIds, sortOrder: cities.length, version: 1 }
+    setPayload({ ...payload, serviceCities: [...cities, nextCity] })
+    setSelectedCityId(id)
+  }
+  const removeCity = (cityId: string) => {
+    if (!payload) return
+    const city = cities.find((item) => item.id === cityId)
+    if (!city || !window.confirm(`移除“${city.name || '未命名城市'}”后，发布配置才会正式生效。确认移除？`)) return
+    const nextCities = cities.filter((item) => item.id !== cityId)
+    setPayload({ ...payload, serviceCities: nextCities })
+    setSelectedCityId(nextCities[0]?.id || null)
+  }
+  const setAllCityServices = (cityId: string, enabled: boolean) => updateCity(cityId, { serviceIds: enabled ? SERVICE_CATALOG.map((service) => service.id) : [] })
+  const save = async () => {
+    if (!envelope || !desiredPayload) return
+    setSaving(true)
+    try { await api.saveConfigDraft('SERVICE_AREA', envelope.version, desiredPayload); onToast('服务城市草稿已保存'); load() } catch (error) { onToast(`保存失败：${error instanceof Error ? error.message : '未知错误'}`) } finally { setSaving(false) }
+  }
+  const publish = async () => {
+    if (!dirty || !envelope || !desiredPayload) return
+    if (!window.confirm('发布后新的服务城市和业务绑定会对新订单生效，历史订单不会变化。确认发布？')) return
+    try { await api.saveConfigDraft('SERVICE_AREA', envelope.version, desiredPayload); await api.publishConfig('SERVICE_AREA'); onToast('服务城市配置已发布'); load() } catch (error) { onToast(`发布失败：${error instanceof Error ? error.message : '未知错误'}`) }
+  }
   if (loading || !payload || !envelope) return <section className="config-page"><div className="empty">正在加载服务范围…</div></section>
-  return <section className="config-page"><div className="config-heading"><div><p className="eyebrow">配置中心 · 02</p><h2>服务范围</h2><p className="muted">按业务绑定多个区域，边界点视为范围内。</p></div><button className="primary-btn" type="button" onClick={addArea}>+ 新增区域</button></div>
-    <div className="area-layout"><aside className="config-sidebar">{payload.areas.map((area) => <button type="button" key={area.id} className={`config-service-item ${area.id === activeId ? 'active' : ''}`} onClick={() => setActiveId(area.id)}><strong>{area.name}</strong><span>{area.enabled ? '已启用' : '已停用'}</span></button>)}{!payload.areas.length ? <div className="empty compact">还没有区域</div> : null}</aside><div className="config-main">{active ? <><div className="config-card"><div className="card-title-row"><h3>区域信息</h3><label className="switch-field"><input type="checkbox" checked={active.enabled} onChange={(event) => updateActive({ enabled: event.target.checked })} /><span>{active.enabled ? '区域启用' : '区域停用'}</span></label></div><div className="config-fields"><label className="config-field"><span>区域名称</span><input value={active.name} onChange={(event) => updateActive({ name: event.target.value })} /></label><label className="config-field"><span>绑定业务</span><div className="service-checks">{Object.entries(SERVICE_NAMES).map(([id, name]) => <label key={id}><input type="checkbox" checked={(active.serviceIds || active.bindings?.map((item) => item.serviceId) || []).includes(id)} onChange={(event) => updateActive({ serviceIds: event.target.checked ? [...(active.serviceIds || []), id] : (active.serviceIds || []).filter((item) => item !== id) })} />{name}</label>)}</div></label></div></div><div className="config-card"><h3>区域坐标</h3><p className="muted">输入闭合 GeoJSON Polygon；保存前会校验顶点数量、经纬度和空间有效性。</p><textarea className="geojson-input" value={JSON.stringify(active.boundaryGeoJson || defaultPolygon, null, 2)} onChange={(event) => updateCoordinates(event.target.value)} spellCheck={false} /><div className="area-preview"><span>区域预览</span><MapPreview boundary={active.boundaryGeoJson || defaultPolygon} /></div></div><div className="config-card"><div className="card-title-row"><div><h3>范围校验开关</h3><p className="muted">开启后，绑定该业务的地址必须落在已启用区域内。</p></div>{payload.policies.map((policy) => <label className="switch-field" key={policy.serviceId}><input type="checkbox" checked={policy.enforcementEnabled} onChange={(event) => updatePolicy(policy.serviceId, event.target.checked)} /><span>{SERVICE_NAMES[policy.serviceId] || policy.serviceId}：{policy.enforcementEnabled ? '校验中' : '暂不限制'}</span></label>)}</div></div></> : <div className="empty">请选择或新增一个服务区域。</div>}</div></div><ConfigActions category="SERVICE_AREA" version={envelope.version} dirty={dirty} saving={saving} onSave={save} onPublish={publish} /></section>
+
+  return <section className="config-page">
+    <div className="config-heading area-heading"><div><p className="eyebrow">配置中心 · 03 / COVERAGE</p><h2>服务范围</h2><p className="muted">按城市管理可接单区域和业务能力，发布后同步到新的订单校验。</p></div><div className="area-heading-side"><div className="area-stat"><strong>{cities.filter((city) => city.enabled).length}</strong><span>启用城市</span></div><div className="area-stat"><strong>{new Set(cities.flatMap((city) => city.enabled ? city.serviceIds : [])).size}</strong><span>覆盖业务</span></div></div></div>
+    <div className="config-main service-city-page">
+      <div className="config-card city-overview-card"><div className="city-overview-heading"><div><span className="service-kicker">服务城市</span><h3>管理可接单城市</h3><p>一个城市可以独立启停，并选择该城市开放的业务。后续接入地图围栏时，可继续在城市下扩展精细边界。</p></div></div>
+        <div className="city-workspace">
+          <aside className="city-list" aria-label="服务城市列表"><div className="city-list-header"><div><span>城市列表</span><strong>{cities.length} 个</strong></div><button className="city-list-add" type="button" onClick={addCity}>+ 新增城市</button></div>{cities.length ? cities.map((city) => <button className={`city-list-item ${city.id === activeCity?.id ? 'active' : ''}`} type="button" key={city.id} onClick={() => setSelectedCityId(city.id)}><span className="city-list-icon">城</span><span className="city-list-copy"><strong>{city.name || '未命名城市'}</strong><small>{city.serviceIds.length} 项业务 · {city.enabled ? '接单中' : '已停用'}</small></span><i className={city.enabled ? 'on' : ''} /></button>) : <div className="city-empty"><span>＋</span><strong>还没有服务城市</strong><small>点击上方“新增城市”开始配置</small></div>}</aside>
+          <div className="city-editor">{activeCity ? <><div className="city-editor-heading"><div><span className="service-kicker">城市配置</span><h3>{activeCity.name || '未命名城市'}</h3><p>设置城市名称、接单状态和可提供的业务。</p></div><button className="remove-btn" type="button" onClick={() => removeCity(activeCity.id)}>移除城市</button></div><div className="city-editor-fields"><label className="config-field city-name-field"><span>城市名称</span><input list="service-city-options" value={activeCity.name} onChange={(event) => updateCity(activeCity.id, { name: event.target.value })} placeholder="例如：宁德市" /><datalist id="service-city-options"><option value="宁德市" /><option value="福鼎市" /><option value="温州市" /><option value="苍南县" /><option value="福州市" /></datalist></label><label className={`city-status-toggle ${activeCity.enabled ? 'enabled' : ''}`}><input type="checkbox" checked={activeCity.enabled} onChange={(event) => updateCity(activeCity.id, { enabled: event.target.checked })} /><span className="city-status-track"><i /></span><span><strong>{activeCity.enabled ? '城市接单中' : '城市已停用'}</strong><small>{activeCity.enabled ? '新订单可以进入该城市' : '暂不向用户开放该城市'}</small></span></label></div><div className="city-service-section"><div className="city-service-heading"><div><span className="service-kicker">业务能力</span><strong>选择该城市开放的服务</strong><span>只影响该城市的新订单入口</span></div><div className="city-service-actions"><b>{activeCity.serviceIds.length}<small> / {SERVICE_CATALOG.length} 项</small></b><button type="button" onClick={() => setAllCityServices(activeCity.id, true)} disabled={activeCity.serviceIds.length === SERVICE_CATALOG.length}>全选</button><button type="button" onClick={() => setAllCityServices(activeCity.id, false)} disabled={!activeCity.serviceIds.length}>清空</button></div></div><div className="city-service-grid">{SERVICE_CATALOG.map((service) => { const selected = activeCity.serviceIds.includes(service.id); return <label className={`city-service-card ${selected ? 'selected' : ''}`} key={service.id}><input type="checkbox" checked={selected} onChange={(event) => updateCityService(activeCity.id, service.id, event.target.checked)} /><span className="city-service-icon">{service.icon}</span><span className="city-service-copy"><strong>{service.name}</strong><small>{service.subtitle}</small></span><i aria-hidden="true">{selected ? '✓' : ''}</i></label> })}</div></div><div className="city-editor-note"><span>i</span><span>城市配置会先保存为草稿，点击“发布变更”后才会影响新订单；历史订单和已生成报价不受影响。</span></div></> : <div className="city-empty city-empty-editor"><span>＋</span><strong>等待新增服务城市</strong><small>新增入口位于左侧“城市列表”标题旁</small></div>}</div>
+        </div>
+      </div>
+    </div>
+    <ConfigActions category="SERVICE_AREA" version={envelope.version} dirty={dirty} saving={saving} onSave={save} onPublish={publish} />
+  </section>
 }
 
 const DEFAULT_HOURS: SystemSettingsConfig['weeklyHours'] = Object.fromEntries(Array.from({ length: 7 }, (_, day) => [String(day), [{ start: '00:00', end: '24:00' }]]))
@@ -280,7 +348,7 @@ function PasswordChangeCard({ api, onToast }: WorkspaceProps) {
     } finally { setSaving(false) }
   }
 
-  return <div className="config-card settings-card"><h3>修改运营密码</h3><p className="muted">生产环境请使用密码管理器生成并保存至少 12 位随机密码。</p><div className="config-fields"><label className="config-field"><span>当前密码</span><input type="password" autoComplete="current-password" value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} /></label><label className="config-field"><span>新密码</span><input type="password" autoComplete="new-password" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} /></label><label className="config-field"><span>确认新密码</span><input type="password" autoComplete="new-password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} /></label></div><button className="light-btn" type="button" disabled={saving || !currentPassword || !newPassword || !confirmPassword} onClick={submit}>{saving ? '修改中…' : '修改密码'}</button></div>
+  return <div className="config-card settings-card settings-card-password"><div className="settings-card-heading"><div className="settings-section-number">06</div><div><span className="settings-kicker">账户安全</span><h3>修改运营密码</h3><p>生产环境请使用密码管理器生成并保存至少 12 位随机密码。</p></div><span className="settings-card-badge">安全</span></div><div className="config-fields"><label className="config-field"><span>当前密码</span><input type="password" autoComplete="current-password" value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} /></label><label className="config-field"><span>新密码</span><input type="password" autoComplete="new-password" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} /></label><label className="config-field"><span>确认新密码</span><input type="password" autoComplete="new-password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} /></label></div><button className="light-btn password-submit" type="button" disabled={saving || !currentPassword || !newPassword || !confirmPassword} onClick={submit}>{saving ? '修改中…' : '修改密码'}</button></div>
 }
 
 export function SystemSettingsWorkspace({ api, onToast }: WorkspaceProps) {
@@ -296,5 +364,58 @@ export function SystemSettingsWorkspace({ api, onToast }: WorkspaceProps) {
   const publish = async () => { if (!dirty || !envelope || !settings) return; if (!window.confirm('发布后营业状态、报价有效期和骑手调度参数会立即生效，确认发布？')) return; try { await api.saveConfigDraft('SYSTEM', envelope.version, { settings }); await api.publishConfig('SYSTEM'); onToast('系统设置已发布'); load() } catch (error) { onToast(`发布失败：${error instanceof Error ? error.message : '未知错误'}`) } }
   if (loading || !settings || !envelope) return <section className="config-page"><div className="empty">正在加载系统设置…</div></section>
   const hours = settings.weeklyHours || DEFAULT_HOURS
-  return <section className="config-page"><div className="config-heading"><div><p className="eyebrow">配置中心 · 03</p><h2>系统设置</h2><p className="muted">控制营业状态、报价时效和骑手履约边界。</p></div><span className={`status-pill ${settings.acceptingOrders ? 'online' : ''}`}>{settings.acceptingOrders ? '营业中' : '已暂停接单'}</span></div><div className="settings-grid"><div className="config-card settings-card"><div className="card-title-row"><div><h3>营业状态</h3><p className="muted">暂停只影响新报价和新订单，已有订单继续履约。</p></div><label className="switch-field"><input type="checkbox" checked={settings.acceptingOrders} onChange={(event) => update({ acceptingOrders: event.target.checked })} /><span>{settings.acceptingOrders ? '接受新订单' : '暂停接单'}</span></label></div><label className="config-field"><span>暂停原因</span><input value={settings.closureReason} onChange={(event) => update({ closureReason: event.target.value })} placeholder="例如：恶劣天气临时暂停" /></label></div><div className="config-card settings-card"><h3>客服与公告</h3><div className="config-fields"><label className="config-field"><span>客服电话</span><input value={settings.customerServicePhone} onChange={(event) => update({ customerServicePhone: event.target.value })} placeholder="0593-8888888" /></label><label className="config-field"><span>公告标题</span><input value={settings.announcementTitle} onChange={(event) => update({ announcementTitle: event.target.value })} /></label></div><label className="config-field"><span>公告内容</span><textarea value={settings.announcementContent} onChange={(event) => update({ announcementContent: event.target.value })} rows={3} /></label><label className="switch-field"><input type="checkbox" checked={settings.announcementEnabled} onChange={(event) => update({ announcementEnabled: event.target.checked })} /><span>在用户端展示公告</span></label></div><div className="config-card settings-card"><h3>报价与取消</h3><div className="config-fields"><NumberField label="报价有效期" value={settings.quoteValidityMinutes} suffix="分钟" onChange={(value) => update({ quoteValidityMinutes: Number(value || 10) })} step="1" /></div><label className="switch-field"><input type="checkbox" checked={settings.allowCancelBeforeClaim} onChange={(event) => update({ allowCancelBeforeClaim: event.target.checked })} /><span>骑手接单前允许用户自助取消</span></label></div><div className="config-card settings-card"><h3>骑手调度</h3><div className="config-fields"><NumberField label="抢单半径" value={(settings.riderOrderRadiusMeters / 1000).toFixed(1)} suffix="公里" onChange={(value) => update({ riderOrderRadiusMeters: Number(value || 30) * 1000 })} /><NumberField label="最大进行中订单" value={settings.riderMaxActiveOrders} suffix="单" onChange={(value) => update({ riderMaxActiveOrders: Number(value || 1) })} step="1" /></div></div><div className="config-card settings-card"><h3>每周营业时间</h3><div className="hours-grid">{['周日', '周一', '周二', '周三', '周四', '周五', '周六'].map((label, day) => <label key={label}><span>{label}</span><input value={hours[String(day)]?.[0]?.start || '00:00'} onChange={(event) => update({ weeklyHours: { ...hours, [String(day)]: [{ ...(hours[String(day)]?.[0] || {}), start: event.target.value }] } })} /><b>至</b><input value={hours[String(day)]?.[0]?.end || '24:00'} onChange={(event) => update({ weeklyHours: { ...hours, [String(day)]: [{ ...(hours[String(day)]?.[0] || {}), end: event.target.value }] } })} /></label>)}</div></div><PasswordChangeCard api={api} onToast={onToast} /></div><ConfigActions category="SYSTEM" version={envelope.version} dirty={dirty} saving={saving} onSave={save} onPublish={publish} /></section>
+  return <section className="config-page settings-page">
+    <header className="settings-hero">
+      <div>
+        <p className="eyebrow">配置中心 · 03 / OPERATIONS</p>
+        <div className="settings-title-row">
+          <h2>系统设置</h2>
+          <span className={`status-pill ${settings.acceptingOrders ? 'online' : ''}`}><i aria-hidden="true" />{settings.acceptingOrders ? '营业中' : '已暂停接单'}</span>
+        </div>
+        <p className="muted">把营业状态、用户沟通和骑手履约边界集中在一个清晰的控制面板里。</p>
+      </div>
+      <div className="settings-hero-meta"><span>当前版本</span><strong>v{envelope.version}</strong><small>发布后立即生效 · 历史订单不受影响</small></div>
+    </header>
+
+    <section className="settings-overview" aria-label="设置概览">
+      <div className={`overview-card overview-status ${settings.acceptingOrders ? 'is-online' : 'is-paused'}`}><span className="overview-icon">{settings.acceptingOrders ? '↗' : 'Ⅱ'}</span><div><span>接单状态</span><strong>{settings.acceptingOrders ? '接受新订单' : '暂停接单'}</strong></div><small>{settings.acceptingOrders ? '新报价和新订单正常进入' : '已有订单继续履约'}</small></div>
+      <div className="overview-card"><span className="overview-icon neutral">⌁</span><div><span>报价有效期</span><strong>{settings.quoteValidityMinutes} 分钟</strong></div><small>超时后用户需要重新询价</small></div>
+      <div className="overview-card"><span className="overview-icon neutral">◎</span><div><span>骑手调度半径</span><strong>{(settings.riderOrderRadiusMeters / 1000).toFixed(1)} 公里</strong></div><small>用于匹配附近可接单骑手</small></div>
+    </section>
+
+    <div className="settings-grid">
+      <div className="config-card settings-card settings-card-status">
+        <div className="settings-card-heading"><div className="settings-section-number">01</div><div><span className="settings-kicker">营业开关</span><h3>营业状态</h3><p>暂停只影响新报价和新订单，已有订单继续履约。</p></div><label className="settings-switch"><input type="checkbox" checked={settings.acceptingOrders} onChange={(event) => update({ acceptingOrders: event.target.checked })} /><span className="settings-switch-track"><i /></span><strong>{settings.acceptingOrders ? '接受新订单' : '暂停接单'}</strong></label></div>
+        <div className={`settings-state-banner ${settings.acceptingOrders ? 'is-online' : 'is-paused'}`}><span className="state-dot" /><div><strong>{settings.acceptingOrders ? '当前正在营业' : '当前已暂停接单'}</strong><p>{settings.acceptingOrders ? '系统会继续接收新的商家订单和用户报价请求。' : '恢复营业后，新的报价和订单会重新进入履约流程。'}</p></div></div>
+        <label className="config-field"><span>暂停原因 <em>仅在暂停时展示给运营人员</em></span><input value={settings.closureReason} onChange={(event) => update({ closureReason: event.target.value })} placeholder="例如：恶劣天气临时暂停" /></label>
+      </div>
+
+      <div className="config-card settings-card settings-card-announcement">
+        <div className="settings-card-heading"><div className="settings-section-number">02</div><div><span className="settings-kicker">用户沟通</span><h3>客服与公告</h3><p>把重要信息及时同步到用户端。</p></div><label className="settings-switch compact"><input type="checkbox" checked={settings.announcementEnabled} onChange={(event) => update({ announcementEnabled: event.target.checked })} /><span className="settings-switch-track"><i /></span><strong>{settings.announcementEnabled ? '已展示' : '未展示'}</strong></label></div>
+        <div className="settings-fields-two"><label className="config-field"><span>客服电话</span><input value={settings.customerServicePhone} onChange={(event) => update({ customerServicePhone: event.target.value })} placeholder="0593-8888888" /></label><label className="config-field"><span>公告标题</span><input value={settings.announcementTitle} onChange={(event) => update({ announcementTitle: event.target.value })} /></label></div>
+        <label className="config-field"><span>公告内容</span><textarea value={settings.announcementContent} onChange={(event) => update({ announcementContent: event.target.value })} rows={3} placeholder="输入用户需要知道的服务信息" /></label>
+        <div className="announcement-hint"><span className="hint-icon">i</span><span>{settings.announcementEnabled ? '公告将在用户端首页展示。' : '开启“已展示”后，公告才会对用户可见。'}</span></div>
+      </div>
+
+      <div className="config-card settings-card settings-card-quote">
+        <div className="settings-card-heading"><div className="settings-section-number">03</div><div><span className="settings-kicker">订单策略</span><h3>报价与取消</h3><p>控制报价在用户侧的有效时间。</p></div></div>
+        <div className="settings-single-field"><NumberField label="报价有效期" value={settings.quoteValidityMinutes} suffix="分钟" onChange={(value) => update({ quoteValidityMinutes: Number(value || 10) })} step="1" /></div>
+        <label className="settings-check-row"><input type="checkbox" checked={settings.allowCancelBeforeClaim} onChange={(event) => update({ allowCancelBeforeClaim: event.target.checked })} /><span><strong>允许用户自助取消</strong><small>骑手接单前，用户可以自行取消订单</small></span></label>
+      </div>
+
+      <div className="config-card settings-card settings-card-rider">
+        <div className="settings-card-heading"><div className="settings-section-number">04</div><div><span className="settings-kicker">履约边界</span><h3>骑手调度</h3><p>决定订单如何分发给附近骑手。</p></div></div>
+        <div className="settings-fields-two"><NumberField label="抢单半径" value={(settings.riderOrderRadiusMeters / 1000).toFixed(1)} suffix="公里" onChange={(value) => update({ riderOrderRadiusMeters: Number(value || 30) * 1000 })} /><NumberField label="最大进行中订单" value={settings.riderMaxActiveOrders} suffix="单" onChange={(value) => update({ riderMaxActiveOrders: Number(value || 1) })} step="1" /></div>
+        <div className="settings-note"><span className="hint-icon">⌖</span><span>半径越大，订单覆盖的骑手范围越广；进行中订单上限用于避免超负荷接单。</span></div>
+      </div>
+
+      <div className="config-card settings-card settings-card-hours">
+        <div className="settings-card-heading"><div className="settings-section-number">05</div><div><span className="settings-kicker">服务时间</span><h3>每周营业时间</h3><p>设置用户可提交新订单的时间段。</p></div><span className="settings-card-badge">7 天</span></div>
+        <div className="hours-grid settings-hours-grid">{['周日', '周一', '周二', '周三', '周四', '周五', '周六'].map((label, day) => <label key={label}><span>{label}</span><input aria-label={`${label}开始时间`} value={hours[String(day)]?.[0]?.start || '00:00'} onChange={(event) => update({ weeklyHours: { ...hours, [String(day)]: [{ ...(hours[String(day)]?.[0] || {}), start: event.target.value }] } })} /><b>至</b><input aria-label={`${label}结束时间`} value={hours[String(day)]?.[0]?.end || '24:00'} onChange={(event) => update({ weeklyHours: { ...hours, [String(day)]: [{ ...(hours[String(day)]?.[0] || {}), end: event.target.value }] } })} /></label>)}</div>
+      </div>
+
+      <PasswordChangeCard api={api} onToast={onToast} />
+    </div>
+    <ConfigActions category="SYSTEM" version={envelope.version} dirty={dirty} saving={saving} onSave={save} onPublish={publish} />
+  </section>
 }

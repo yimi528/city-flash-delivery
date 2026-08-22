@@ -230,6 +230,7 @@
 }
 
 .order-panel {
+  position: relative;
   margin: 22rpx 28rpx 0;
   padding: 34rpx 28rpx 30rpx;
   border: 2rpx solid rgba(24, 32, 29, 0.08);
@@ -237,6 +238,45 @@
   background: var(--paper);
   box-shadow: 0 24rpx 54rpx rgba(48, 39, 27, 0.08);
   animation: panel-reveal 440ms 60ms var(--ease-out) both;
+}
+
+.service-detail-stage {
+  position: relative;
+  min-height: 300rpx;
+}
+
+.service-change-mask {
+  position: absolute;
+  z-index: 5;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  border-radius: 24rpx;
+  background: rgba(255, 253, 248, 0.96);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.service-change-spinner {
+  width: 34rpx;
+  height: 34rpx;
+  border: 4rpx solid rgba(212, 71, 45, 0.16);
+  border-top-color: var(--cinnabar);
+  border-radius: 50%;
+  animation: service-change-spin 680ms linear infinite;
+}
+
+.service-change-text {
+  margin-top: 14rpx;
+  color: #8d8981;
+  font-size: 22rpx;
+}
+
+@keyframes service-change-spin {
+  to { transform: rotate(360deg); }
 }
 
 .panel-head {

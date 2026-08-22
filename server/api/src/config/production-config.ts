@@ -25,8 +25,8 @@ export function validateProductionConfig(config: ConfigReader) {
     'JWT_SECRET',
     'WECHAT_MINI_APP_ID',
     'WECHAT_MINI_APP_SECRET',
-    'TENCENT_MAP_KEY',
   ]
+  if (value(config, 'WEATHER_MOCK_ENABLED') !== 'true') required.push('TENCENT_MAP_KEY')
   required.forEach((key) => requireValue(config, key, errors))
 
   const jwtSecret = value(config, 'JWT_SECRET')

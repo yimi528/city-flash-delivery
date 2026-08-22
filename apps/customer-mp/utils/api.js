@@ -217,7 +217,7 @@ function getBusinessStatusActor(displayStatus, status, rider) {
   if (displayStatus === '待支付') return '等待用户支付'
   if (displayStatus === '待商家接单') return '等待商家接单'
   if (displayStatus === '待骑手接单') return '等待骑手接单'
-  return rider || '同城速送配送员'
+  return rider || '鼎温榕同城配送员'
 }
 
 function getWeightLabel(weight) {
@@ -392,7 +392,6 @@ function buildNestPricePayload(payload) {
     serviceSurcharge: firstNumber(source.serviceSurcharge, servicePricing.serviceSurcharge, 0),
     maxDeliveryFee: firstNumber(source.maxDeliveryFee, cargoOptions.maxDeliveryFee, servicePricing.maxDeliveryFee, 168),
     badWeatherMultiplier: Number(source.badWeatherMultiplier || servicePricing.badWeatherMultiplier || 1.15),
-    badWeatherSurcharge: firstNumber(source.badWeatherSurcharge, servicePricing.badWeatherSurcharge, 5),
     badWeather: !!(source.badWeather || source.isBadWeather || weatherRisk.isBadWeather || weatherRisk.badWeather),
     distanceKm: Number(source.distanceKm || source.distance || 2.6),
     weightKg: Number(source.weightKg || source.weight || cargoOptions.weight || 1),
@@ -430,7 +429,6 @@ function buildNestOrderPayload(payload) {
     serviceSurcharge: firstNumber(source.serviceSurcharge, servicePricing.serviceSurcharge, 0),
     maxDeliveryFee: firstNumber(source.maxDeliveryFee, cargoOptions.maxDeliveryFee, servicePricing.maxDeliveryFee, 168),
     badWeatherMultiplier: Number(source.badWeatherMultiplier || servicePricing.badWeatherMultiplier || 1.15),
-    badWeatherSurcharge: firstNumber(source.badWeatherSurcharge, servicePricing.badWeatherSurcharge, 5),
     badWeather: !!(source.badWeather || source.isBadWeather || weatherRisk.isBadWeather || weatherRisk.badWeather),
     pickupName: source.pickupName || pickup.name || '取货地址',
     pickupDetail: source.pickupDetail || pickup.detail || '',
@@ -631,6 +629,12 @@ function cancelOrder(id) {
   }).then(normalizeOrder)
 }
 
+function deleteOrder(id) {
+  return request(`/orders/${encodeURIComponent(id)}`, {
+    method: 'DELETE'
+  })
+}
+
 function confirmOrderQuote(id) {
   return request(`/orders/${encodeURIComponent(id)}/quote/confirm`, {
     method: 'PATCH',
@@ -740,6 +744,7 @@ module.exports = {
   getOrder,
   updateOrderStatus,
   cancelOrder,
+  deleteOrder,
   confirmOrderQuote,
   rejectOrderQuote,
   createWechatPayment,
