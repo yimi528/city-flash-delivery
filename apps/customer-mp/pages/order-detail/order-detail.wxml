@@ -132,14 +132,14 @@
   </view>
 
   <view class="card payment-card" wx:if="{{order.displayStatus === '待支付' && !isMerchantMode}}">
-    <view class="payment-copy">
-      <view class="payment-kicker">待支付金额</view>
-      <view class="payment-amount"><text>￥</text>{{order.fee}}</view>
-      <view class="payment-note">支付完成后，订单将进入商家接单流程</view>
+    <view class="payment-summary-head">
+      <view class="payment-copy">
+        <view class="payment-kicker">待支付金额</view>
+        <view class="payment-amount"><text>￥</text>{{order.fee}}</view>
+      </view>
+      <view class="payment-method"><view class="payment-method-icon">微</view><view><view class="payment-method-title">微信支付</view><view class="payment-method-sub">安全快捷 · 由微信完成收款</view></view></view>
     </view>
-    <button class="payment-button" disabled="{{isPaying}}" bindtap="payOrder">
-      {{isPaying ? '正在支付...' : (isLoggedIn ? '立即支付' : '登录后支付')}}
-    </button>
+    <view class="payment-note"><text class="payment-note-dot"></text>支付完成后，订单将进入商家接单流程</view>
   </view>
 
   <view class="card merchant-card" wx:if="{{isMerchantMode && order.service === '帮买'}}">
@@ -184,7 +184,7 @@
   <view class="action-bar">
     <button class="outline" disabled="{{isCancelling}}" bindtap="cancelOrder" wx:if="{{canCancel}}">{{isCancelling ? '取消中...' : (canAutoRefundCancellation ? '取消并退款' : (requiresRefundCancellation ? '申请取消' : '取消订单'))}}</button>
     <button class="outline" bindtap="callRider" wx:if="{{order.displayStatus !== '待支付' || isMerchantMode}}">联系配送员</button>
-    <button class="solid pay-action" disabled="{{isPaying}}" bindtap="payOrder" wx:if="{{order.displayStatus === '待支付' && !isMerchantMode}}">{{isPaying ? '支付中...' : (isLoggedIn ? '立即支付 ￥' + order.fee : '登录后支付 ￥' + order.fee)}}</button>
+    <button class="solid pay-action" hover-class="action-pressed" disabled="{{isPaying}}" bindtap="payOrder" wx:if="{{order.displayStatus === '待支付' && !isMerchantMode}}">{{isPaying ? '支付中...' : (isLoggedIn ? '支付 ￥' + order.fee : '登录后支付 ￥' + order.fee)}}</button>
     <button class="solid" bindtap="advanceMerchantOrder" wx:if="{{isMerchantMode && merchantActionText}}">{{merchantActionText}}</button>
   </view>
 </view>
