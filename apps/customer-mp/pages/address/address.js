@@ -4,6 +4,7 @@ const map = require('../../utils/map')
 const carpool = require('../../utils/carpool')
 const addressBook = require('../../utils/address-book.js')
 const navigation = require('../../utils/navigation')
+const addressValidation = require('../../utils/address-validation')
 
 function addressMeta(type, isCarpool, routeName) {
   if (isCarpool) return { title: `填写${routeName || '顺风车'}地址`, pinLabel: '顺', pinClass: 'pickup', toast: '已选择顺风车地址' }
@@ -244,6 +245,15 @@ Page({
 
   selectAddress(address) {
     const selected = Object.assign({}, address)
+    const validation = addressValidation.validateAddress(selected)
+    if (!validation.valid) {
+      wx.showToast({ title: `该地址信息不完整：${validation.message}`, icon: 'none' })
+      if (selected.id) {
+        const mode = this.data.isCarpool ? `&mode=carpool&route=${this.data.routeId}` : ''
+        navigation.navigateTo(wx, { url: `/pages/address-edit/address-edit?type=${this.data.type}&id=${selected.id}${mode}` })
+      }
+      return
+    }
     if (this.data.isCarpool) {
       const route = carpool.applySelectedAddress(app.globalData.draftOrder, selected, this.data.type, this.data.routeId)
       if (!route) {

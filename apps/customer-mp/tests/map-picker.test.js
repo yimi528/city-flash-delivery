@@ -18,6 +18,7 @@ function loadPicker(options) {
         pickup: { latitude: 27.51, longitude: 120.4 },
         selectedLine: { id: 'cangnan' }
       },
+      addresses: [],
       currentLocation: null
     }
   }
@@ -59,7 +60,8 @@ function loadPicker(options) {
       }
     },
     navigateBack() {},
-    showToast() {}
+    showToast(options) { this.toasts.push(options) },
+    toasts: []
   }
   const source = fs.readFileSync(path.join(root, 'pages/map-picker/map-picker.js'), 'utf8')
   vm.runInNewContext(source, {
@@ -68,6 +70,7 @@ function loadPicker(options) {
     require(request) {
       if (request === '../../utils/map') return mapModule
       if (request === '../../utils/carpool') return carpoolModule
+      if (request === '../../utils/address-validation') return require(path.join(root, 'utils/address-validation.js'))
       throw new Error(`Unexpected module: ${request}`)
     },
     wx,
@@ -95,6 +98,8 @@ test('map picker is registered and uses the native Tencent map center pin flow',
   assert.match(template, /<map[\s\S]*bindregionchange="onRegionChange"/)
   assert.match(template, /<cover-image[\s\S]*class="center-pin/)
   assert.match(template, /src="\.\.\/\.\.\/assets\/map-pin\.png"/)
+  assert.match(template, /联系人 <text>\*<\/text>/)
+  assert.match(template, /手机号 <text>\*<\/text>/)
   assert.match(addressTemplate, /bindtap="openMapPicker"/)
   assert.match(addressEdit, /this\.selectAfterSave = query\.from === 'map'/)
   assert.match(addressEdit, /draftOrder\[draftKey\(this\.data\.type\)\]/)
@@ -116,10 +121,31 @@ test('moving the map resolves its center coordinate and uses it after the form i
   assert.equal(fixture.page.data.selectedAddress.longitude, 120.40555)
 
   fixture.page.data.form.detail = '测试路1号'
+  fixture.page.data.form.contact = '发货联系人'
+  fixture.page.data.form.phone = '13800000000'
   fixture.page.confirmLocation()
   assert.equal(fixture.app.globalData.draftOrder.pickup.latitude, 27.50999)
   assert.equal(fixture.app.globalData.draftOrder.pickup.longitude, 120.40555)
   assert.equal(fixture.app.globalData.draftOrder.pickup.detail, '测试路1号')
+})
+
+test('pickup map confirmation collects the contact required by order submission', async () => {
+  const fixture = loadPicker({ centerLocation: { latitude: 27.50999, longitude: 120.40555 } })
+  fixture.app.globalData.draftOrder.pickup = undefined
+  fixture.page.onLoad({ type: 'pickup', from: 'add' })
+  fixture.page.onReady()
+  await flushPromises()
+
+  fixture.page.data.form.detail = '测试路1号'
+  fixture.page.confirmLocation()
+  assert.equal(fixture.app.globalData.draftOrder.pickup, undefined)
+  assert.match(fixture.page.data.requiresContact ? fixture.page.data.form.contact : '', /^$/)
+
+  fixture.page.data.form.contact = '发货联系人'
+  fixture.page.data.form.phone = '13800000000'
+  fixture.page.confirmLocation()
+  assert.equal(fixture.app.globalData.draftOrder.pickup.contact, '发货联系人')
+  assert.equal(fixture.app.globalData.draftOrder.pickup.phone, '13800000000')
 })
 
 test('carpool map confirmation preserves route parameters', async () => {

@@ -5,6 +5,7 @@ const carpool = require('../../utils/carpool')
 const serviceConfig = require('../../utils/service-config')
 const vehicleConfig = require('../../utils/vehicle-config')
 const navigation = require('../../utils/navigation')
+const addressValidation = require('../../utils/address-validation')
 
 const HANDLING_TYPES = serviceConfig.HANDLING_TYPES
 const WEATHER_TASK_IDS = new Set(['urgent_delivery', 'pickup', 'buy_for_me'])
@@ -877,10 +878,8 @@ Page({
   submitOrder() {
     const draft = app.globalData.draftOrder
     const contactError = (address, label) => {
-      if (!address || !String(address.contact || '').trim() || !/^1[3-9]\d{9}$/.test(String(address.phone || '').trim())) {
-        return `${label}地址缺少有效联系人或手机号，请返回修改`
-      }
-      return ''
+      const validation = addressValidation.validateAddress(address)
+      return validation.valid ? '' : `${label}地址${validation.message}，请返回补充`
     }
     if (serviceConfig.isRouteTask(draft.taskId) && !draft.selectedLine) {
       wx.showToast({ title: '请先选择线路', icon: 'none' })

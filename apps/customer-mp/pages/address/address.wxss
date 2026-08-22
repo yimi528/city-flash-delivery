@@ -150,6 +150,7 @@
 .name .default-badge { padding: 3rpx 8rpx; border-radius: 12rpx; color: #bd4934; background: #fbece7; font-size: 17rpx; font-weight: 900; }
 .detail, .person { margin-top: 5rpx; overflow: hidden; color: #818b82; font-size: 20rpx; text-overflow: ellipsis; white-space: nowrap; }
 .person { color: #a0a39a; font-size: 18rpx; }
+.incomplete-badge { margin-right: 8rpx; color: #bd4934; font-weight: 900; }
 
 .item-actions { display: flex; flex-direction: column; gap: 8rpx; }
 .edit, .delete, .use-map { width: 70rpx; height: 40rpx; border-radius: 13rpx; display: flex; align-items: center; justify-content: center; font-size: 18rpx; }

@@ -50,7 +50,7 @@
     <block wx:for="{{addresses}}" wx:key="id">
       <view class="address-item {{item.isMapResult ? 'map-result' : ''}}" data-id="{{item.id}}" bindtap="chooseAddress">
         <view class="pin {{item.isMapResult ? 'map' : pinClass}}">{{item.isMapResult ? '搜' : pinLabel}}</view>
-        <view class="info"><view class="name">{{item.name}} <text>{{item.distance}}</text><text wx:if="{{item.isDefault}}" class="default-badge">默认</text></view><view class="detail">{{item.detail}}</view><view class="person"><text wx:if="{{item.sourceLabel && item.isMapResult}}">{{item.sourceLabel}} · </text>{{item.contact}} {{item.phone}}</view></view>
+        <view class="info"><view class="name">{{item.name}} <text>{{item.distance}}</text><text wx:if="{{item.isDefault}}" class="default-badge">默认</text></view><view class="detail">{{item.detail}}</view><view class="person"><text wx:if="{{!item.isMapResult && (!item.contact || !item.phone)}}" class="incomplete-badge">待补全</text><text wx:elif="{{item.sourceLabel && item.isMapResult}}">{{item.sourceLabel}} · </text>{{item.contact}} {{item.phone}}</view></view>
         <view class="use-map" wx:if="{{item.isMapResult}}">使用 <text>›</text></view>
         <view class="item-actions" wx:else><view class="edit" data-id="{{item.id}}" catchtap="editAddress">编辑</view><view class="delete" data-id="{{item.id}}" catchtap="deleteAddress">删除</view></view>
       </view>

@@ -3,6 +3,7 @@ const api = require('../../utils/api')
 const map = require('../../utils/map')
 const carpool = require('../../utils/carpool')
 const addressParser = require('../../utils/address-parser')
+const addressValidation = require('../../utils/address-validation')
 
 const MAX_SAVED_ADDRESSES = 10
 
@@ -306,12 +307,9 @@ Page({
 
   submit() {
     const payload = normalizeAddress(this.data.form, this.data.requiresContact)
-    if (!payload.name || !payload.detail || (this.data.requiresContact && (!payload.contact || !payload.phone))) {
-      wx.showToast({ title: this.data.requiresContact ? '请完整填写地址和联系人信息' : '请完整填写地址信息', icon: 'none' })
-      return
-    }
-    if (this.data.requiresContact && !/^1[3-9]\d{9}$/.test(payload.phone)) {
-      wx.showToast({ title: '请输入正确的11位手机号', icon: 'none' })
+    const validation = addressValidation.validateAddress(payload)
+    if (!validation.valid) {
+      wx.showToast({ title: validation.message, icon: 'none' })
       return
     }
     if (this.data.isCarpool && !carpool.isSelectedCityAddress(payload, this.data.routeId)) {

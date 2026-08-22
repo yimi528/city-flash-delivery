@@ -1,6 +1,7 @@
 const app = getApp()
 const map = require('../../utils/map')
 const carpool = require('../../utils/carpool')
+const addressValidation = require('../../utils/address-validation')
 
 const MAX_SAVED_ADDRESSES = 10
 
@@ -39,10 +40,16 @@ function formFromAddress(address) {
   return Object.assign(emptyForm(), {
     name: source.name || '',
     detail: source.detail || '',
+    contact: source.contact || '',
+    phone: source.phone || '',
+    tag: source.tag || '',
+    isDefault: !!source.isDefault,
     city: source.city || '',
     district: source.district || '',
     adcode: source.adcode || '',
-    mapPoiId: source.mapPoiId || source.id || ''
+    mapPoiId: source.mapPoiId || source.id || '',
+    latitude: source.latitude || '',
+    longitude: source.longitude || ''
   })
 }
 
@@ -81,7 +88,8 @@ Page({
     const draftAddress = draft[draftKey(type)]
     const initialAddress = pendingMapAddress || (query.from === 'add' ? null : draftAddress)
     const initialPoint = pointFrom(initialAddress) || pointFrom(globalData.currentLocation)
-    const requiresContact = type === 'dropoff'
+    // 下单提交会校验发货、购买和收货地址的联系人信息，新增地址必须在这里一次填完整。
+    const requiresContact = true
 
     this.resolveSeq = 0
     this.activeResolveKey = ''
@@ -96,7 +104,7 @@ Page({
       routeId: isCarpool ? route.id : '',
       routeName: isCarpool ? route.name : '',
       form: formFromAddress(initialAddress),
-      saveToAddressBook: false,
+      saveToAddressBook: query.from === 'add',
       latitude: initialPoint ? initialPoint.latitude : this.data.latitude,
       longitude: initialPoint ? initialPoint.longitude : this.data.longitude
     })
@@ -309,13 +317,15 @@ Page({
       return
     }
 
-    const form = Object.assign({}, selected, this.data.form)
-    if (!form.name || !form.detail || (this.data.requiresContact && (!form.contact || !form.phone))) {
-      wx.showToast({ title: this.data.requiresContact ? '请填写完整收货信息' : '请填写详细门牌号', icon: 'none' })
-      return
-    }
-    if (this.data.requiresContact && !/^1[3-9]\d{9}$/.test(form.phone)) {
-      wx.showToast({ title: '请输入正确的11位手机号', icon: 'none' })
+    const form = Object.assign({}, selected, this.data.form, {
+      name: String(this.data.form.name || selected.name || '').trim(),
+      detail: String(this.data.form.detail || selected.detail || '').trim(),
+      contact: String(this.data.form.contact || selected.contact || '').trim(),
+      phone: String(this.data.form.phone || selected.phone || '').trim()
+    })
+    const validation = addressValidation.validateAddress(form)
+    if (!validation.valid) {
+      wx.showToast({ title: validation.message, icon: 'none' })
       return
     }
     const shouldSave = this.data.saveToAddressBook
