@@ -84,6 +84,36 @@ test('address writes only send the persisted backend fields', async () => {
   assert.equal(result.id, 'address-1')
 })
 
+test('order payload maps Chinese service names to backend enums', () => {
+  const payload = api.buildNestOrderPayload({
+    service: '运货',
+    taskId: 'cargo_haul',
+    pickup: { name: '发货点', detail: '1号', contact: '发货人', phone: '13800000000' },
+    dropoff: { name: '收货点', detail: '2号', contact: '收货人', phone: '13900000000' }
+  })
+
+  assert.equal(payload.serviceType, 'CARGO')
+  assert.equal(payload.pickupContact, '发货人')
+  assert.equal(payload.dropoffContact, '收货人')
+})
+
+test('handling order payload does not invent a destination address', () => {
+  const payload = api.buildNestOrderPayload({
+    service: '搬运装卸',
+    taskId: 'moving_handling',
+    requiresDelivery: true,
+    pickup: { name: '服务地点', detail: '666', contact: '联系人', phone: '13800000000' },
+    dropoff: null
+  })
+
+  assert.equal(payload.serviceType, 'HANDLING')
+  assert.equal(payload.requiresDelivery, false)
+  assert.equal(payload.dropoffName, '')
+  assert.equal(payload.dropoffDetail, '')
+  assert.equal(payload.dropoffContact, '')
+  assert.equal(payload.dropoffPhone, '')
+})
+
 test('payment requests include the bearer token and confirm development mock payments', async () => {
   const paths = []
   requestHandler = (options) => {

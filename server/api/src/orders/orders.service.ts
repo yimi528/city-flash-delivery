@@ -243,6 +243,7 @@ export class OrdersService {
 
   private validateContacts(dto: CreateOrderDto) {
     const validMobile = (value?: string) => /^1[3-9]\d{9}$/.test(String(value || '').trim())
+    if (dto.taskId === 'moving_handling') return
     const dropoffValid = Boolean(String(dto.dropoffContact || '').trim()) && validMobile(dto.dropoffPhone)
     if (dto.taskId === 'carpool_ride') {
       if (!dropoffValid) throw new BadRequestException('终点地址必须填写联系人和正确的11位手机号')
@@ -264,6 +265,7 @@ export class OrdersService {
       ? { type: quote.vehicleType, name: quote.vehicleName }
       : TASK_VEHICLES[quote.serviceId]
     if (!fixedVehicle) throw new BadRequestException('报价缺少固定车型')
+    const isHandling = quote.serviceId === 'moving_handling'
     const vehicle = await this.ensureVehicle(fixedVehicle.type, fixedVehicle.name)
     const pickup = this.quoteAddress(quote.pickup)
     const dropoff = this.quoteAddress(quote.dropoff)
@@ -304,12 +306,12 @@ export class OrdersService {
           pickupPhone: dto.pickupPhone || '',
           pickupLat: this.optionalNumber(pickup.latitude || dto.pickupLat),
           pickupLng: this.optionalNumber(pickup.longitude || dto.pickupLng),
-          dropoffName: dropoff.name || dto.dropoffName || '',
-          dropoffDetail: dto.dropoffDetail || dropoff.detail,
-          dropoffContact: dto.dropoffContact || '',
-          dropoffPhone: dto.dropoffPhone || '',
-          dropoffLat: this.optionalNumber(dropoff.latitude || dto.dropoffLat),
-          dropoffLng: this.optionalNumber(dropoff.longitude || dto.dropoffLng),
+          dropoffName: isHandling ? '' : (dropoff.name || dto.dropoffName || ''),
+          dropoffDetail: isHandling ? '' : (dto.dropoffDetail || dropoff.detail),
+          dropoffContact: isHandling ? '' : (dto.dropoffContact || ''),
+          dropoffPhone: isHandling ? '' : (dto.dropoffPhone || ''),
+          dropoffLat: isHandling ? null : this.optionalNumber(dropoff.latitude || dto.dropoffLat),
+          dropoffLng: isHandling ? null : this.optionalNumber(dropoff.longitude || dto.dropoffLng),
           itemName: dto.item || serviceName,
           weightKg: Number(dto.weightKg || 1),
           distanceKm: quote.distanceMeters / 1000,

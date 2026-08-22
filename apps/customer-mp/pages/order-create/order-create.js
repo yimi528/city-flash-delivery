@@ -417,6 +417,7 @@ function buildBackendPayload(draft) {
   const cargoOptions = draft.cargoOptions || {}
   const purchaseAddress = draft.purchaseAddress || draft.pickup
   const isBuyForMe = draft.taskId === 'buy_for_me' || draft.service === '帮买'
+  const isHandling = draft.taskId === 'moving_handling' || ['搬运装卸', '搬家', '搬家/搬店', '装货', '卸货'].includes(String(draft.service || '').trim())
   const productFee = isBuyForMe ? Number(draft.budget || 0) : 0
   return {
     userId: app.globalData.userId,
@@ -429,9 +430,9 @@ function buildBackendPayload(draft) {
     requiresDelivery: draft.taskId === 'moving_handling' ? false : Boolean(draft.requiresDelivery),
     item: draft.item,
     pickupAddressId: draft.pickup.id,
-    dropoffAddressId: draft.dropoff ? draft.dropoff.id : '',
+    dropoffAddressId: isHandling || !draft.dropoff ? '' : draft.dropoff.id,
     pickup: draft.pickup,
-    dropoff: draft.dropoff,
+    dropoff: isHandling ? null : draft.dropoff,
     purchaseAddressId: purchaseAddress ? purchaseAddress.id : '',
     purchase: purchaseAddress,
     buyItems: draft.buyItems || '',

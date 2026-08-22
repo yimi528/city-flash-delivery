@@ -27,6 +27,7 @@ const SERVICE_VALUES = {
   拼车: 'CARPOOL',
   顺风车: 'CARPOOL',
   拉货: 'CARGO',
+  运货: 'CARGO',
   急送: 'DELIVERY',
   帮送: 'DELIVERY',
   帮取: 'PICKUP',
@@ -167,8 +168,16 @@ function toStatusValue(status) {
   return STATUS_VALUES[status] || status || 'PENDING'
 }
 
-function toServiceValue(service) {
-  return SERVICE_VALUES[service] || service || 'DELIVERY'
+const SERVICE_TYPE_VALUES = new Set(['DELIVERY', 'PICKUP', 'CARGO', 'BUY_FOR_ME', 'CARPOOL', 'MOVING', 'HANDLING'])
+
+function toServiceValue(service, fallbackService, taskId) {
+  for (const candidate of [service, fallbackService, taskId]) {
+    const value = String(candidate || '').trim()
+    if (!value) continue
+    if (SERVICE_TYPE_VALUES.has(value)) return value
+    if (SERVICE_VALUES[value]) return SERVICE_VALUES[value]
+  }
+  return 'DELIVERY'
 }
 
 function toServiceLabel(service) {
@@ -379,7 +388,7 @@ function buildNestPricePayload(payload) {
   const servicePricing = source.servicePricing || {}
   const weatherRisk = source.weatherRisk || {}
   return {
-    serviceType: toServiceValue(source.serviceType || source.service),
+    serviceType: toServiceValue(source.serviceType, source.service, source.taskId),
     serviceName: source.service || source.serviceName || '',
     vehicleType: toVehicleValue(source.vehicleType || source.vehicleId || cargoOptions.vehicleId),
     vehicleName: source.vehicleName || cargoOptions.vehicleName || '',
@@ -403,21 +412,22 @@ function buildNestPricePayload(payload) {
 function buildNestOrderPayload(payload) {
   const source = payload || {}
   const pickup = source.pickup || {}
-  const dropoff = source.dropoff || {}
+  const isHandling = source.taskId === 'moving_handling' || ['搬运装卸', '搬家', '搬家/搬店', '装货', '卸货'].includes(String(source.service || '').trim())
+  const dropoff = isHandling ? {} : (source.dropoff || {})
   const cargoOptions = source.cargoOptions || {}
   const selectedLine = source.selectedLine || {}
   const servicePricing = source.servicePricing || {}
   const weatherRisk = source.weatherRisk || {}
   return {
     userId: source.userId || 'demo-user',
-    serviceType: toServiceValue(source.serviceType || source.service),
+    serviceType: toServiceValue(source.serviceType, source.service, source.taskId),
     serviceName: source.service || source.serviceName || '',
     taskId: source.taskId || '',
     quoteId: source.quoteId || '',
     routeId: source.routeId || selectedLine.id || '',
     direction: source.direction || 'OUTBOUND',
     passengerCount: Number(source.passengerCount || 1),
-    requiresDelivery: Boolean(source.requiresDelivery),
+    requiresDelivery: isHandling ? false : Boolean(source.requiresDelivery),
     vehicleType: toVehicleValue(source.vehicleType || source.vehicleId || cargoOptions.vehicleId),
     vehicleName: source.vehicleName || cargoOptions.vehicleName || '',
     pricingMode: source.pricingMode || '',
@@ -436,12 +446,12 @@ function buildNestOrderPayload(payload) {
     pickupPhone: source.pickupPhone || pickup.phone || '',
     pickupLat: Number(source.pickupLat || pickup.latitude || 0),
     pickupLng: Number(source.pickupLng || pickup.longitude || 0),
-    dropoffName: source.dropoffName || dropoff.name || '收货地址',
-    dropoffDetail: source.dropoffDetail || dropoff.detail || '',
-    dropoffContact: source.dropoffContact || dropoff.contact || '',
-    dropoffPhone: source.dropoffPhone || dropoff.phone || '',
-    dropoffLat: Number(source.dropoffLat || dropoff.latitude || 0),
-    dropoffLng: Number(source.dropoffLng || dropoff.longitude || 0),
+    dropoffName: isHandling ? '' : (source.dropoffName || dropoff.name || '收货地址'),
+    dropoffDetail: isHandling ? '' : (source.dropoffDetail || dropoff.detail || ''),
+    dropoffContact: isHandling ? '' : (source.dropoffContact || dropoff.contact || ''),
+    dropoffPhone: isHandling ? '' : (source.dropoffPhone || dropoff.phone || ''),
+    dropoffLat: isHandling ? 0 : Number(source.dropoffLat || dropoff.latitude || 0),
+    dropoffLng: isHandling ? 0 : Number(source.dropoffLng || dropoff.longitude || 0),
     item: source.item || source.itemName || source.buyItems || '同城配送物品',
     buyItems: source.buyItems || '',
     distanceKm: Number(source.distanceKm || source.distance || 2.6),
