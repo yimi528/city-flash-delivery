@@ -49,3 +49,7 @@ server/data/*.sqlite-*
 work/
 outputs/
 .runtime/
+
+# Local document rendering and QA scratch folders
+.qa_*/
+.lo_*/
