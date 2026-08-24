@@ -77,8 +77,22 @@ function normalizeCityName(value: unknown) {
 }
 
 function normalizeServiceCities(value: unknown, routes: any[] = []) {
-  if (!Array.isArray(value)) return []
-  return value.map((city: any, index) => {
+  const configuredCities = Array.isArray(value) ? value : []
+  const source = configuredCities.length
+    ? configuredCities
+    : routes
+      .filter((route) => route?.serviceId === 'send_parcel' && route?.enabled !== false)
+      .map((route, index) => ({
+        id: route.id,
+        routeId: route.id,
+        name: route.destinationName,
+        enabled: true,
+        districts: PARCEL_ROUTE_DISTRICTS[String(route.id)] || [],
+        serviceIds: ['send_parcel'],
+        sortOrder: numberValue(route.sortOrder, index),
+        version: numberValue(route.version, 1),
+      }))
+  return source.map((city: any, index) => {
     const route = routes.find((candidate) => candidate.serviceId === 'send_parcel' && (candidate.id === city.routeId || candidate.id === city.id || normalizeCityName(candidate.destinationName) === normalizeCityName(city.name)))
     return {
       id: String(city.id || `city-${index}`),
@@ -361,7 +375,7 @@ export class ConfigCenterService implements OnModuleInit {
       return {
         areas,
         policies,
-        serviceCities: normalizeServiceCities(revisionPayload.serviceCities, await this.prisma.serviceRoute.findMany({ where: { serviceId: 'send_parcel' }, select: { id: true, serviceId: true, destinationName: true } })),
+        serviceCities: normalizeServiceCities(revisionPayload.serviceCities, await this.prisma.serviceRoute.findMany({ where: { serviceId: 'send_parcel' }, select: { id: true, serviceId: true, destinationName: true, enabled: true, sortOrder: true, version: true } })),
         serviceIds: Array.isArray(revisionPayload.serviceIds) ? revisionPayload.serviceIds : [],
       }
     }

@@ -286,7 +286,13 @@ export function ServiceAreasWorkspace({ api, onToast }: WorkspaceProps) {
   const desiredPayload = payload ? { ...payload, serviceIds: enabledServiceIds(cities, globalFallbackIds) } : null
   const liveCities = live ? serviceCitiesFromPayload(live) : []
   const liveIds = live?.serviceIds?.length ? live.serviceIds : serviceIdsFromAreas(live?.areas)
-  const normalizedLive = live ? { ...live, areas: live.areas || [], serviceCities: liveCities, serviceIds: liveIds.length ? liveIds : globalFallbackIds } : null
+  const normalizedLive = live ? {
+    ...live,
+    areas: live.areas || [],
+    serviceCities: liveCities,
+    serviceIds: enabledServiceIds(liveCities, liveIds.length ? liveIds : globalFallbackIds),
+    policies: SERVICE_CATALOG.map((service) => live.policies?.find((policy) => policy.serviceId === service.id) || { serviceId: service.id, enforcementEnabled: false }),
+  } : null
   const dirty = Boolean(envelope && desiredPayload && normalizedLive && JSON.stringify(desiredPayload) !== JSON.stringify(normalizedLive))
   const updateCity = (cityId: string, updates: Partial<ServiceCityConfig>) => {
     if (!payload) return
@@ -336,7 +342,7 @@ export function ServiceAreasWorkspace({ api, onToast }: WorkspaceProps) {
   if (loading || !payload || !envelope) return <section className="config-page"><div className="empty">正在加载服务范围…</div></section>
 
   return <section className="config-page">
-    <div className="config-heading area-heading"><div><p className="eyebrow">配置中心 · 03 / COVERAGE</p><h2>服务范围</h2><p className="muted">按城市管理可接单区域和业务能力，发布后同步到新的订单校验。</p></div><div className="area-heading-side"><div className="area-stat"><strong>{cities.filter((city) => city.enabled).length}</strong><span>启用城市</span></div><div className="area-stat"><strong>{new Set(cities.flatMap((city) => city.enabled ? city.serviceIds : [])).size}</strong><span>覆盖业务</span></div></div></div>
+    <div className="config-heading area-heading"><div><p className="eyebrow">服务配置 · COVERAGE</p><h2>城市与行政区</h2><p className="muted">这里的城市线路和行政区会同步到小程序“寄货配送”，发布后对新订单生效。</p></div><div className="area-heading-side"><div className="area-stat"><strong>{cities.filter((city) => city.enabled).length}</strong><span>启用城市</span></div><div className="area-stat"><strong>{new Set(cities.flatMap((city) => city.enabled ? city.serviceIds : [])).size}</strong><span>覆盖业务</span></div></div></div>
     <div className="config-main service-city-page">
       <div className="config-card city-overview-card"><div className="city-overview-heading"><div><span className="service-kicker">服务城市</span><h3>管理可接单城市</h3><p>一个城市可以独立启停，并选择该城市开放的业务。后续接入地图围栏时，可继续在城市下扩展精细边界。</p></div></div>
         <div className="city-workspace">
