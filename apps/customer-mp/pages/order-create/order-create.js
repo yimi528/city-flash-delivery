@@ -16,16 +16,16 @@ const FIELD_PRESETS = {
     sectionHint: '选择货物类型与重量',
     itemTypes: ['普通货物', '宠物'],
     showWeight: true,
-    limitText: '价格按线路、物品和重量配置，当前待定',
+    limitText: '先选择线路与去返程，再填写对应行政区地址',
     remarkPlaceholder: '备注：货物尺寸、件数、取件码、是否易碎'
   },
-  carpool_ride: {
-    sectionTitle: '乘车信息',
-    sectionHint: '固定线路顺风车',
+  carpool: {
+    sectionTitle: '顺风车信息',
+    sectionHint: '固定线路 · 最多 6 名乘客',
     itemTypes: [],
     showWeight: false,
-    limitText: '',
-    remarkPlaceholder: '备注：上车时间、乘车人数、行李数量'
+    limitText: '先选顺风车线路，再选择出发方向和地址',
+    remarkPlaceholder: '备注：出发时间、行李数量、其他乘车要求'
   },
   cargo_haul: {
     sectionTitle: '拉货信息',
@@ -72,7 +72,12 @@ const FIELD_PRESETS = {
 const DEFAULT_WEIGHT_OPTIONS = [1, 3, 5, 10, 15, 30]
 const PARCEL_WEIGHT_OPTIONS = [10, 30]
 
+function isCarpoolMode(draft) {
+  return Boolean(draft && draft.taskId === 'send_parcel' && draft.serviceMode === 'CARPOOL')
+}
+
 function getFieldPreset(draft) {
+  if (isCarpoolMode(draft)) return FIELD_PRESETS.carpool
   if (draft && ['manual_quote', 'handling_fixed'].includes(inferPricingMode(draft))) return FIELD_PRESETS.manual_quote
   return FIELD_PRESETS[(draft && draft.taskId) || ''] || FIELD_PRESETS.urgent_delivery
 }
@@ -120,11 +125,12 @@ function formatMoney(value) {
 }
 
 function inferPricingMode(draft) {
+  if (isCarpoolMode(draft)) return 'fixed_line_ride'
   if (draft && draft.pricingMode) return draft.pricingMode
   if (!draft) return 'distance_weather'
   if (draft.service === '寄货' || draft.service === '寄货/配送') return 'parcel_category'
   if (draft.service === '拼车' || draft.service === '顺风车') return 'fixed_line_ride'
-  if (draft.service === '搬运装卸' || draft.service === '装货' || draft.service === '卸货') return 'handling_fixed'
+  if (draft.service === '搬运装卸' || draft.service === '装货' || draft.service === '卸货') return 'manual_quote'
   if (draft.service === '急送' || draft.service === '帮取' || draft.service === '帮买' || draft.service === '帮送' || draft.service === '1对1急送') return 'distance_weather'
   return 'distance'
 }
@@ -167,6 +173,7 @@ function applyRemotePricing(draft) {
 function resetRouteSelectionState(draft) {
   draft.pickup = null
   draft.dropoff = null
+  draft.selectedDistrict = ''
   draft.quoteId = ''
   draft.routeDistanceKm = 0
   draft.routeDistanceSource = ''
@@ -196,7 +203,7 @@ function estimateFee(draft) {
   let distanceFeeTitle = `超出${rule.baseDistanceKm}公里费用`
   let pricingNote = (draft && draft.priceSummary) || '按甲方规则计价'
 
-  if (draft && (draft.taskId === 'send_parcel' || pricingMode === 'parcel_category')) {
+  if (draft && !isCarpoolMode(draft) && (draft.taskId === 'send_parcel' || pricingMode === 'parcel_category')) {
     const isPet = draft.item === '宠物'
     const weight = Number(draft.weight || 1)
     const priceFen = getParcelPriceFen(draft)
@@ -240,6 +247,16 @@ function estimateFee(draft) {
       pricingNote = '系统预估价，仅供下单参考；商家报价后需再次确认'
     } else {
       pricingNote = `超出${rule.baseDistanceKm}公里按${rule.extraPerKm}元/公里`
+    }
+  }
+
+  if (draft && draft.taskId === 'moving_handling') {
+    return {
+      distance: '0.0', pricingMode: 'manual_quote', pricingNote: '请先电话协商，商家确认后填写最终价格', isPricePending: false,
+      isManualQuote: true, baseTitle: '商家最终报价', base: '0.0', baseText: '待商家报价', baseDistanceKm: 0,
+      extraPerKm: 0, distanceFeeTitle: '', distanceFee: '0.0', weatherFee: '0.0', weightFee: '0.0', urgentFee: '0.0', vehicleFee: '0.0',
+      discount: '0.0', discountTitle: '', productFee: '0.0', deliveryFee: '0.0', serviceFee: '0.0', total: '0.0', totalText: '待商家报价',
+      showDistanceFee: false, showWeatherFee: false, weatherEnabled: false, showWeightFee: false, showVehicleFee: false, showUrgentFee: false, showDiscount: false
     }
   }
 
@@ -306,7 +323,7 @@ function ensureDraftVehicle(draft) {
 }
 
 function normalizeHandlingDraft(draft) {
-  if (!draft || inferPricingMode(draft) !== 'handling_fixed') return
+  if (!draft || (draft.taskId !== 'moving_handling' && !['manual_quote', 'handling_fixed'].includes(inferPricingMode(draft)))) return
   const selectedName = HANDLING_TYPES.some((item) => item.name === draft.item)
     ? draft.item
     : HANDLING_TYPES.some((item) => item.name === draft.service)
@@ -315,7 +332,7 @@ function normalizeHandlingDraft(draft) {
   const normalizedName = selectedName === '叉车' ? HANDLING_TYPES[0].name : selectedName
   Object.assign(draft, serviceConfig.buildDraftService('moving_handling'))
   const handlingType = serviceConfig.applyHandlingType(draft, normalizedName)
-  draft.pricingMode = 'handling_fixed'
+  draft.pricingMode = 'manual_quote'
   draft.requiresDelivery = false
   draft.budget = 0
   draft.buyItems = ''
@@ -329,7 +346,9 @@ function normalizeHandlingDraft(draft) {
 function prepareFormState(draft) {
   const task = serviceConfig.getTask((draft && draft.taskId) || 'send_parcel')
   const remoteRoutesConfigured = Boolean(draft && draft.servicePricing && draft.servicePricing.remote)
-  const taskLines = remoteRoutesConfigured ? ((draft && draft.remoteTaskLines) || []) : ((draft && draft.remoteTaskLines && draft.remoteTaskLines.length ? draft.remoteTaskLines : task.lines) || [])
+  const taskLines = isCarpoolMode(draft)
+    ? (task.carpoolLines || [])
+    : (remoteRoutesConfigured ? ((draft && draft.remoteTaskLines) || []) : ((draft && draft.remoteTaskLines && draft.remoteTaskLines.length ? draft.remoteTaskLines : task.lines) || []))
   if (draft && taskLines.length && !serviceConfig.isRouteTask(draft.taskId) && (!draft.selectedLine || !taskLines.some((item) => item.id === draft.selectedLine.id))) {
     draft.selectedLine = taskLines[0]
   }
@@ -353,7 +372,7 @@ function prepareFormState(draft) {
   return {
     taskLines,
     requiresLine: serviceConfig.isRouteTask(task && task.id),
-    addressLocked: serviceConfig.isRouteTask(task && task.id) && !(draft && draft.selectedLine),
+    addressLocked: serviceConfig.isRouteTask(task && task.id) && (!(draft && draft.selectedLine) || (!isCarpoolMode(draft) && task.id === 'send_parcel' && !(draft && draft.selectedDistrict))),
     selectedLineId: draft && draft.selectedLine ? draft.selectedLine.id : '',
     fieldConfig,
     itemTypes: fieldConfig.itemTypes,
@@ -376,7 +395,11 @@ function buildLocalOrder(draft, estimate) {
     id: generateLocalOrderId(),
     status: '待接单',
     statusIndex: 0,
-    service: draft.service,
+    service: isCarpoolMode(draft) ? '顺风车' : draft.service,
+    serviceMode: draft.serviceMode || 'PARCEL',
+    direction: draft.direction || 'OUTBOUND',
+    routeId: draft.selectedLine ? draft.selectedLine.id : '',
+    passengerCount: Number(draft.passengerCount || 1),
     pickupName: draft.pickup.name,
     pickupDetail: draft.pickup.detail,
     dropoffName: draft.dropoff ? draft.dropoff.name : '',
@@ -393,7 +416,7 @@ function buildLocalOrder(draft, estimate) {
     weightLabel: draft.service === '帮买' ? '' : (draft.cargoOptions ? draft.cargoOptions.weightLabel : getWeightLabel(Number(draft.weight || 1))),
     fee,
     estimatedFee: fee,
-    feeText: isManualQuote ? `预估￥${fee}` : `￥${fee}`,
+    feeText: isManualQuote ? '待商家报价' : `￥${fee}`,
     pricingMode: estimate.pricingMode,
     isManualQuote,
     badWeather: !!draft.badWeather,
@@ -421,8 +444,9 @@ function buildBackendPayload(draft) {
   const productFee = isBuyForMe ? Number(draft.budget || 0) : 0
   return {
     userId: app.globalData.userId,
-    service: draft.service,
+    service: isCarpoolMode(draft) ? '顺风车' : draft.service,
     taskId: draft.taskId,
+    serviceMode: draft.serviceMode || 'PARCEL',
     quoteId: draft.quoteId || '',
     routeId: draft.selectedLine ? draft.selectedLine.id : '',
     direction: draft.direction || 'OUTBOUND',
@@ -470,6 +494,7 @@ function requestBackendQuote(draft) {
     : 0
   return api.quoteOrder({
     taskId: draft.taskId,
+    serviceMode: draft.serviceMode || 'PARCEL',
     routeId: draft.selectedLine ? draft.selectedLine.id : '',
     direction: draft.direction || 'OUTBOUND',
     passengerCount: Number(draft.passengerCount || 1),
@@ -607,20 +632,7 @@ Page({
       this.refreshLocalEstimate()
       return Promise.resolve()
     }
-    if (draft.taskId !== 'carpool_ride') return Promise.resolve()
-    return api.getCarpoolRoutes().then((routes) => {
-      const taskLines = routes.map((route) => ({ id: route.id, name: route.city, price: Number(route.unitPriceFen || 0) / 100, priceUnit: 'PER_PERSON', pending: Number(route.unitPriceFen || 0) <= 1 }))
-      const selected = taskLines.find((line) => draft.selectedLine && line.id === draft.selectedLine.id) || null
-      draft.selectedLine = selected
-      const formState = prepareFormState(draft)
-      this.setData({
-        taskLines: formState.taskLines,
-        requiresLine: formState.requiresLine,
-        addressLocked: formState.addressLocked,
-        selectedLineId: formState.selectedLineId
-      })
-      this.refreshLocalEstimate()
-    }).catch(() => wx.showToast({ title: '线路价格同步失败，请稍后重试', icon: 'none' }))
+    return Promise.resolve()
   },
 
   refreshLocalEstimate() {
@@ -719,7 +731,7 @@ Page({
       this.setData({
         draft,
         estimate: estimateFee(draft),
-        addressLocked: serviceConfig.isRouteTask(draft.taskId) && !draft.selectedLine,
+        addressLocked: serviceConfig.isRouteTask(draft.taskId) && (!draft.selectedLine || (draft.taskId === 'send_parcel' && !isCarpoolMode(draft) && !draft.selectedDistrict)),
         selectedLineId: draft.selectedLine ? draft.selectedLine.id : '',
         routeSource: route.source,
         routeDuration: route.duration,
@@ -733,7 +745,7 @@ Page({
   selectItem(event) {
     const item = event.currentTarget.dataset.item
     const draft = app.globalData.draftOrder
-    const handlingType = inferPricingMode(draft) === 'handling_fixed'
+    const handlingType = ['handling_fixed', 'manual_quote'].includes(inferPricingMode(draft))
       ? HANDLING_TYPES.find((option) => option.name === item)
       : null
     if (handlingType) {
@@ -767,6 +779,27 @@ Page({
     if (phone) wx.makePhoneCall({ phoneNumber: phone })
   },
 
+  selectServiceMode(event) {
+    const mode = event.currentTarget.dataset.mode === 'CARPOOL' ? 'CARPOOL' : 'PARCEL'
+    const draft = app.globalData.draftOrder
+    if (draft.serviceMode === mode) return
+    draft.serviceMode = mode
+    draft.selectedLine = null
+    draft.selectedDistrict = ''
+    draft.pickup = null
+    draft.dropoff = null
+    draft.direction = 'OUTBOUND'
+    draft.remoteTaskLines = mode === 'CARPOOL' ? [] : draft.remoteTaskLines
+    draft.quoteId = ''
+    draft.routeDistanceKm = 0
+    draft.routeDistanceSource = ''
+    draft.routeDuration = ''
+    draft.passengerCount = 1
+    draft.item = mode === 'CARPOOL' ? '1人' : '普通货物'
+    draft.pricingMode = mode === 'CARPOOL' ? 'fixed_line_ride' : 'parcel_category'
+    this.refreshLocalEstimate()
+  },
+
   selectLine(event) {
     const draft = app.globalData.draftOrder
     const lineId = event.currentTarget.dataset.id
@@ -774,7 +807,7 @@ Page({
     if (!line) return
     draft.selectedLine = line
     resetRouteSelectionState(draft)
-    if (draft.taskId === 'carpool_ride') carpool.applyRoute(draft, { routeId: line.id, clearAddress: true })
+    if (isCarpoolMode(draft)) carpool.applyRoute(draft, { routeId: line.id, clearAddress: true, usePlaceholder: false })
     vehicleConfig.applyVehicleToDraft(draft, draft.cargoOptions.vehicleId)
     this.refreshLocalEstimate()
     this.refreshRouteEstimate()
@@ -804,6 +837,15 @@ Page({
     this.refreshLocalEstimate()
   },
 
+  selectDistrict(event) {
+    const draft = app.globalData.draftOrder
+    const district = String(event.currentTarget.dataset.district || '')
+    if (!district || !draft.selectedLine) return
+    draft.selectedDistrict = district
+    if (isCarpoolMode(draft)) carpool.applyRoute(draft, { routeId: draft.selectedLine.id, clearAddress: true, usePlaceholder: false })
+    this.refreshLocalEstimate()
+  },
+
   openCargoOptions() {
     wx.showToast({ title: '当前业务车型已固定', icon: 'none' })
   },
@@ -816,8 +858,8 @@ Page({
     const draft = app.globalData.draftOrder
     const previousAddress = draft.selectedLine ? carpool.getCitySideAddress(draft) : null
     draft.direction = event.currentTarget.dataset.direction
-    if (draft.selectedLine) {
-      carpool.applyRoute(draft, { address: previousAddress })
+    if (draft.selectedLine && isCarpoolMode(draft)) {
+      carpool.applyRoute(draft, { address: previousAddress, usePlaceholder: false })
     }
     this.refreshLocalEstimate()
   },
@@ -838,8 +880,12 @@ Page({
       wx.showToast({ title: '请先选择线路', icon: 'none' })
       return
     }
+    if (draft.taskId === 'send_parcel' && !isCarpoolMode(draft) && !draft.selectedDistrict) {
+      wx.showToast({ title: '请先选择行政区', icon: 'none' })
+      return
+    }
     const routeId = draft.selectedLine && draft.selectedLine.id
-    const mode = draft.taskId === 'carpool_ride' ? `&mode=carpool&route=${routeId}` : ''
+    const mode = draft.taskId === 'send_parcel' ? `&mode=${isCarpoolMode(draft) ? 'carpool' : 'delivery'}&route=${routeId}${draft.selectedDistrict ? `&district=${encodeURIComponent(draft.selectedDistrict)}` : ''}` : ''
     navigation.navigateTo(wx, { url: `/pages/address/address?type=${type}${mode}` })
   },
 
@@ -886,10 +932,23 @@ Page({
       wx.showToast({ title: '请先选择线路', icon: 'none' })
       return
     }
-    if (draft.taskId === 'carpool_ride') {
+    if (draft.taskId === 'send_parcel' && isCarpoolMode(draft)) {
       const validation = carpool.validateDraft(draft)
       if (!validation.valid) {
         wx.showToast({ title: validation.message, icon: 'none' })
+        return
+      }
+    }
+    if (draft.taskId === 'send_parcel' && !isCarpoolMode(draft)) {
+      if (!draft.selectedDistrict) {
+        wx.showToast({ title: '请先选择行政区', icon: 'none' })
+        return
+      }
+      const lineId = draft.selectedLine && draft.selectedLine.id
+      const pickupInScope = carpool.isSelectedCityAddress(draft.pickup, lineId, draft.selectedDistrict)
+      const dropoffInScope = carpool.isSelectedCityAddress(draft.dropoff, lineId, draft.selectedDistrict)
+      if (!pickupInScope || !dropoffInScope) {
+        wx.showToast({ title: `发货和收货地址都必须位于${draft.selectedDistrict}`, icon: 'none' })
         return
       }
     }
@@ -905,10 +964,10 @@ Page({
       wx.showToast({ title: '请先选择收货地址', icon: 'none' })
       return
     }
-    const pickupContactError = draft.taskId === 'carpool_ride' && draft.pickup && draft.pickup.isCarpoolFixedStop
+    const pickupContactError = draft.pickup && draft.pickup.isCarpoolFixedStop
       ? ''
       : contactError(draft.pickup, '发货')
-    const dropoffContactError = draft.dropoff ? contactError(draft.dropoff, '目的地') : ''
+    const dropoffContactError = draft.dropoff && draft.dropoff.isCarpoolFixedStop ? '' : (draft.dropoff ? contactError(draft.dropoff, '目的地') : '')
     if (pickupContactError || dropoffContactError) {
       wx.showToast({ title: pickupContactError || dropoffContactError, icon: 'none', duration: 2600 })
       return

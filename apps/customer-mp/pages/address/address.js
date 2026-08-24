@@ -7,7 +7,7 @@ const navigation = require('../../utils/navigation')
 const addressValidation = require('../../utils/address-validation')
 
 function addressMeta(type, isCarpool, routeName) {
-  if (isCarpool) return { title: `填写${routeName || '顺风车'}地址`, pinLabel: '顺', pinClass: 'pickup', toast: '已选择顺风车地址' }
+  if (isCarpool) return { title: `填写${routeName || '线路'}地址`, pinLabel: '址', pinClass: 'pickup', toast: '已选择线路地址' }
   if (type === 'pickup') return { title: '选择发货地址', pinLabel: '发', pinClass: 'pickup', toast: '已选发货地址' }
   if (type === 'purchase') return { title: '选择购买地址', pinLabel: '买', pinClass: 'purchase', toast: '已选购买地址' }
   return { title: '选择收货地址', pinLabel: '收', pinClass: 'dropoff', toast: '已选收货地址' }
@@ -43,8 +43,10 @@ Page({
     statusBarHeight: 24,
     type: 'dropoff',
     isCarpool: false,
+    isCarpoolRide: false,
     routeId: '',
     routeName: '',
+    selectedDistrict: '',
     title: '选择收货地址',
     pinLabel: '收',
     pinClass: 'dropoff',
@@ -65,8 +67,10 @@ Page({
     const draftOrder = globalData.draftOrder || {}
     const savedAddresses = Array.isArray(globalData.addresses) ? globalData.addresses : []
     const type = query.type || 'dropoff'
-    const isCarpool = query.mode === 'carpool'
+    const isCarpool = query.mode === 'carpool' || query.mode === 'delivery'
+    const isCarpoolRide = query.mode === 'carpool'
     const route = carpool.getRoute(query.route || (draftOrder.selectedLine && draftOrder.selectedLine.id))
+    const selectedDistrict = query.district ? decodeURIComponent(query.district) : ''
     const meta = addressMeta(type, isCarpool, route.name)
     this.searchSeq = 0
     this.pendingDeleteIds = {}
@@ -75,15 +79,17 @@ Page({
       statusBarHeight: globalData.statusBarHeight || 24,
       type,
       isCarpool,
+      isCarpoolRide,
       routeId: isCarpool ? route.id : '',
       routeName: isCarpool ? route.name : '',
+      selectedDistrict,
       title: meta.title,
       pinLabel: meta.pinLabel,
       pinClass: meta.pinClass,
       currentAddress: globalData.currentAddress || null,
       addresses: savedAddresses,
-      locationTip: isCarpool ? `仅显示${route.name}境内地址` : '点击定位后，会按当前位置推荐附近地址',
-      scopeTip: isCarpool ? `已选${route.name}线，如需切换请返回首页` : ''
+      locationTip: isCarpool ? (route.allowAnyCity ? `仅显示${route.city}境内地址` : `仅显示${route.name}线路指定行政区地址`) : '点击定位后，会按当前位置推荐附近地址',
+      scopeTip: isCarpool ? (route.allowAnyCity ? `已选${route.name}线，支持${route.city}境内地址` : `已选${route.name} · ${selectedDistrict || '请选择行政区'}，仅支持 ${(route.allowedDistricts || []).join('、')}`) : ''
     })
     if (isCarpool) this.loadCarpoolRecommendations()
   },
@@ -128,7 +134,7 @@ Page({
     const isVisible = (item) => {
       if (this.pendingDeleteIds && this.pendingDeleteIds[item.id]) return false
       if (this.deletedAddressIds && this.deletedAddressIds[item.id]) return false
-      if (this.data.isCarpool && !carpool.isSelectedCityAddress(item, this.data.routeId)) return false
+      if (this.data.isCarpool && !carpool.isSelectedCityAddress(item, this.data.routeId, this.data.selectedDistrict)) return false
       return !keyword || item.name.indexOf(keyword) > -1 || item.detail.indexOf(keyword) > -1 || (item.tag || '').indexOf(keyword) > -1
     }
     const localAddresses = addressBook.rank(allAddresses).filter(isVisible).map((item) => decorateAddress(item, origin, { isMapResult: false, sourceLabel: item.tag || '' }))
@@ -160,11 +166,11 @@ Page({
     this.searchSeq = searchSeq
     this.setData({ isSearching: true })
     map.searchAddress(keyword, {
-      region: this.data.isCarpool ? (this.data.routeId === 'cangnan' ? '苍南县' : '温州市') : app.globalData.city,
+      region: this.data.isCarpool ? carpool.getRoute(this.data.routeId).city : app.globalData.city,
       location: app.globalData.currentLocation
     }).then((results) => {
       if (this.searchSeq !== searchSeq || this.data.keyword !== keyword) return
-      const scopedResults = this.data.isCarpool ? results.filter((item) => carpool.isSelectedCityAddress(item, this.data.routeId)) : results
+      const scopedResults = this.data.isCarpool ? results.filter((item) => carpool.isSelectedCityAddress(item, this.data.routeId, this.data.selectedDistrict)) : results
       const mapResults = scopedResults.map((item) => decorateAddress(item, app.globalData.currentLocation, {
         isMapResult: true,
         sourceLabel: item.source === 'tencent' ? '腾讯地图' : '地图建议'
@@ -179,10 +185,11 @@ Page({
     const searchSeq = (this.searchSeq || 0) + 1
     this.searchSeq = searchSeq
     this.setData({ isSearching: true })
-    const keyword = this.data.routeId === 'cangnan' ? '苍南' : '温州'
-    map.searchAddress(keyword, { region: this.data.routeId === 'cangnan' ? '苍南县' : '温州市' }).then((results) => {
+    const route = carpool.getRoute(this.data.routeId)
+    const keyword = route.name
+    map.searchAddress(keyword, { region: route.city }).then((results) => {
       if (this.searchSeq !== searchSeq || this.data.keyword) return
-      const mapResults = mergeUnique(results.filter((item) => carpool.isSelectedCityAddress(item, this.data.routeId))).map((item) => decorateAddress(item, app.globalData.currentLocation, {
+      const mapResults = mergeUnique(results.filter((item) => carpool.isSelectedCityAddress(item, this.data.routeId, this.data.selectedDistrict))).map((item) => decorateAddress(item, app.globalData.currentLocation, {
         isMapResult: true,
         sourceLabel: item.source === 'tencent' ? '腾讯地图推荐' : '顺风车地点推荐'
       }))
@@ -222,7 +229,7 @@ Page({
   },
 
   openMapPicker() {
-    const mode = this.data.isCarpool ? `&mode=carpool&route=${this.data.routeId}` : ''
+    const mode = this.data.isCarpool ? `&mode=delivery&route=${this.data.routeId}&district=${encodeURIComponent(this.data.selectedDistrict || '')}` : ''
     navigation.navigateTo(wx, { url: `/pages/map-picker/map-picker?type=${this.data.type}${mode}` })
   },
 
@@ -239,7 +246,7 @@ Page({
 
   openMapAddress(address) {
     app.globalData.pendingMapAddress = Object.assign({}, address, { id: '', isDefault: false })
-    const mode = this.data.isCarpool ? `&mode=carpool&route=${this.data.routeId}` : ''
+    const mode = this.data.isCarpool ? `&mode=delivery&route=${this.data.routeId}&district=${encodeURIComponent(this.data.selectedDistrict || '')}` : ''
     navigation.navigateTo(wx, { url: `/pages/address-edit/address-edit?type=${this.data.type}&from=map${mode}` })
   },
 
@@ -249,19 +256,30 @@ Page({
     if (!validation.valid) {
       wx.showToast({ title: `该地址信息不完整：${validation.message}`, icon: 'none' })
       if (selected.id) {
-        const mode = this.data.isCarpool ? `&mode=carpool&route=${this.data.routeId}` : ''
+        const mode = this.data.isCarpool ? `&mode=delivery&route=${this.data.routeId}&district=${encodeURIComponent(this.data.selectedDistrict || '')}` : ''
         navigation.navigateTo(wx, { url: `/pages/address-edit/address-edit?type=${this.data.type}&id=${selected.id}${mode}` })
       }
       return
     }
-    if (this.data.isCarpool) {
-      const route = carpool.applySelectedAddress(app.globalData.draftOrder, selected, this.data.type, this.data.routeId)
+    if (this.data.isCarpoolRide) {
+      const route = carpool.applySelectedAddress(app.globalData.draftOrder, selected, this.data.type, this.data.routeId, this.data.selectedDistrict)
       if (!route) {
         wx.showToast({ title: `请选择${this.data.routeName}境内地址`, icon: 'none' })
         return
       }
       this.recordUse(address)
       wx.showToast({ title: `已选择${route.name}线地址`, icon: 'success' })
+      setTimeout(() => wx.navigateBack(), 350)
+      return
+    }
+    if (this.data.isCarpool && this.data.routeId) {
+      const key = draftKey(this.data.type)
+      app.globalData.draftOrder[key] = selected
+      app.globalData.draftOrder.routeDistanceKm = 0
+      app.globalData.draftOrder.routeDistanceSource = ''
+      app.globalData.draftOrder.routeDuration = ''
+      this.recordUse(address)
+      wx.showToast({ title: '已选择线路地址', icon: 'success' })
       setTimeout(() => wx.navigateBack(), 350)
       return
     }
@@ -276,13 +294,13 @@ Page({
   },
 
   addAddress() {
-    const mode = this.data.isCarpool ? `&mode=carpool&route=${this.data.routeId}` : ''
+    const mode = this.data.isCarpool ? `&mode=delivery&route=${this.data.routeId}&district=${encodeURIComponent(this.data.selectedDistrict || '')}` : ''
     navigation.navigateTo(wx, { url: `/pages/map-picker/map-picker?type=${this.data.type}&from=add${mode}` })
   },
 
   editAddress(event) {
     const id = event.currentTarget.dataset.id
-    const mode = this.data.isCarpool ? `&mode=carpool&route=${this.data.routeId}` : ''
+    const mode = this.data.isCarpool ? `&mode=delivery&route=${this.data.routeId}&district=${encodeURIComponent(this.data.selectedDistrict || '')}` : ''
     navigation.navigateTo(wx, { url: `/pages/address-edit/address-edit?type=${this.data.type}&id=${id}${mode}` })
   },
 

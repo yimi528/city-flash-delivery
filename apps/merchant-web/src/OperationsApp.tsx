@@ -296,6 +296,7 @@ function OrderCard({
   const isCancelled = order.status === '已取消'
   const isTerminal = isCompleted || isCancelled
   const isWaitingPayment = !isTerminal && !order.isPaid
+  const isHandlingOrder = order.taskId === 'moving_handling' || order.service === '搬运装卸'
   const [quoteValue, setQuoteValue] = useState(order.quotedFee ? String(order.quotedFee) : '')
   const [quoteNote, setQuoteNote] = useState(order.quoteNote || '')
   const [isQuoting, setIsQuoting] = useState(false)
@@ -337,7 +338,7 @@ function OrderCard({
               {order.service === '帮买'
                 ? `商品 ￥${order.productFee || 0} · 配送 ￥${order.deliveryFee || 0} · 合计 ${order.feeText}`
                 : order.isManualQuote
-                  ? `${order.vehicleName} · 规则预估 ￥${order.estimatedFee || 0} · 当前 ${order.feeText}`
+                  ? `${order.vehicleName} · ${isHandlingOrder ? '先电话协商服务内容' : `规则预估 ￥${order.estimatedFee || 0}`} · 当前 ${order.feeText}`
                   : `${order.vehicleName} · ${order.weightLabel} · 合计 ${order.feeText}`}
             </div>
             {order.remark ? <div className="goods-note">备注：{order.remark}</div> : null}
@@ -347,7 +348,8 @@ function OrderCard({
             <div className="quote-box">
               <div>
                 <strong>{order.quoteStatus === 'REJECTED' ? '用户已拒绝，请重新报价' : '填写商家最终报价'}</strong>
-                <span>系统预估 ￥{order.estimatedFee || 0}，最终报价需由用户确认后才能履约。</span>
+                <span>{isHandlingOrder ? '请先联系用户确认楼层、件数和人员需求，再填写最终报价。' : `系统预估 ￥${order.estimatedFee || 0}，最终报价需由用户确认后才能履约。`}</span>
+                {isHandlingOrder && order.customerPhone ? <a className="quote-call-link" href={`tel:${order.customerPhone}`}>☎ 联系用户 {order.customerPhone}</a> : null}
               </div>
               <label className="quote-input">
                 <span>￥</span>

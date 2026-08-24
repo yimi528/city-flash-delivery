@@ -78,6 +78,34 @@
   font-weight: 750;
 }
 
+.service-mode-switch {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10rpx;
+  margin: 20rpx 0 14rpx;
+  padding: 6rpx;
+  border-radius: 20rpx;
+  background: #f0ece3;
+}
+
+.service-mode-option {
+  min-height: 64rpx;
+  padding: 10rpx 12rpx;
+  border-radius: 16rpx;
+  color: #7b7d75;
+  background: transparent;
+  text-align: center;
+  transition: transform 140ms var(--ease-out), color 140ms ease, background-color 140ms ease, box-shadow 140ms ease;
+}
+
+.service-mode-option text,
+.service-mode-option small { display: block; }
+.service-mode-option text { font-size: 24rpx; font-weight: 850; }
+.service-mode-option small { margin-top: 3rpx; color: #a09d93; font-size: 18rpx; }
+.service-mode-option.active { color: var(--cinnabar-strong); background: #fffaf3; box-shadow: 0 5rpx 14rpx rgba(48, 39, 27, .08); }
+.service-mode-option.active small { color: #bd7964; }
+.service-mode-option:active { transform: scale(.98); }
+
 .line-empty {
   padding: 26rpx 20rpx;
   border-radius: 20rpx;
@@ -86,6 +114,49 @@
   text-align: center;
   font-size: 24rpx;
 }
+
+.district-picker {
+  margin-top: 20rpx;
+  padding: 18rpx;
+  border: 1rpx solid #ece6dc;
+  border-radius: 20rpx;
+  background: #fffaf3;
+}
+
+.district-picker-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  color: #3c463f;
+  font-size: 24rpx;
+  font-weight: 850;
+}
+
+.district-picker-head small {
+  color: #9c9b91;
+  font-size: 20rpx;
+  font-weight: 650;
+}
+
+.district-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12rpx;
+  margin-top: 14rpx;
+}
+
+.district-chip {
+  padding: 12rpx 18rpx;
+  border: 1rpx solid #ded8cb;
+  border-radius: 999rpx;
+  color: #70776f;
+  background: #fff;
+  font-size: 22rpx;
+  transition: transform 140ms var(--ease-out), color 140ms ease, background-color 140ms ease, border-color 140ms ease;
+}
+
+.district-chip:active { transform: scale(.97); }
+.district-chip.active { color: #fffaf3; border-color: var(--cinnabar); background: var(--cinnabar); box-shadow: 0 6rpx 16rpx rgba(201, 71, 46, .18); }
 
 .route-divider {
   height: 2rpx;
@@ -1169,12 +1240,25 @@ textarea {
   text-align: center;
   font-size: 24rpx;
   font-weight: 750;
+  display: flex;
+  flex-direction: column;
+  gap: 4rpx;
+}
+
+.direction-option small {
+  color: #9a9f9a;
+  font-size: 20rpx;
+  font-weight: 650;
 }
 
 .direction-option.active {
   color: #e42319;
   background: #fff;
   box-shadow: 0 5rpx 18rpx rgba(29, 40, 65, 0.09);
+}
+
+.direction-option.active small {
+  color: #c35a3c;
 }
 
 .passenger-stepper {

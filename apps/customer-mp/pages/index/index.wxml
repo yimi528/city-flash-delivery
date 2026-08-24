@@ -16,7 +16,7 @@
 
   <view class="hero-card">
     <view class="hero-copy">
-      <view class="hero-kicker">今日运力充足</view>
+      <view class="hero-kicker">鼎温榕 · 本地运力</view>
       <view class="hero-title">从福鼎出发，<br/>人和货都准时到。</view>
       <view class="hero-meta">
         <view><text>1</text> 分钟响应</view>
@@ -75,11 +75,11 @@
         <view class="service-change-text">正在切换服务</view>
       </view>
 
-    <view class="price-strip" bindtap="openPricing">
-      <view class="price-tag">¥</view>
+    <view class="price-strip {{draft.taskId === 'moving_handling' ? 'price-strip-manual' : ''}}" bindtap="openPricing">
+      <view class="price-tag">{{draft.taskId === 'moving_handling' ? '☎' : '¥'}}</view>
       <view class="price-main">
-        <view class="price-title">{{draft.priceSummary || '按甲方规则计价'}}</view>
-        <view class="price-sub">{{draft.taskName}} · {{draft.recommendedVehicleName}} · 后端统一计价</view>
+        <view class="price-title">{{draft.taskId === 'moving_handling' ? '电话协商后报价' : (draft.priceSummary || '按平台规则计价')}}</view>
+        <view class="price-sub">{{draft.taskId === 'moving_handling' ? '先沟通需求，商家确认后填写最终价格' : (draft.taskName + ' · ' + (draft.recommendedVehicleName || '固定车型'))}}</view>
       </view>
       <view class="price-arrow">›</view>
     </view>
@@ -117,7 +117,7 @@
     </view>
 
     <view class="handling-home-tip" wx:if="{{draft.taskId === 'moving_handling'}}">
-      <text>填写发货地址</text>；商家接单后安排骑手到该地址上门服务
+      <text>电话协商服务内容</text>；商家确认后再填写最终价格
     </view>
     <button class="primary-btn order-btn" wx:if="{{!isOpeningOrder}}" bindtap="goOrder">
       <text class="order-btn-label">去下单</text><text class="button-arrow">→</text>

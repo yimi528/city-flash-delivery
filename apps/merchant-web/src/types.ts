@@ -63,6 +63,7 @@ export type ApiOrder = {
   serviceType?: BackendService | string
   serviceName?: string
   service?: string
+  taskId?: string
   status?: BackendStatus | StatusLabel | string
   statusIndex?: number
   businessStatus?: string

@@ -245,6 +245,7 @@ export class OrdersService {
     const validMobile = (value?: string) => /^1[3-9]\d{9}$/.test(String(value || '').trim())
     if (dto.taskId === 'moving_handling') return
     const dropoffValid = Boolean(String(dto.dropoffContact || '').trim()) && validMobile(dto.dropoffPhone)
+    if (dto.taskId === 'send_parcel' && dto.direction === 'RETURN' && ['wenzhou_parcel', 'fuzhou_parcel', 'cangnan', 'wenzhou', 'fuzhou'].includes(String(dto.routeId || '')) && String(dto.dropoffName || '').trim() === '福鼎') return
     if (dto.taskId === 'carpool_ride') {
       if (!dropoffValid) throw new BadRequestException('终点地址必须填写联系人和正确的11位手机号')
       return
@@ -266,13 +267,15 @@ export class OrdersService {
       : TASK_VEHICLES[quote.serviceId]
     if (!fixedVehicle) throw new BadRequestException('报价缺少固定车型')
     const isHandling = quote.serviceId === 'moving_handling'
+    const isCarpool = quote.serviceId === 'send_parcel' && ['cangnan', 'wenzhou', 'fuzhou'].includes(String(quote.routeId || ''))
     const vehicle = await this.ensureVehicle(fixedVehicle.type, fixedVehicle.name)
     const pickup = this.quoteAddress(quote.pickup)
     const dropoff = this.quoteAddress(quote.dropoff)
     const orderNo = this.generateOrderNo()
-    const serviceType = this.serviceTypeForTask(quote.serviceId)
-    const serviceName = this.serviceNameForTask(quote.serviceId)
-    const totalFee = quote.totalFen / 100
+    const serviceType = isCarpool ? PrismaServiceType.CARPOOL : this.serviceTypeForTask(quote.serviceId)
+    const serviceName = isCarpool ? '顺风车' : this.serviceNameForTask(quote.serviceId)
+    const isManualQuote = isHandling
+    const totalFee = isManualQuote ? 0 : quote.totalFen / 100
     const productFee = Number(quote.productFeeFen || 0) / 100
     const deliveryFee = Math.max(0, totalFee - productFee)
     const order = await this.prisma.$transaction(async (tx) => {
@@ -318,12 +321,9 @@ export class OrdersService {
           vehicleType: fixedVehicle.type,
           vehicleName: fixedVehicle.name,
           vehicleId: vehicle.id,
-          pricingMode:
-            quote.serviceId === 'carpool_ride' || quote.serviceId === 'send_parcel'
-              ? 'fixed_line'
-              : 'distance',
-          isManualQuote: false,
-          quoteStatus: PrismaQuoteStatus.NONE,
+          pricingMode: isManualQuote ? 'manual_quote' : (isCarpool || quote.serviceId === 'carpool_ride' || quote.serviceId === 'send_parcel' ? 'fixed_line' : 'distance'),
+          isManualQuote,
+          quoteStatus: isManualQuote ? PrismaQuoteStatus.PENDING : PrismaQuoteStatus.NONE,
           baseFee: quote.baseFeeFen / 100,
           distanceFee: quote.distanceFeeFen / 100,
           weightFee: 0,
@@ -667,6 +667,7 @@ export class OrdersService {
       装货: 'moving_handling',
       卸货: 'moving_handling',
       寄货: 'send_parcel',
+      寄货配送: 'send_parcel',
       急送: 'urgent_delivery',
       帮取: 'pickup',
       帮买: 'buy_for_me',
@@ -865,7 +866,7 @@ export class OrdersService {
   private serviceNameForTask(taskId: string) {
     const labels: Record<string, string> = {
       carpool_ride: '顺风车',
-      send_parcel: '寄货/配送',
+      send_parcel: '寄货配送',
       cargo_haul: '运货',
       urgent_delivery: '急送',
       pickup: '帮取',

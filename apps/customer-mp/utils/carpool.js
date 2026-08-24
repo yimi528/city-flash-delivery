@@ -1,7 +1,23 @@
 const ROUTES = {
-  cangnan: { id: 'cangnan', name: '苍南', price: 40 },
-  wenzhou: { id: 'wenzhou', name: '温州', price: 150 },
-  fuzhou: { id: 'fuzhou', name: '福州', price: 0 }
+  wenzhou_parcel: { id: 'wenzhou_parcel', name: '温州', price: 0, priceUnit: 'PER_ORDER', pending: true, city: '温州市', allowedDistricts: ['鹿城区', '瓯海区', '龙湾区'], districts: ['鹿城区', '瓯海区', '龙湾区'], districtText: '鹿城区、瓯海区、龙湾区' },
+  fuzhou_parcel: { id: 'fuzhou_parcel', name: '福州', price: 0, priceUnit: 'PER_ORDER', pending: true, city: '福州市', allowedDistricts: ['鼓楼区', '仓山区', '晋安区', '台江区'], districts: ['鼓楼区', '仓山区', '晋安区', '台江区'], districtText: '鼓楼区、仓山区、晋安区、台江区' },
+  // Legacy route IDs remain readable for existing drafts/orders but are no longer exposed as customer services.
+  cangnan: { id: 'cangnan', name: '苍南', price: 40, city: '温州市', allowedDistricts: ['苍南县'] },
+  wenzhou: { id: 'wenzhou', name: '温州', price: 150, city: '温州市', allowedDistricts: [], allowAnyCity: true, cityAdcodePrefixes: ['3303'] },
+  fuzhou: { id: 'fuzhou', name: '福州', price: 0, city: '福州市', allowedDistricts: [], allowAnyCity: true, cityAdcodePrefixes: ['3501'] }
+}
+
+const ROUTE_ADCODE_PREFIXES = {
+  wenzhou_parcel: ['330302', '330304', '330303'],
+  wenzhou: ['330302', '330304', '330303'],
+  fuzhou_parcel: ['350102', '350104', '350111', '350103'],
+  fuzhou: ['350102', '350104', '350111', '350103'],
+  cangnan: ['330327']
+}
+const DISTRICT_ADCODES = {
+  鹿城区: ['330302'], 瓯海区: ['330304'], 龙湾区: ['330303'],
+  鼓楼区: ['350102'], 仓山区: ['350104'], 晋安区: ['350111'], 台江区: ['350103'],
+  苍南县: ['330327']
 }
 
 const FUDING_STOP = {
@@ -27,14 +43,14 @@ function getRouteIdForAddress(address) {
   const adcode = String(address.adcode || '')
   const text = addressText(address)
   if (adcode) {
-    if (adcode === '330327') return 'cangnan'
-    if (adcode.indexOf('3303') === 0) return 'wenzhou'
-    if (adcode.indexOf('3501') === 0) return 'fuzhou'
-    return ''
+    const matched = Object.keys(ROUTE_ADCODE_PREFIXES).find((routeId) => ROUTE_ADCODE_PREFIXES[routeId].some((prefix) => adcode === prefix || adcode.startsWith(`${prefix.slice(0, 4)}00`)))
+    if (matched) return matched
   }
   if (/苍南县|苍南/.test(text)) return 'cangnan'
-  if (/温州市|温州/.test(text)) return 'wenzhou'
-  if (/福州市|福州/.test(text)) return 'fuzhou'
+  if (/鹿城区/.test(text)) return 'wenzhou_parcel'
+  if (/瓯海区/.test(text)) return 'wenzhou_parcel'
+  if (/龙湾区/.test(text)) return 'wenzhou_parcel'
+  if (/鼓楼区|仓山区|晋安区|台江区/.test(text)) return 'fuzhou_parcel'
   return ''
 }
 
@@ -43,17 +59,27 @@ function getRouteForAddress(address) {
 }
 
 function getRoute(routeId) {
-  return ROUTES[routeId] || ROUTES.cangnan
+  return ROUTES[routeId] || ROUTES.wenzhou_parcel
 }
 
 function isAllowedAddress(address) {
   return Boolean(getRouteIdForAddress(address))
 }
 
-function isSelectedCityAddress(address, routeId) {
+function isSelectedCityAddress(address, routeId, selectedDistrict) {
   if (!address || address.needsAddressSelection || address.isCarpoolFixedStop) return false
-  const matchedRouteId = getRouteIdForAddress(address)
-  return Boolean(matchedRouteId && (!routeId || matchedRouteId === routeId))
+  const route = getRoute(routeId)
+  const text = addressText(address)
+  const district = String(address.district || '').trim()
+  const adcode = String(address.adcode || '')
+  if (route.allowAnyCity) {
+    return (route.cityAdcodePrefixes || []).some((prefix) => adcode.startsWith(prefix)) || text.includes(route.city)
+  }
+  const districtScope = selectedDistrict ? [selectedDistrict] : route.allowedDistricts
+  const allowedDistrict = districtScope && districtScope.some((item) => district === item || text.includes(item))
+  const codePrefixes = selectedDistrict ? (DISTRICT_ADCODES[selectedDistrict] || []) : (ROUTE_ADCODE_PREFIXES[route.id] || [])
+  const allowedAdcode = codePrefixes.some((prefix) => adcode === prefix || adcode.startsWith(prefix))
+  return Boolean(allowedDistrict || allowedAdcode)
 }
 
 function placeholder(route) {
@@ -67,7 +93,7 @@ function placeholder(route) {
       latitude: 27.5186,
       longitude: 120.4257
     },
-    wenzhou: {
+    wenzhou_parcel: {
       name: '温州默认测试点',
       detail: '温州市区默认测试地址',
       city: '温州市',
@@ -76,7 +102,7 @@ function placeholder(route) {
       latitude: 28.0006,
       longitude: 120.6994
     },
-    fuzhou: {
+    fuzhou_parcel: {
       name: '福州默认测试点',
       detail: '福州市区默认测试地址',
       city: '福州市',
@@ -86,7 +112,7 @@ function placeholder(route) {
       longitude: 119.2965
     }
   }
-  const selected = defaults[route.id] || defaults.cangnan
+  const selected = defaults[route.id] || defaults.wenzhou_parcel
   return {
     id: `carpool-${route.id}-default`,
     contact: '测试联系人',
@@ -100,9 +126,9 @@ function placeholder(route) {
 function addressDefaults(routeId) {
   const route = getRoute(routeId)
   return {
-    city: route.id === 'fuzhou' ? '福州市' : '温州市',
-    district: route.id === 'cangnan' ? '苍南县' : '',
-    adcode: route.id === 'cangnan' ? '330327' : ''
+    city: route.city || '温州市',
+    district: route.allowedDistricts ? route.allowedDistricts[0] : '',
+    adcode: (ROUTE_ADCODE_PREFIXES[route.id] || [])[0] || ''
   }
 }
 
@@ -119,7 +145,9 @@ function applyRoute(draft, options) {
   const previous = options && options.clearAddress
     ? null
     : ((options && options.address) || getCitySideAddress(draft))
-  const cityAddress = isSelectedCityAddress(previous, route.id) ? previous : placeholder(route)
+  const cityAddress = isSelectedCityAddress(previous, route.id, draft.selectedDistrict)
+    ? previous
+    : (options && options.usePlaceholder === false ? null : placeholder(route))
   draft.selectedLine = Object.assign({}, route)
   draft.pickup = outbound ? Object.assign({}, FUDING_STOP) : cityAddress
   draft.dropoff = outbound ? cityAddress : Object.assign({}, FUDING_STOP)
@@ -130,10 +158,9 @@ function applyRoute(draft, options) {
   return draft
 }
 
-function applySelectedAddress(draft, address, type, routeId) {
+function applySelectedAddress(draft, address, type, routeId, selectedDistrict) {
   const selectedRoute = getRoute(routeId || (draft.selectedLine && draft.selectedLine.id))
-  const addressRoute = getRouteForAddress(address)
-  if (!addressRoute || addressRoute.id !== selectedRoute.id) return null
+  if (!isSelectedCityAddress(address, selectedRoute.id, selectedDistrict || draft.selectedDistrict)) return null
   const selected = Object.assign({}, address, {
     carpoolRouteId: selectedRoute.id,
     needsAddressSelection: false
@@ -152,8 +179,9 @@ function applySelectedAddress(draft, address, type, routeId) {
 function validateDraft(draft) {
   const routeId = draft && draft.selectedLine && draft.selectedLine.id
   const address = getCitySideAddress(draft)
-  if (!isSelectedCityAddress(address)) return { valid: false, message: '请选择苍南或温州境内的顺风车地址' }
-  if (getRouteIdForAddress(address) !== routeId) return { valid: false, message: '所选地址与顺风车线路不匹配，请重新选择' }
+  const route = getRoute(routeId)
+  if (!route.allowAnyCity && !draft.selectedDistrict) return { valid: false, message: `请选择${route.name}行政区` }
+  if (!isSelectedCityAddress(address, routeId, draft.selectedDistrict)) return { valid: false, message: `请选择${draft.selectedDistrict}内的地址` }
   return { valid: true, address }
 }
 

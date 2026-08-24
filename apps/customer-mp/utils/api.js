@@ -25,6 +25,7 @@ const STATUS_FLOW = ['待支付', '待商家接单', '待骑手接单', '前往�
 const SERVICE_VALUES = {
   寄货: 'CARGO',
   '寄货/配送': 'CARGO',
+  寄货配送: 'CARGO',
   拼车: 'CARPOOL',
   顺风车: 'CARPOOL',
   拉货: 'CARGO',
@@ -431,6 +432,7 @@ function buildNestOrderPayload(payload) {
     serviceType: toServiceValue(source.serviceType, source.service, source.taskId),
     serviceName: source.service || source.serviceName || '',
     taskId: source.taskId || '',
+    serviceMode: source.serviceMode || 'PARCEL',
     quoteId: source.quoteId || '',
     routeId: source.routeId || selectedLine.id || '',
     direction: source.direction || 'OUTBOUND',

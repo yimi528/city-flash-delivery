@@ -69,7 +69,7 @@ function fillFromMapAddress(form, address) {
 }
 
 function formTitle(type, editing, isCarpool, routeName) {
-  if (isCarpool) return `${editing ? '编辑' : '填写'}${routeName || '拼车'}地址`
+  if (isCarpool) return `${editing ? '编辑' : '填写'}${routeName || '线路'}地址`
   const labels = { pickup: '发货', purchase: '购买', dropoff: '收货' }
   return `${editing ? '编辑' : '填写'}${labels[type] || '收货'}信息`
 }
@@ -81,8 +81,10 @@ Page({
     type: 'dropoff',
     requiresContact: true,
     isCarpool: false,
+    isCarpoolRide: false,
     routeId: '',
     routeName: '',
+    selectedDistrict: '',
     form: emptyForm(),
     tags: ['家', '公司', '门店', '学校', '商场', '药店'],
     smartPasteText: '',
@@ -100,10 +102,12 @@ Page({
     const savedAddresses = Array.isArray(app.globalData.addresses) ? app.globalData.addresses : []
     const pendingMapAddress = query.from === 'map' ? app.globalData.pendingMapAddress : null
     const source = id ? savedAddresses.find((item) => item.id === id) : pendingMapAddress
-    const isCarpool = query.mode === 'carpool'
+    const isCarpool = query.mode === 'carpool' || query.mode === 'delivery'
+    const isCarpoolRide = query.mode === 'carpool'
     const type = query.type || 'dropoff'
     const requiresContact = true
     const route = carpool.getRoute(query.route || (app.globalData.draftOrder.selectedLine && app.globalData.draftOrder.selectedLine.id))
+    const selectedDistrict = query.district ? decodeURIComponent(query.district) : ''
     this.selectAfterSave = query.from === 'map'
     const initialForm = source
       ? Object.assign(emptyForm(), source, { distanceKm: source.distanceKm || Number(String(source.distance || '1').replace('km', '')) || 1 })
@@ -115,8 +119,10 @@ Page({
       type,
       requiresContact,
       isCarpool,
+      isCarpoolRide,
       routeId: isCarpool ? route.id : '',
       routeName: isCarpool ? route.name : '',
+      selectedDistrict,
       selectAfterSave: this.selectAfterSave,
       saveToAddressBook: !this.selectAfterSave || Boolean(id),
       form: initialForm,
@@ -193,7 +199,7 @@ Page({
       }
 
       map.searchAddress(parsed.address, {
-        region: this.data.isCarpool ? (this.data.routeId === 'cangnan' ? '苍南县' : '温州市') : app.globalData.city,
+        region: this.data.isCarpool ? carpool.getRoute(this.data.routeId).city : app.globalData.city,
         location: app.globalData.currentLocation
       }).then((results) => {
         const selected = results && results[0]
@@ -249,11 +255,11 @@ Page({
     this.searchSeq = searchSeq
     this.setData({ isSearching: true })
     map.searchAddress(keyword, {
-      region: this.data.isCarpool ? (this.data.routeId === 'cangnan' ? '苍南县' : '温州市') : app.globalData.city,
+      region: this.data.isCarpool ? carpool.getRoute(this.data.routeId).city : app.globalData.city,
       location: app.globalData.currentLocation
     }).then((results) => {
       if (this.searchSeq !== searchSeq || this.data.mapKeyword !== keyword) return
-      const scopedResults = this.data.isCarpool ? results.filter((item) => carpool.isSelectedCityAddress(item, this.data.routeId)) : results
+      const scopedResults = this.data.isCarpool ? results.filter((item) => carpool.isSelectedCityAddress(item, this.data.routeId, this.data.selectedDistrict)) : results
       this.setData({ mapResults: scopedResults.slice(0, 6), isSearching: false })
     }).catch(() => {
       if (this.searchSeq === searchSeq) this.setData({ mapResults: [], isSearching: false })
@@ -274,7 +280,7 @@ Page({
       app.globalData.currentLocation = location
       return map.reverseGeocode(location)
     }).then((address) => {
-      if (this.data.isCarpool && !carpool.isSelectedCityAddress(address, this.data.routeId)) {
+      if (this.data.isCarpool && !carpool.isSelectedCityAddress(address, this.data.routeId, this.data.selectedDistrict)) {
         this.setData({ isLocating: false })
         wx.showToast({ title: `当前位置不在${this.data.routeName}境内`, icon: 'none' })
         return
@@ -325,7 +331,7 @@ Page({
       wx.showToast({ title: validation.message, icon: 'none' })
       return
     }
-    if (this.data.isCarpool && !carpool.isSelectedCityAddress(payload, this.data.routeId)) {
+    if (this.data.isCarpool && !carpool.isSelectedCityAddress(payload, this.data.routeId, this.data.selectedDistrict)) {
       wx.showToast({ title: `请填写${this.data.routeName}境内地址`, icon: 'none' })
       return
     }
@@ -338,8 +344,13 @@ Page({
     const done = (address, title) => {
       const savedAddress = shouldSave ? this.saveLocal(address) : Object.assign({}, address, { id: '' })
       if (this.selectAfterSave) {
-        if (this.data.isCarpool) {
-          carpool.applySelectedAddress(app.globalData.draftOrder, savedAddress, this.data.type, this.data.routeId)
+        if (this.data.isCarpoolRide) {
+          carpool.applySelectedAddress(app.globalData.draftOrder, savedAddress, this.data.type, this.data.routeId, this.data.selectedDistrict)
+        } else if (this.data.isCarpool) {
+          app.globalData.draftOrder[draftKey(this.data.type)] = Object.assign({}, savedAddress)
+          app.globalData.draftOrder.routeDistanceKm = 0
+          app.globalData.draftOrder.routeDistanceSource = ''
+          app.globalData.draftOrder.routeDuration = ''
         } else {
           app.globalData.draftOrder[draftKey(this.data.type)] = Object.assign({}, savedAddress)
           app.globalData.draftOrder.routeDistanceKm = 0

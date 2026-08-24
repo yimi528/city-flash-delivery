@@ -5,8 +5,7 @@ import type { OperationsApi } from './api'
 type WorkspaceProps = { api: OperationsApi; onToast: (message: string) => void }
 
 const SERVICE_CATALOG = [
-  { id: 'send_parcel', name: '寄货/配送', icon: '📦', subtitle: '普通货物 · 宠物' },
-  { id: 'carpool_ride', name: '顺风车', icon: '🚘', subtitle: '固定线路顺风车' },
+  { id: 'send_parcel', name: '寄货配送', icon: '🚐', subtitle: '货物寄送 · 顺风出行' },
   { id: 'cargo_haul', name: '运货', icon: '🚚', subtitle: '货三轮车' },
   { id: 'moving_handling', name: '搬运装卸', icon: '🏗️', subtitle: '搬家 · 搬店 · 装卸' },
   { id: 'urgent_delivery', name: '急送', icon: '⚡', subtitle: '二轮急送' },
@@ -47,7 +46,7 @@ type PricingKind = 'parcel' | 'route' | 'distance' | 'handling'
 function pricingKind(serviceId: string, rule?: PricingRuleConfig): PricingKind {
   if (serviceId === 'send_parcel' || rule?.pricingMode === 'parcel_category') return 'parcel'
   if (rule?.pricingMode === 'fixed_route') return 'route'
-  if (rule?.pricingMode === 'handling_fixed') return 'handling'
+  if (rule?.pricingMode === 'handling_fixed' || rule?.pricingMode === 'manual_quote' || serviceId === 'moving_handling') return 'handling'
   return 'distance'
 }
 
@@ -65,7 +64,7 @@ function pricingKindDescription(kind: PricingKind) {
     parcel: '先选线路，再按物品类型和重量填写价格；不按公里数计价。',
     route: '只按线路单价和乘客人数计价，不使用基础费、距离费或天气费。',
     distance: '配置起步价、起步包含距离和超出每公里价格；只有二轮车另有恶劣天气加价。',
-    handling: '只配置上门人工服务费；如果还要运输，请选择“运货”并在备注中说明装卸需求。',
+    handling: '搬运装卸暂不展示价格；用户先电话协商，商家在订单中填写最终报价。',
     }[kind]
 }
 
@@ -107,7 +106,7 @@ function NumberField({ label, value, suffix, onChange, step = '0.01', placeholde
 export function PricingWorkspace({ api, onToast }: WorkspaceProps) {
   const [envelope, setEnvelope] = useState<ConfigEnvelope<PricingConfig> | null>(null)
   const [payload, setPayload] = useState<PricingConfig | null>(null)
-  const [activeService, setActiveService] = useState('carpool_ride')
+  const [activeService, setActiveService] = useState('send_parcel')
   const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(true)
 
@@ -155,7 +154,7 @@ export function PricingWorkspace({ api, onToast }: WorkspaceProps) {
   }
   const addRoute = () => {
     if (!payload || !envelope) return
-    setPayload({ ...payload, routes: [...payload.routes, { id: `route-${Date.now()}`, serviceId: activeService, originName: '福鼎', destinationName: '新线路', priceUnit: activeService === 'carpool_ride' ? 'PER_PERSON' : 'PER_ORDER', unitPriceFen: 1, enabled: true, sortOrder: routes.length + 1, version: envelope.version }] })
+    setPayload({ ...payload, routes: [...payload.routes, { id: `route-${Date.now()}`, serviceId: activeService, originName: '福鼎', destinationName: '新线路', priceUnit: 'PER_ORDER', unitPriceFen: 1, enabled: true, sortOrder: routes.length + 1, version: envelope.version }] })
   }
   const updateParcelPrice = (routeId: string, option: typeof PARCEL_PRICE_OPTIONS[number], value: string) => {
     if (!payload || !rule) return
@@ -183,7 +182,7 @@ export function PricingWorkspace({ api, onToast }: WorkspaceProps) {
   return <section className="config-page">
     <div className="config-heading"><div><p className="eyebrow">配置中心 · 01</p><h2>价格规则</h2><p className="muted">所有价格以分存储，发布后只影响新报价。</p></div><span className="version-badge">正式版本 v{envelope.version}</span></div>
     <div className="config-layout">
-      <aside className="config-sidebar"><div className="config-sidebar-title">业务类型</div>{payload.services.filter((service) => service.id !== 'moving').map((service) => <button type="button" key={service.id} className={`config-service-item ${service.id === activeService ? 'active' : ''}`} onClick={() => setActiveService(service.id)}><strong>{service.name || SERVICE_NAMES[service.id]}</strong><span>{service.vehicleName || '固定车型'}</span></button>)}</aside>
+      <aside className="config-sidebar"><div className="config-sidebar-title">业务类型</div>{payload.services.filter((service) => service.id !== 'moving' && service.id !== 'carpool_ride').map((service) => <button type="button" key={service.id} className={`config-service-item ${service.id === activeService ? 'active' : ''}`} onClick={() => setActiveService(service.id)}><strong>{service.name || SERVICE_NAMES[service.id]}</strong><span>{service.vehicleName || '固定车型'}</span></button>)}</aside>
       <div className="config-main">
         {rule ? <>
           <div className="config-card config-card-intro"><div><span className="service-kicker">{SERVICE_NAMES[activeService] || activeService}</span><h3>{activeServiceConfig?.vehicleName || '固定车型'}</h3><p>{pricingKindDescription(kind)}</p></div><div className="pricing-intro-meta"><span className="pricing-mode-badge">{pricingKindLabel(kind)}</span><span className={`status-pill ${rule.enabled ? 'online' : ''}`}>{rule.enabled ? '启用中' : '已停用'}</span></div></div>
@@ -202,10 +201,10 @@ export function PricingWorkspace({ api, onToast }: WorkspaceProps) {
           </> : null}
 
           {kind === 'handling' && rule ? <>
-            <div className="config-card"><h3>人工搬运服务费</h3><p className="config-card-note">搬运装卸只负责人工到现场搬、装、卸；如果还要把货物送到另一个地址，请选择“运货”，并在备注中说明装卸需求。</p><div className="config-fields"><NumberField label="固定人工服务费" value={money(startingFee(rule))} suffix="元" onChange={updateStartingFee} /><div className="pricing-readout"><span>当前服务起价</span><strong>{money(startingFee(rule))} 元</strong></div></div></div>
+            <div className="config-card handling-quote-card"><div className="handling-quote-icon">☎</div><div><h3>电话协商后报价</h3><p className="config-card-note">用户下单时不展示固定价格。请先通过订单联系电话沟通搬运楼层、件数和人员需求，再在订单卡片中填写商家最终报价。</p><span className="handling-quote-state">用户侧价格：暂不显示 · 订单状态：待商家报价</span></div></div>
           </> : null}
 
-    <div className="config-card preview-card"><div><span className="service-kicker">当前规则摘要</span><h3>{kind === 'parcel' ? '线路 × 物品 × 重量' : kind === 'route' ? '线路单价 × 乘客人数' : kind === 'handling' ? '固定上门服务费' : '起步价 + 距离费'}</h3></div><strong>{kind === 'parcel' ? (parcelReady ? '已配置' : '待配置') : kind === 'route' ? (routes.find((route) => route.enabled && route.unitPriceFen > 1) ? `${money(routes.find((route) => route.enabled && route.unitPriceFen > 1)?.unitPriceFen || 0)} 元起` : '待配置') : rule ? `${money(startingFee(rule))} 元起` : '待配置'}</strong></div>
+    <div className="config-card preview-card"><div><span className="service-kicker">当前规则摘要</span><h3>{kind === 'parcel' ? '线路 × 物品 × 重量' : kind === 'route' ? '固定线路' : kind === 'handling' ? '电话协商 · 商家报价' : '起步价 + 距离费'}</h3></div><strong>{kind === 'parcel' ? (parcelReady ? '已配置' : '待配置') : kind === 'route' ? (routes.find((route) => route.enabled && route.unitPriceFen > 1) ? `${money(routes.find((route) => route.enabled && route.unitPriceFen > 1)?.unitPriceFen || 0)} 元起` : '待配置') : kind === 'handling' ? '不展示固定价' : rule ? `${money(startingFee(rule))} 元起` : '待配置'}</strong></div>
         </> : <div className="empty">该业务尚未创建价格规则。</div>}
       </div>
     </div>
@@ -247,10 +246,11 @@ export function ServiceAreasWorkspace({ api, onToast }: WorkspaceProps) {
     setLoading(true)
     api.getConfig<ServiceAreaPayload>('SERVICE_AREA').then((data) => {
       const next = clone(data.draft?.payload || data.live)
-      const existingIds = Array.isArray(next.serviceIds) && next.serviceIds.length ? next.serviceIds : serviceIdsFromAreas(next.areas)
+      const supportedIds = new Set<string>(SERVICE_CATALOG.map((service) => service.id))
+      const existingIds = (Array.isArray(next.serviceIds) && next.serviceIds.length ? next.serviceIds : serviceIdsFromAreas(next.areas)).filter((id) => supportedIds.has(id))
       const fallbackIds = existingIds.length ? existingIds : SERVICE_CATALOG.map((service) => service.id)
       next.areas = Array.isArray(next.areas) ? next.areas : []
-      next.serviceCities = serviceCitiesFromPayload(next).map((city) => ({ ...city, serviceIds: city.serviceIds?.length ? city.serviceIds : fallbackIds }))
+      next.serviceCities = serviceCitiesFromPayload(next).map((city) => ({ ...city, serviceIds: (city.serviceIds || []).filter((id) => supportedIds.has(id)).length ? city.serviceIds.filter((id) => supportedIds.has(id)) : fallbackIds }))
       next.serviceIds = fallbackIds
       next.policies = SERVICE_CATALOG.map((service) => data.draft?.payload?.policies?.find((policy) => policy.serviceId === service.id) || data.live?.policies?.find((policy) => policy.serviceId === service.id) || { serviceId: service.id, enforcementEnabled: false })
       setEnvelope(data)

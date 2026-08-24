@@ -10,7 +10,7 @@ function draftKey(type) {
 }
 
 function pickerTitle(type, isCarpool, routeName) {
-  if (isCarpool) return `选择${routeName || '顺风车'}地址`
+  if (isCarpool) return `选择${routeName || '线路'}地址`
   if (type === 'pickup') return '选择发货位置'
   if (type === 'purchase') return '选择购买位置'
   return '选择收货位置'
@@ -59,6 +59,7 @@ Page({
     title: '地图选点',
     type: 'dropoff',
     isCarpool: false,
+    isCarpoolRide: false,
     routeId: '',
     routeName: '',
     latitude: 27.518,
@@ -83,8 +84,10 @@ Page({
     const globalData = app.globalData || {}
     const draft = globalData.draftOrder || {}
     const type = query.type || 'dropoff'
-    const isCarpool = query.mode === 'carpool'
+    const isCarpool = query.mode === 'carpool' || query.mode === 'delivery'
+    const isCarpoolRide = query.mode === 'carpool'
     const route = carpool.getRoute(query.route || (draft.selectedLine && draft.selectedLine.id))
+    const selectedDistrict = query.district ? decodeURIComponent(query.district) : ''
     const pendingMapAddress = globalData.pendingMapAddress || null
     const draftAddress = draft[draftKey(type)]
     const initialAddress = pendingMapAddress || (query.from === 'add' ? null : draftAddress)
@@ -102,8 +105,10 @@ Page({
       type,
       requiresContact,
       isCarpool,
+      isCarpoolRide,
       routeId: isCarpool ? route.id : '',
       routeName: isCarpool ? route.name : '',
+      selectedDistrict,
       form: formFromAddress(initialAddress),
       saveToAddressBook: query.from === 'add',
       latitude: initialPoint ? initialPoint.latitude : this.data.latitude,
@@ -178,7 +183,7 @@ Page({
         source: address.source || 'tencent',
         isDefault: false
       })
-      const outsideRoute = this.data.isCarpool && !carpool.isSelectedCityAddress(selectedAddress, this.data.routeId)
+      const outsideRoute = this.data.isCarpool && !carpool.isSelectedCityAddress(selectedAddress, this.data.routeId, this.data.selectedDistrict)
       this.setData({
         selectedAddress,
         form: Object.assign({}, this.data.form, {
@@ -192,7 +197,7 @@ Page({
         }),
         resolving: false,
         moving: false,
-        errorMessage: outsideRoute ? `该位置不在${this.data.routeName}境内，请移动图钉` : ''
+        errorMessage: outsideRoute ? `该位置不在${this.data.selectedDistrict || this.data.routeName}范围内，请移动图钉` : ''
       })
       this.lastResolvedKey = key
       this.activeResolveKey = ''
@@ -304,8 +309,13 @@ Page({
 
   finishAddress(address, shouldSave) {
     const selected = shouldSave ? this.saveLocal(address) : Object.assign({}, address, { id: '' })
-    if (this.data.isCarpool) {
-      carpool.applySelectedAddress(app.globalData.draftOrder, selected, this.data.type, this.data.routeId)
+    if (this.data.isCarpoolRide) {
+      carpool.applySelectedAddress(app.globalData.draftOrder, selected, this.data.type, this.data.routeId, this.data.selectedDistrict)
+    } else if (this.data.isCarpool) {
+      app.globalData.draftOrder[draftKey(this.data.type)] = selected
+      app.globalData.draftOrder.routeDistanceKm = 0
+      app.globalData.draftOrder.routeDistanceSource = ''
+      app.globalData.draftOrder.routeDuration = ''
     } else {
       app.globalData.draftOrder[draftKey(this.data.type)] = selected
       app.globalData.draftOrder.routeDistanceKm = 0
@@ -322,8 +332,8 @@ Page({
       wx.showToast({ title: '请等待地址识别完成', icon: 'none' })
       return
     }
-    if (this.data.isCarpool && !carpool.isSelectedCityAddress(selected, this.data.routeId)) {
-      wx.showToast({ title: `请选择${this.data.routeName}境内地址`, icon: 'none' })
+    if (this.data.isCarpool && !carpool.isSelectedCityAddress(selected, this.data.routeId, this.data.selectedDistrict)) {
+      wx.showToast({ title: `请选择${this.data.selectedDistrict || this.data.routeName}范围内地址`, icon: 'none' })
       return
     }
 

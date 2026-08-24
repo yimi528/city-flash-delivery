@@ -20,6 +20,10 @@ const PARCEL_PRICE_OPTIONS = [
   { itemType: 'NORMAL', weightBand: 'UP_TO_30' },
   { itemType: 'PET', weightBand: 'ANY' },
 ]
+const PARCEL_ROUTE_DISTRICTS: Record<string, string[]> = {
+  wenzhou_parcel: ['鹿城区', '瓯海区', '龙湾区'],
+  fuzhou_parcel: ['鼓楼区', '仓山区', '晋安区', '台江区'],
+}
 
 function record(value: unknown): JsonRecord {
   return value && typeof value === 'object' && !Array.isArray(value) ? value as JsonRecord : {}
@@ -197,9 +201,23 @@ export class ConfigCenterService implements OnModuleInit {
     const pickup = point(dto.pickup)
     const dropoff = point(dto.dropoff)
     const requiresDropoff = dto.taskId !== 'moving_handling'
-    const coverage = await this.checkServiceArea({ serviceId: dto.taskId, pickup: pickup || undefined, dropoff: requiresDropoff ? (dropoff || undefined) : undefined })
+    const isCarpoolMode = dto.taskId === 'send_parcel' && dto.serviceMode === 'CARPOOL'
+    if (dto.taskId === 'send_parcel' && !isCarpoolMode) this.validateParcelRouteAddress(dto)
+    const coverage = await this.checkServiceArea({
+      serviceId: dto.taskId,
+      pickup: dto.taskId === 'send_parcel' && isCarpoolMode && dto.direction !== 'RETURN' ? undefined : (pickup || undefined),
+      dropoff: dto.taskId === 'send_parcel' && isCarpoolMode && dto.direction === 'RETURN' ? undefined : (requiresDropoff ? (dropoff || undefined) : undefined),
+    })
     if (!coverage.available) throw new BadRequestException(coverage.reason || '地址超出当前服务范围')
-    const route = dto.routeId ? await this.prisma.serviceRoute.findFirst({ where: { id: dto.routeId, serviceId: dto.taskId, enabled: true } }) : null
+    const route = dto.routeId ? await this.prisma.serviceRoute.findFirst({ where: { id: dto.routeId, serviceId: isCarpoolMode ? 'carpool_ride' : dto.taskId, enabled: true } }) : null
+    if (isCarpoolMode) {
+      if (!route) throw new BadRequestException('顺风车线路不存在或已停用')
+      this.validateCarpoolRouteAddress(dto, route.id)
+      const passengerCount = Math.max(1, Math.min(6, Number(dto.passengerCount || 1)))
+      const totalFen = Number(route.unitPriceFen || 0) * passengerCount
+      if (totalFen <= PARCEL_DEFAULT_PRICE_FEN) throw new BadRequestException('当前顺风车线路价格待配置')
+      return this.createQuote(userId, dto, rule.version, { route, unitPriceFen: Number(route.unitPriceFen || 0), distanceMeters: 0, baseFeeFen: totalFen, distanceFeeFen: 0, weatherFeeFen: 0, productFeeFen: 0, totalFen, vehicleName: '小车' })
+    }
     if (dto.taskId === 'send_parcel' || rule.pricingMode === 'parcel_category') {
       if (!route) throw new BadRequestException('线路不存在或已停用')
       const item = String(dto.item || '普通货物')
@@ -212,6 +230,9 @@ export class ConfigCenterService implements OnModuleInit {
       const totalFen = numberValue(entry?.priceFen, PARCEL_DEFAULT_PRICE_FEN)
       if (!entry?.enabled || totalFen <= PARCEL_DEFAULT_PRICE_FEN) throw new BadRequestException('当前线路、物品和重量的价格待配置')
       return this.createQuote(userId, dto, rule.version, { route, unitPriceFen: totalFen, distanceMeters: 0, baseFeeFen: totalFen, distanceFeeFen: 0, weatherFeeFen: 0, productFeeFen: 0, totalFen, vehicleName: '小车' })
+    }
+    if (dto.taskId === 'moving_handling') {
+      return this.createQuote(userId, dto, rule.version, { route: null, distanceMeters: 0, baseFeeFen: 0, distanceFeeFen: 0, weatherFeeFen: 0, productFeeFen: 0, totalFen: 0, vehicleName: '人力服务' })
     }
     const configuredRouteCount = await this.prisma.serviceRoute.count({ where: { serviceId: dto.taskId, enabled: true } })
     if (configuredRouteCount > 0 && !route) throw new BadRequestException('请选择有效线路')
@@ -244,6 +265,36 @@ export class ConfigCenterService implements OnModuleInit {
       ? Math.max(0, Math.round(numberValue(dto.productFeeFen)))
       : 0
     return this.createQuote(userId, dto, rule.version, { route: null, distanceMeters, baseFeeFen: startFeeFen, distanceFeeFen, weatherFeeFen, productFeeFen, totalFen: deliveryFen + productFeeFen, vehicleName: this.vehicleName(dto.taskId, dto.item) })
+  }
+
+  private validateParcelRouteAddress(dto: PricingQuoteDto) {
+    const routeId = String(dto.routeId || '')
+    const allowed = PARCEL_ROUTE_DISTRICTS[routeId]
+    if (!allowed) throw new BadRequestException('寄货线路不存在或已停用')
+    const prefixes = routeId === 'wenzhou_parcel' ? ['330302', '330304', '330303'] : ['350102', '350104', '350111', '350103']
+    const validAddress = (value: unknown) => {
+      const address = record(value)
+      const text = [address.name, address.detail, address.city, address.district].filter(Boolean).join('')
+      const adcode = String(address.adcode || '')
+      const districtValid = allowed.some((district) => String(address.district || '') === district || text.includes(district))
+      const codeValid = prefixes.some((prefix) => adcode === prefix || adcode.startsWith(prefix))
+      return districtValid || codeValid
+    }
+    if (!validAddress(dto.pickup) || !validAddress(dto.dropoff)) throw new BadRequestException(`发货和收货地址必须位于${allowed.join('、')}`)
+  }
+
+  private validateCarpoolRouteAddress(dto: PricingQuoteDto, routeId: string) {
+    const address = dto.direction === 'RETURN' ? record(dto.pickup) : record(dto.dropoff)
+    const text = [address.name, address.detail, address.city, address.district].filter(Boolean).join('')
+    const adcode = String(address.adcode || '')
+    const valid = routeId === 'cangnan'
+      ? adcode === '330327' || /苍南县|苍南/.test(text)
+      : routeId === 'wenzhou'
+        ? adcode.startsWith('3303') || /温州市|温州/.test(text)
+        : routeId === 'fuzhou'
+          ? adcode.startsWith('3501') || /福州市|福州/.test(text)
+          : false
+    if (!valid) throw new BadRequestException('所选地址与顺风车线路不匹配')
   }
 
   private async createQuote(userId: string, dto: PricingQuoteDto, version: number, input: { route: any; unitPriceFen?: number; distanceMeters: number; baseFeeFen: number; distanceFeeFen: number; weatherFeeFen: number; productFeeFen: number; totalFen: number; vehicleName: string }) {
@@ -421,6 +472,7 @@ export class ConfigCenterService implements OnModuleInit {
       const configured = normalizeParcelPricing(rule.parcelPricing, routes).some((entry) => entry.priceFen > PARCEL_DEFAULT_PRICE_FEN)
       return configured ? '寄货价格按线路、物品和重量配置' : '寄货价格待定（按线路、物品和重量配置）'
     }
+    if (rule.serviceId === 'moving_handling' || rule.pricingMode === 'manual_quote') return '先电话沟通服务内容，商家协商后填写最终价格'
     if (routes.length) return routes.map((route) => `${route.destinationName}${(Number(route.unitPriceFen || 0) / 100).toFixed(0)}元${route.priceUnit === 'PER_PERSON' ? '/人' : ''}`).join(' · ') || '线路价格待配置'
     const start = (Number(rule.baseFeeFen || 0) + Number(rule.serviceSurchargeFen || 0)) / 100
     if (rule.serviceId === 'moving_handling') return `${start.toFixed(0)}元固定人工服务费`

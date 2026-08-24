@@ -1,10 +1,10 @@
 const PRIMARY_TASKS = [
   {
     id: 'send_parcel',
-    name: '寄货/配送',
-    icon: '📦',
-    subtitle: '普通货物 · 宠物',
-    desc: '价格按线路、物品和重量配置，当前待定',
+    name: '寄货配送',
+    icon: '🚐',
+    subtitle: '货物寄送 · 顺风出行',
+    desc: '去程/返程固定线路，按物品和重量配置',
     vehicleType: 'small_car',
     vehicleName: '小车',
     priceSummary: '价格按线路、物品和重量配置，当前待定',
@@ -12,29 +12,15 @@ const PRIMARY_TASKS = [
     parcelPricing: [],
     serviceSurcharge: 0,
     lines: [
-      { id: 'wenzhou_parcel', name: '温州', price: 0, priceUnit: 'PER_ORDER', pending: true },
-      { id: 'cangnan_parcel', name: '苍南', price: 0, priceUnit: 'PER_ORDER', pending: true },
-      { id: 'qinyu_parcel', name: '秦屿', price: 0, priceUnit: 'PER_ORDER', pending: true },
-      { id: 'longan_parcel', name: '龙安', price: 0, priceUnit: 'PER_ORDER', pending: true }
+      { id: 'wenzhou_parcel', name: '温州', price: 0, priceUnit: 'PER_ORDER', pending: true, districts: ['鹿城区', '瓯海区', '龙湾区'], districtText: '鹿城区、瓯海区、龙湾区' },
+      { id: 'fuzhou_parcel', name: '福州', price: 0, priceUnit: 'PER_ORDER', pending: true, districts: ['鼓楼区', '仓山区', '晋安区', '台江区'], districtText: '鼓楼区、仓山区、晋安区、台江区' }
+    ],
+    carpoolLines: [
+      { id: 'cangnan', name: '苍南', price: 40, priceUnit: 'PER_PERSON', pending: false, originName: '福鼎' },
+      { id: 'wenzhou', name: '温州', price: 150, priceUnit: 'PER_PERSON', pending: false, originName: '福鼎' },
+      { id: 'fuzhou', name: '福州', price: 0, priceUnit: 'PER_PERSON', pending: true, originName: '福鼎' }
     ],
     limits: { maxWeightKg: 30, maxVolumeM3: 1 }
-  },
-  {
-    id: 'carpool_ride',
-    name: '顺风车',
-    icon: '🚘',
-    subtitle: '固定线路顺风车',
-    desc: '固定线路顺风车',
-    vehicleType: 'business_van',
-    vehicleName: '小车',
-    priceSummary: '往返线路及价格由商家端配置',
-    pricingMode: 'fixed_line_ride',
-    serviceSurcharge: 0,
-    lines: [
-      { id: 'cangnan', name: '苍南', price: 40 },
-      { id: 'wenzhou', name: '温州', price: 150 },
-      { id: 'fuzhou', name: '福州', price: 0 }
-    ]
   },
   {
     id: 'cargo_haul',
@@ -78,7 +64,8 @@ const HANDLING_TYPES = [
     vehicleId: 'manual_labor',
     vehicleName: '人力服务',
     serviceSurcharge: 0,
-    priceSummary: '搬运装卸固定48元；填写上门服务地址'
+    priceSummary: '先电话沟通服务内容，商家协商后填写最终价格',
+    phone: '18705939528'
   },
   {
     name: '叉车',
@@ -135,10 +122,10 @@ const COMMON_TASKS = [
     desc: '统一提交搬运需求',
     vehicleType: 'manual_labor',
     vehicleName: '人力服务',
-    priceSummary: '搬运装卸固定48元；填写上门服务地址',
-    pricingMode: 'handling_fixed',
+    priceSummary: '先电话沟通服务内容，商家协商后填写最终价格',
+    pricingMode: 'manual_quote',
     baseDistanceKm: 0,
-    basePrice: 48,
+    basePrice: 0,
     extraPerKm: 0,
     serviceSurcharge: 0
   },
@@ -166,7 +153,6 @@ const TASKS_BY_ID = PRIMARY_TASKS.concat(COMMON_TASKS).reduce((result, task) => 
 
 const ALL_TASKS = [
   'send_parcel',
-  'carpool_ride',
   'cargo_haul',
   'moving_handling',
   'urgent_delivery',
@@ -175,7 +161,7 @@ const ALL_TASKS = [
   'pedicab_delivery'
 ].map((id) => TASKS_BY_ID[id])
 
-const ROUTE_TASK_IDS = ['carpool_ride', 'send_parcel']
+const ROUTE_TASK_IDS = ['send_parcel']
 
 function isRouteTask(taskId) {
   return ROUTE_TASK_IDS.includes(taskId)
@@ -183,7 +169,6 @@ function isRouteTask(taskId) {
 
 const DEFAULT_ITEMS = {
   send_parcel: '普通货物',
-  carpool_ride: '1人',
   cargo_haul: '门店补货',
   urgent_delivery: '文件/小件',
   pickup: '快递包裹',
@@ -193,6 +178,7 @@ const DEFAULT_ITEMS = {
 }
 
 function normalizeTaskId(id) {
+  if (id === 'carpool_ride') return 'send_parcel'
   if (id === 'moving' || id === 'move_shop' || id === 'load_goods' || id === 'unload_goods') return 'moving_handling'
   return id
 }
@@ -214,9 +200,10 @@ function applyHandlingType(draft, itemName) {
   draft.recommendedVehicleType = handlingType.vehicleId
   draft.recommendedVehicleName = handlingType.vehicleName
   draft.priceSummary = handlingType.priceSummary
+  draft.pricingMode = 'manual_quote'
   draft.servicePricing = {
     baseDistanceKm: 0,
-    basePrice: 48,
+    basePrice: 0,
     extraPerKm: 0,
     badWeatherMultiplier: 1,
     badWeatherSurcharge: 0,
@@ -244,6 +231,7 @@ function buildDraftService(taskId) {
     selectedLine: isRouteTask(task.id) ? null : (task.lines ? task.lines[0] : null),
     remoteTaskLines: [],
     parcelPricing: task.parcelPricing || [],
+    carpoolLines: task.carpoolLines || [],
     serviceLimits: task.limits || null,
     badWeather: false,
     servicePricing: {
@@ -264,7 +252,8 @@ function applyRemoteConfigToDraft(draft, config) {
   if (!remoteService && !remoteRule) return false
 
   if (remoteService) {
-    if (remoteService.priceSummary) draft.priceSummary = remoteService.priceSummary
+    if (draft.taskId === 'moving_handling') draft.priceSummary = '先电话沟通服务内容，商家协商后填写最终价格'
+    else if (remoteService.priceSummary) draft.priceSummary = remoteService.priceSummary
     if (remoteService.vehicleName) draft.recommendedVehicleName = remoteService.vehicleName
   }
   if (!remoteRule) return true
@@ -273,7 +262,7 @@ function applyRemoteConfigToDraft(draft, config) {
   const basePrice = (Number(remoteRule.baseFeeFen || 0) + Number(remoteRule.serviceSurchargeFen || 0)) / 100
   const extraPerKm = Number(remoteRule.perKmFen || 0) / 100
   const maxDeliveryFee = 0
-  draft.pricingMode = remoteRule.pricingMode || draft.pricingMode
+  draft.pricingMode = draft.taskId === 'moving_handling' ? 'manual_quote' : (remoteRule.pricingMode || draft.pricingMode)
   if (draft.taskId === 'send_parcel') draft.parcelPricing = Array.isArray(remoteRule.parcelPricing) ? remoteRule.parcelPricing : []
   draft.pricingVersion = Number(config.pricingVersion || (config.pricing && config.pricing.version) || 0)
   draft.servicePricing = Object.assign({}, draft.servicePricing || {}, {
@@ -301,7 +290,9 @@ function applyRemoteConfigToDraft(draft, config) {
       destinationName: route.destinationName || route.city,
       price: Number(route.unitPriceFen || 0) / 100,
       priceUnit: route.priceUnit || 'PER_ORDER',
-      pending: draft.taskId === 'send_parcel' || Number(route.unitPriceFen || 0) <= 1
+      pending: draft.taskId === 'send_parcel' || Number(route.unitPriceFen || 0) <= 1,
+      districts: route.id === 'wenzhou_parcel' ? ['鹿城区', '瓯海区', '龙湾区'] : route.id === 'fuzhou_parcel' ? ['鼓楼区', '仓山区', '晋安区', '台江区'] : [],
+      districtText: route.id === 'wenzhou_parcel' ? '鹿城区、瓯海区、龙湾区' : route.id === 'fuzhou_parcel' ? '鼓楼区、仓山区、晋安区、台江区' : '线路指定区域'
     }))
     draft.remoteTaskLines = taskLines
     draft.selectedLine = taskLines.find((line) => draft.selectedLine && line.id === draft.selectedLine.id) || (isRouteTask(draft.taskId) ? null : taskLines[0])

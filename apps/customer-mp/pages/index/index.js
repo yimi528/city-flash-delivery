@@ -40,6 +40,7 @@ function ensureDraftTask(taskId) {
     draft.routeDistanceSource = ''
     draft.routeDuration = ''
     draft.quoteId = ''
+    draft.direction = 'OUTBOUND'
   } else if (isTaskChanged && serviceConfig.isRouteTask(previousTaskId)) {
     const defaults = defaultOrderAddresses()
     draft.pickup = defaults.pickup
@@ -64,10 +65,8 @@ function ensureDraftTask(taskId) {
     ? serviceConfig.applyHandlingType(draft, draft.item)
     : null
   vehicleConfig.applyVehicleToDraft(draft, handlingType ? handlingType.vehicleId : patch.recommendedVehicleType)
-  if (patch.taskId === 'carpool_ride') {
-    draft.direction = draft.direction || 'OUTBOUND'
-    draft.passengerCount = Number(draft.passengerCount || 1)
-  }
+  if (patch.taskId === 'send_parcel') draft.direction = draft.direction || 'OUTBOUND'
+  if (patch.taskId === 'send_parcel') draft.serviceMode = draft.serviceMode || 'PARCEL'
   if (patch.taskId === 'moving_handling') {
     draft.requiresDelivery = false
     draft.dropoff = null
@@ -104,8 +103,8 @@ Page({
     serviceCount: serviceConfig.ALL_TASKS.length,
     draft: {},
     allTasks: serviceConfig.ALL_TASKS,
-    coreTasks: serviceConfig.ALL_TASKS.slice(0, 4),
-    moreTasks: serviceConfig.ALL_TASKS.slice(4),
+    coreTasks: serviceConfig.ALL_TASKS.slice(0, 3),
+    moreTasks: serviceConfig.ALL_TASKS.slice(3),
     activeTask: serviceConfig.PRIMARY_TASKS[0],
     selectedTaskId: serviceConfig.PRIMARY_TASKS[0].id,
     isRouteTask: false,
@@ -125,8 +124,8 @@ Page({
         draft,
         allTasks: tasks,
         serviceCount: tasks.length,
-        coreTasks: tasks.slice(0, 4),
-        moreTasks: tasks.slice(4),
+        coreTasks: tasks.slice(0, 3),
+        moreTasks: tasks.slice(3),
         activeTask: serviceConfig.getTask(draft.taskId),
         selectedTaskId: draft.taskId,
         isRouteTask: serviceConfig.isRouteTask(draft.taskId),

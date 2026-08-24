@@ -36,6 +36,10 @@ export class PricingQuoteDto {
   taskId!: string
 
   @IsOptional()
+  @IsIn(['PARCEL', 'CARPOOL'])
+  serviceMode?: 'PARCEL' | 'CARPOOL'
+
+  @IsOptional()
   @IsString()
   routeId?: string
 

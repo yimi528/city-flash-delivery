@@ -864,6 +864,9 @@ h1 {
   display: block;
 }
 
+.quote-call-link { display: inline-flex; margin-top: 8px; color: #a43d27; font-size: 11px; font-weight: 850; text-decoration: none; }
+.quote-call-link:hover { text-decoration: underline; }
+
 .quote-box strong {
   color: #7d4e00;
   font-size: 13px;
@@ -1417,6 +1420,10 @@ h1 {
 .config-service-item:active, .config-actions button:active, .config-heading button:active { transform: scale(.97); }
 .config-service-item.active { background: #d74d35; color: #fffaf3; box-shadow: 0 8px 18px rgba(180, 55, 36, .17); }
 .config-service-item.active span { color: rgba(255, 250, 243, .76); }
+
+.handling-quote-card { display: flex; align-items: flex-start; gap: 14px; border-color: #e7b18f; background: linear-gradient(135deg, #fff8ed, #fffefa); }
+.handling-quote-icon { display: grid; place-items: center; width: 42px; height: 42px; flex: 0 0 auto; border-radius: 14px; color: #fffaf3; background: #c9472e; font-size: 20px; box-shadow: 0 8px 18px rgba(201, 71, 46, .2); }
+.handling-quote-state { display: inline-flex; margin-top: 9px; padding: 5px 9px; border-radius: 999px; color: #9d563d; background: #f9e4d7; font-size: 11px; font-weight: 700; }
 .config-main { display: grid; gap: 14px; min-width: 0; }
 .config-card { padding: 21px; border: 1px solid rgba(49, 65, 57, .12); border-radius: 18px; background: rgba(255, 253, 249, .86); box-shadow: 0 12px 30px rgba(36, 39, 27, .05); }
 .config-card h3 { margin: 0; color: #1c2b24; font-size: 16px; }

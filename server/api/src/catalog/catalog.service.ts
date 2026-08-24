@@ -8,14 +8,14 @@ import { CarpoolQuoteDto, HandlingQuoteDto, UpdatePricingRuleDto, UpdateServiceC
 import { ConfigCenterService } from '../config-center/config-center.service'
 
 const DEFAULT_SERVICES = [
-  { id: 'send_parcel', name: '寄货/配送', sortOrder: 10, vehicleType: VehicleType.VAN, vehicleName: '小车', passengerCapacity: 0 },
-  { id: 'carpool_ride', name: '顺风车', sortOrder: 20, vehicleType: VehicleType.VAN, vehicleName: '小车', passengerCapacity: 6 },
-  { id: 'cargo_haul', name: '运货', sortOrder: 30, vehicleType: VehicleType.ETRIKE, vehicleName: '货三轮车', passengerCapacity: 0 },
-  { id: 'moving_handling', name: '搬运装卸', sortOrder: 40, vehicleType: VehicleType.MANUAL, vehicleName: '人力服务', passengerCapacity: 0 },
-  { id: 'urgent_delivery', name: '急送', sortOrder: 50, vehicleType: VehicleType.EBIKE, vehicleName: '二轮车', passengerCapacity: 0 },
-  { id: 'pickup', name: '帮取', sortOrder: 60, vehicleType: VehicleType.EBIKE, vehicleName: '二轮车', passengerCapacity: 0 },
-  { id: 'buy_for_me', name: '帮买', sortOrder: 70, vehicleType: VehicleType.EBIKE, vehicleName: '二轮车', passengerCapacity: 0 },
-  { id: 'pedicab_delivery', name: '送货/送客', sortOrder: 80, vehicleType: VehicleType.ETRIKE, vehicleName: '人力三轮车', passengerCapacity: 0 },
+  { id: 'send_parcel', name: '寄货配送', sortOrder: 10, vehicleType: VehicleType.VAN, vehicleName: '小车', passengerCapacity: 0 },
+  { id: 'carpool_ride', name: '顺风车', sortOrder: 15, vehicleType: VehicleType.VAN, vehicleName: '小车', passengerCapacity: 6 },
+  { id: 'cargo_haul', name: '运货', sortOrder: 20, vehicleType: VehicleType.ETRIKE, vehicleName: '货三轮车', passengerCapacity: 0 },
+  { id: 'moving_handling', name: '搬运装卸', sortOrder: 30, vehicleType: VehicleType.MANUAL, vehicleName: '人力服务', passengerCapacity: 0 },
+  { id: 'urgent_delivery', name: '急送', sortOrder: 40, vehicleType: VehicleType.EBIKE, vehicleName: '二轮车', passengerCapacity: 0 },
+  { id: 'pickup', name: '帮取', sortOrder: 50, vehicleType: VehicleType.EBIKE, vehicleName: '二轮车', passengerCapacity: 0 },
+  { id: 'buy_for_me', name: '帮买', sortOrder: 60, vehicleType: VehicleType.EBIKE, vehicleName: '二轮车', passengerCapacity: 0 },
+  { id: 'pedicab_delivery', name: '送货/送客', sortOrder: 70, vehicleType: VehicleType.ETRIKE, vehicleName: '人力三轮车', passengerCapacity: 0 },
 ]
 
 // Keep the bootstrap values aligned with the customer mini-program's published
@@ -29,7 +29,7 @@ const DEFAULT_PRICING_RULES = [
   { serviceId: 'pickup', id: 'pickup-v1', pricingMode: 'distance_weather', baseFeeFen: 1000, includedDistanceMeters: 4000, perKmFen: 160, maxDistanceMeters: 100000, weatherSurchargeFen: 500 },
   { serviceId: 'buy_for_me', id: 'buy-for-me-v1', pricingMode: 'distance_weather', baseFeeFen: 1200, includedDistanceMeters: 4000, perKmFen: 160, maxDistanceMeters: 100000, weatherSurchargeFen: 500 },
   { serviceId: 'pedicab_delivery', id: 'pedicab-delivery-v1', pricingMode: 'distance', baseFeeFen: 1500, includedDistanceMeters: 4000, perKmFen: 200, maxDistanceMeters: 100000 },
-  { serviceId: 'moving_handling', id: 'moving-handling-v1', pricingMode: 'handling_fixed', baseFeeFen: 4800, includedDistanceMeters: 0, perKmFen: 0, maxDistanceMeters: 100000 },
+  { serviceId: 'moving_handling', id: 'moving-handling-v1', pricingMode: 'manual_quote', baseFeeFen: 0, includedDistanceMeters: 0, perKmFen: 0, maxDistanceMeters: 100000 },
 ]
 
 const DEFAULT_SERVICE_ROUTES = [
@@ -37,9 +37,7 @@ const DEFAULT_SERVICE_ROUTES = [
   { id: 'wenzhou', serviceId: 'carpool_ride', destinationName: '温州', priceUnit: RoutePriceUnit.PER_PERSON, unitPriceFen: 15000, sortOrder: 20 },
   { id: 'fuzhou', serviceId: 'carpool_ride', destinationName: '福州', priceUnit: RoutePriceUnit.PER_PERSON, unitPriceFen: 0, sortOrder: 30 },
   { id: 'wenzhou_parcel', serviceId: 'send_parcel', destinationName: '温州', priceUnit: RoutePriceUnit.PER_ORDER, unitPriceFen: 1, sortOrder: 10 },
-  { id: 'cangnan_parcel', serviceId: 'send_parcel', destinationName: '苍南', priceUnit: RoutePriceUnit.PER_ORDER, unitPriceFen: 1, sortOrder: 20 },
-  { id: 'qinyu_parcel', serviceId: 'send_parcel', destinationName: '秦屿', priceUnit: RoutePriceUnit.PER_ORDER, unitPriceFen: 1, sortOrder: 30 },
-  { id: 'longan_parcel', serviceId: 'send_parcel', destinationName: '龙安', priceUnit: RoutePriceUnit.PER_ORDER, unitPriceFen: 1, sortOrder: 40 },
+  { id: 'fuzhou_parcel', serviceId: 'send_parcel', destinationName: '福州', priceUnit: RoutePriceUnit.PER_ORDER, unitPriceFen: 1, sortOrder: 20 },
 ]
 
 @Injectable()
@@ -55,7 +53,7 @@ export class CatalogService implements OnModuleInit {
     try {
       await Promise.all(DEFAULT_SERVICES.map((service) => this.prisma.serviceCatalog.upsert({
         where: { id: service.id },
-        update: { name: service.name, vehicleName: service.vehicleName },
+        update: { name: service.name, vehicleName: service.vehicleName, enabled: true },
         create: service,
       })))
       await Promise.all([
@@ -78,6 +76,9 @@ export class CatalogService implements OnModuleInit {
           update: { serviceId: route.serviceId, originName: '福鼎', destinationName: route.destinationName, priceUnit: route.priceUnit, enabled: true, sortOrder: route.sortOrder },
           create: { ...route, originName: '福鼎' },
         })),
+        this.prisma.serviceRoute.updateMany({ where: { serviceId: 'send_parcel', id: { in: ['cangnan_parcel', 'qinyu_parcel', 'longan_parcel'] } }, data: { enabled: false } }),
+        this.prisma.serviceRoute.updateMany({ where: { serviceId: 'carpool_ride' }, data: { enabled: true } }),
+        this.prisma.pricingRule.updateMany({ where: { serviceId: 'moving_handling' }, data: { pricingMode: 'manual_quote', baseFeeFen: 0, serviceSurchargeFen: 0, deliveryStartFeeFen: 0, minimumFeeFen: 0 } }),
         ...DEFAULT_PRICING_RULES.map((rule) => this.prisma.pricingRule.upsert({
           where: { serviceId: rule.serviceId },
           update: {},
@@ -196,7 +197,7 @@ export class CatalogService implements OnModuleInit {
     if (!rule) throw new ServiceUnavailableException('搬运装卸价格尚未配置')
     const distanceMeters = 0
     const distanceFeeFen = 0
-    const totalFen = rule.baseFeeFen + rule.serviceSurchargeFen
+    const totalFen = 0
     const vehicleType = VehicleType.MANUAL
     const vehicleName = '人力服务'
     return this.prisma.quote.create({
@@ -208,7 +209,7 @@ export class CatalogService implements OnModuleInit {
         distanceMeters,
         vehicleType,
         vehicleName,
-        baseFeeFen: rule.baseFeeFen,
+        baseFeeFen: 0,
         distanceFeeFen,
         totalFen,
         pricingRuleVersion: rule.version,
