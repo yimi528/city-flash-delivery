@@ -72,6 +72,27 @@ function normalizePublicPricingRule(rule: any, parcelPricing?: any[]) {
   }
 }
 
+function normalizeCityName(value: unknown) {
+  return String(value || '').trim().replace(/[市县区]$/, '')
+}
+
+function normalizeServiceCities(value: unknown, routes: any[] = []) {
+  if (!Array.isArray(value)) return []
+  return value.map((city: any, index) => {
+    const route = routes.find((candidate) => candidate.serviceId === 'send_parcel' && (candidate.id === city.routeId || candidate.id === city.id || normalizeCityName(candidate.destinationName) === normalizeCityName(city.name)))
+    return {
+      id: String(city.id || `city-${index}`),
+      routeId: String(city.routeId || route?.id || city.id || `city-${index}`),
+      name: String(city.name || '').trim(),
+      enabled: city.enabled !== false,
+      districts: Array.from(new Set((Array.isArray(city.districts) ? city.districts : []).map((district: unknown) => String(district).trim()).filter(Boolean))),
+      serviceIds: Array.from(new Set((Array.isArray(city.serviceIds) ? city.serviceIds : []).map((serviceId: unknown) => String(serviceId)))),
+      sortOrder: Number(city.sortOrder || index),
+      version: Number(city.version || 1),
+    }
+  }).filter((city) => city.name)
+}
+
 function point(value: unknown) {
   const source = record(value)
   const latitude = numberValue(source.latitude, NaN)
@@ -108,19 +129,21 @@ export class ConfigCenterService implements OnModuleInit {
   }
 
   async getAppConfig() {
-    const [settings, services, routes, rules, version, pricingVersion] = await Promise.all([
+    const [settings, services, routes, rules, version, pricingVersion, serviceAreaRevision] = await Promise.all([
       this.prisma.platformSetting.findUnique({ where: { id: 'platform' } }),
       this.prisma.serviceCatalog.findMany({ where: { enabled: true, id: { not: 'moving' } }, orderBy: { sortOrder: 'asc' } }),
       this.prisma.serviceRoute.findMany({ where: { enabled: true }, orderBy: [{ serviceId: 'asc' }, { sortOrder: 'asc' }] }),
       this.prisma.pricingRule.findMany({ where: { enabled: true } }),
       this.currentVersion('SYSTEM'),
       this.currentVersion('PRICING'),
+      this.prisma.configRevision.findFirst({ where: { category: ConfigCategory.SERVICE_AREA }, orderBy: { version: 'desc' }, select: { payload: true } }),
     ])
     const current = settings || { acceptingOrders: true, closureReason: '', timeZone: 'Asia/Shanghai', weeklyHours: DEFAULT_WEEKLY_HOURS, announcementEnabled: false, announcementTitle: '', announcementContent: '', customerServicePhone: '', quoteValidityMinutes: 10, riderOrderRadiusMeters: 30000, riderMaxActiveOrders: 1, allowCancelBeforeClaim: true }
     const open = this.isWithinHours(current.weeklyHours)
     const ruleMap = new Map(rules.map((rule) => [rule.serviceId, rule]))
     const routeMap = new Map<string, any[]>()
     routes.forEach((route) => routeMap.set(route.serviceId, [...(routeMap.get(route.serviceId) || []), route]))
+    const serviceAreaPayload = record(serviceAreaRevision?.payload)
     return {
       version,
       pricingVersion,
@@ -130,6 +153,7 @@ export class ConfigCenterService implements OnModuleInit {
       customerService: { phone: current.customerServicePhone },
       announcement: current.announcementEnabled ? { title: current.announcementTitle, content: current.announcementContent } : null,
       quoteValidityMinutes: current.quoteValidityMinutes,
+      serviceCities: normalizeServiceCities(serviceAreaPayload.serviceCities, routes),
       services: services.map((service) => ({
         ...service,
         pricingMode: ruleMap.get(service.id)?.pricingMode || '',
@@ -202,7 +226,7 @@ export class ConfigCenterService implements OnModuleInit {
     const dropoff = point(dto.dropoff)
     const requiresDropoff = dto.taskId !== 'moving_handling'
     const isCarpoolMode = dto.taskId === 'send_parcel' && dto.serviceMode === 'CARPOOL'
-    if (dto.taskId === 'send_parcel' && !isCarpoolMode) this.validateParcelRouteAddress(dto)
+    if (dto.taskId === 'send_parcel' && !isCarpoolMode) await this.validateParcelRouteAddress(dto)
     const coverage = await this.checkServiceArea({
       serviceId: dto.taskId,
       pickup: dto.taskId === 'send_parcel' && isCarpoolMode && dto.direction !== 'RETURN' ? undefined : (pickup || undefined),
@@ -267,20 +291,26 @@ export class ConfigCenterService implements OnModuleInit {
     return this.createQuote(userId, dto, rule.version, { route: null, distanceMeters, baseFeeFen: startFeeFen, distanceFeeFen, weatherFeeFen, productFeeFen, totalFen: deliveryFen + productFeeFen, vehicleName: this.vehicleName(dto.taskId, dto.item) })
   }
 
-  private validateParcelRouteAddress(dto: PricingQuoteDto) {
+  private async validateParcelRouteAddress(dto: PricingQuoteDto) {
     const routeId = String(dto.routeId || '')
-    const allowed = PARCEL_ROUTE_DISTRICTS[routeId]
-    if (!allowed) throw new BadRequestException('寄货线路不存在或已停用')
-    const prefixes = routeId === 'wenzhou_parcel' ? ['330302', '330304', '330303'] : ['350102', '350104', '350111', '350103']
+    const latestRevision = await this.prisma.configRevision.findFirst({ where: { category: ConfigCategory.SERVICE_AREA }, orderBy: { version: 'desc' }, select: { payload: true } })
+    const payload = record(latestRevision?.payload)
+    const configuredCity = normalizeServiceCities(payload.serviceCities).find((city: any) => city.routeId === routeId || city.id === routeId)
+    if (configuredCity && (configuredCity.enabled === false || !configuredCity.serviceIds.includes('send_parcel'))) throw new BadRequestException('寄货线路不存在或已停用')
+    const configuredDistricts = Array.isArray(configuredCity?.districts) ? configuredCity.districts.map((district: unknown) => String(district)) : []
+    const allowed: string[] = configuredDistricts.length ? configuredDistricts : (PARCEL_ROUTE_DISTRICTS[routeId] || [])
+    if (!allowed.length) throw new BadRequestException('寄货线路不存在或已停用')
+    const prefixes = routeId === 'wenzhou_parcel' ? ['330302', '330304', '330303'] : routeId === 'fuzhou_parcel' ? ['350102', '350104', '350111', '350103'] : []
     const validAddress = (value: unknown) => {
       const address = record(value)
       const text = [address.name, address.detail, address.city, address.district].filter(Boolean).join('')
       const adcode = String(address.adcode || '')
       const districtValid = allowed.some((district) => String(address.district || '') === district || text.includes(district))
       const codeValid = prefixes.some((prefix) => adcode === prefix || adcode.startsWith(prefix))
-      return districtValid || codeValid
+      const cityValid = configuredCity ? text.includes(configuredCity.name) : false
+      return districtValid || codeValid || (cityValid && !configuredCity?.districts?.length)
     }
-    if (!validAddress(dto.pickup) || !validAddress(dto.dropoff)) throw new BadRequestException(`发货和收货地址必须位于${allowed.join('、')}`)
+    if (!validAddress(dto.pickup) || !validAddress(dto.dropoff)) throw new BadRequestException(`发货和收货地址必须位于${configuredCity?.name || routeId}的${allowed.join('、')}`)
   }
 
   private validateCarpoolRouteAddress(dto: PricingQuoteDto, routeId: string) {
@@ -331,7 +361,7 @@ export class ConfigCenterService implements OnModuleInit {
       return {
         areas,
         policies,
-        serviceCities: Array.isArray(revisionPayload.serviceCities) ? revisionPayload.serviceCities : [],
+        serviceCities: normalizeServiceCities(revisionPayload.serviceCities, await this.prisma.serviceRoute.findMany({ where: { serviceId: 'send_parcel' }, select: { id: true, serviceId: true, destinationName: true } })),
         serviceIds: Array.isArray(revisionPayload.serviceIds) ? revisionPayload.serviceIds : [],
       }
     }
@@ -379,6 +409,9 @@ export class ConfigCenterService implements OnModuleInit {
         cityIds.add(cityId)
         cityNames.add(cityName)
         for (const serviceId of (Array.isArray(city?.serviceIds) ? city.serviceIds : [])) if (!SERVICE_IDS.includes(String(serviceId))) throw new BadRequestException('服务城市包含未知业务')
+        const districts = Array.isArray(city?.districts) ? city.districts.map((district: unknown) => String(district).trim()).filter(Boolean) : []
+        if (city?.enabled !== false && Array.isArray(city?.serviceIds) && city.serviceIds.includes('send_parcel') && !districts.length) throw new BadRequestException(`寄货配送城市“${cityName}”至少需要一个行政区`)
+        if (new Set(districts).size !== districts.length) throw new BadRequestException(`服务城市“${cityName}”的行政区不能重复`)
       }
       for (const area of (Array.isArray(payload.areas) ? payload.areas : [])) {
         const coordinates = record(area.geoJson || area.boundaryGeoJson).coordinates
@@ -442,6 +475,25 @@ export class ConfigCenterService implements OnModuleInit {
       for (const serviceId of area.serviceIds || []) await tx.serviceAreaBinding.create({ data: { serviceAreaId: id, serviceId } })
     }
     for (const policy of payload.policies || []) await tx.serviceCoveragePolicy.upsert({ where: { serviceId: policy.serviceId }, update: { enforcementEnabled: Boolean(policy.enforcementEnabled), version }, create: { serviceId: policy.serviceId, enforcementEnabled: Boolean(policy.enforcementEnabled), version } })
+
+    // Service-area cities are also the customer mini-program's parcel destinations.
+    // Keep the pricing route rows in sync so adding/removing a city does not require
+    // a second, hidden configuration step in the pricing workspace.
+    const cities = Array.isArray(payload.serviceCities) ? payload.serviceCities : []
+    const existingRoutes = await tx.serviceRoute.findMany({ where: { serviceId: 'send_parcel' } })
+    const routeIds: string[] = []
+    for (const city of cities) {
+      if (!Array.isArray(city.serviceIds) || !city.serviceIds.includes('send_parcel')) continue
+      const existing = existingRoutes.find((route: any) => route.id === city.routeId || route.id === city.id || normalizeCityName(route.destinationName) === normalizeCityName(city.name))
+      const id = String(city.routeId || existing?.id || city.id)
+      routeIds.push(id)
+      await tx.serviceRoute.upsert({
+        where: { id },
+        update: { serviceId: 'send_parcel', originName: '福鼎', destinationName: String(city.name), priceUnit: RoutePriceUnit.PER_ORDER, unitPriceFen: existing?.unitPriceFen || PARCEL_DEFAULT_PRICE_FEN, enabled: city.enabled !== false, sortOrder: Number(city.sortOrder || 0), version },
+        create: { id, serviceId: 'send_parcel', originName: '福鼎', destinationName: String(city.name), priceUnit: RoutePriceUnit.PER_ORDER, unitPriceFen: PARCEL_DEFAULT_PRICE_FEN, enabled: city.enabled !== false, sortOrder: Number(city.sortOrder || 0), version },
+      })
+    }
+    await tx.serviceRoute.updateMany({ where: { serviceId: 'send_parcel', id: { notIn: routeIds } }, data: { enabled: false, version } })
   }
 
   private async publishSystem(tx: any, payload: JsonRecord, version: number) {

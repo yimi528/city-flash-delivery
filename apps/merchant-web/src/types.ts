@@ -214,8 +214,10 @@ export type ServiceAreaConfig = {
 
 export type ServiceCityConfig = {
   id: string
+  routeId?: string
   name: string
   enabled: boolean
+  districts: string[]
   serviceIds: string[]
   sortOrder: number
   version: number

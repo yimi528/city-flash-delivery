@@ -283,6 +283,8 @@ function applyRemoteConfigToDraft(draft, config) {
     draft.cargoOptions.maxDeliveryFee = maxDeliveryFee
   }
   if (remoteService && Array.isArray(remoteService.routes) && remoteService.routes.length) {
+    const remoteCities = Array.isArray(config.serviceCities) ? config.serviceCities : []
+    const cityForRoute = (route) => remoteCities.find((city) => city.routeId === route.id || city.id === route.id || String(city.name || '').replace(/[市县区]$/, '') === String(route.destinationName || '').replace(/[市县区]$/, ''))
     const taskLines = remoteService.routes.map((route) => ({
       id: route.id,
       name: route.destinationName || route.city,
@@ -291,11 +293,15 @@ function applyRemoteConfigToDraft(draft, config) {
       price: Number(route.unitPriceFen || 0) / 100,
       priceUnit: route.priceUnit || 'PER_ORDER',
       pending: draft.taskId === 'send_parcel' || Number(route.unitPriceFen || 0) <= 1,
-      districts: route.id === 'wenzhou_parcel' ? ['鹿城区', '瓯海区', '龙湾区'] : route.id === 'fuzhou_parcel' ? ['鼓楼区', '仓山区', '晋安区', '台江区'] : [],
-      districtText: route.id === 'wenzhou_parcel' ? '鹿城区、瓯海区、龙湾区' : route.id === 'fuzhou_parcel' ? '鼓楼区、仓山区、晋安区、台江区' : '线路指定区域'
-    }))
+      districts: cityForRoute(route)?.districts || (route.id === 'wenzhou_parcel' ? ['鹿城区', '瓯海区', '龙湾区'] : route.id === 'fuzhou_parcel' ? ['鼓楼区', '仓山区', '晋安区', '台江区'] : []),
+      districtText: (cityForRoute(route)?.districts || (route.id === 'wenzhou_parcel' ? ['鹿城区', '瓯海区', '龙湾区'] : route.id === 'fuzhou_parcel' ? ['鼓楼区', '仓山区', '晋安区', '台江区'] : [])).join('、') || '线路指定区域'
+    })).filter((line) => !remoteCities.length || Boolean(cityForRoute(line) === undefined || (cityForRoute(line).enabled !== false && (cityForRoute(line).serviceIds || []).includes('send_parcel'))))
     draft.remoteTaskLines = taskLines
     draft.selectedLine = taskLines.find((line) => draft.selectedLine && line.id === draft.selectedLine.id) || (isRouteTask(draft.taskId) ? null : taskLines[0])
+    try {
+      const carpool = require('./carpool')
+      if (typeof carpool.configureParcelRoutes === 'function') carpool.configureParcelRoutes(taskLines)
+    } catch (error) {}
   } else if (remoteService && Array.isArray(remoteService.routes)) {
     draft.remoteTaskLines = []
     draft.selectedLine = null

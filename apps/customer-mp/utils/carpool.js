@@ -20,6 +20,25 @@ const DISTRICT_ADCODES = {
   苍南县: ['330327']
 }
 
+function configureParcelRoutes(lines) {
+  ;(Array.isArray(lines) ? lines : []).forEach((line) => {
+    if (!line || !line.id) return
+    const districts = Array.isArray(line.districts) ? line.districts : []
+    ROUTES[line.id] = Object.assign({}, ROUTES[line.id] || {}, {
+      id: line.id,
+      name: line.name || line.destinationName || '目的地',
+      price: Number(line.price || 0),
+      priceUnit: line.priceUnit || 'PER_ORDER',
+      pending: Boolean(line.pending),
+      city: line.city || line.destinationName || line.name || '',
+      allowedDistricts: districts,
+      districts,
+      districtText: line.districtText || districts.join('、'),
+      allowAnyCity: false
+    })
+  })
+}
+
 const FUDING_STOP = {
   id: 'carpool-fuding-stop',
   name: '福鼎',
@@ -187,6 +206,7 @@ function validateDraft(draft) {
 
 module.exports = {
   ROUTES,
+  configureParcelRoutes,
   FUDING_STOP,
   getRoute,
   getRouteIdForAddress,

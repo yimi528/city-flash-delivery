@@ -219,11 +219,12 @@ function serviceIdsFromAreas(areas: ServiceAreaConfig[] = []) {
 }
 
 function serviceCitiesFromPayload(payload: ServiceAreaPayload): ServiceCityConfig[] {
-  if (Array.isArray(payload.serviceCities)) return payload.serviceCities
+  if (Array.isArray(payload.serviceCities)) return payload.serviceCities.map((city) => ({ ...city, districts: Array.isArray(city.districts) ? city.districts : [] }))
   return (payload.areas || []).map((area, index) => ({
     id: area.id,
     name: area.name,
     enabled: area.enabled !== false,
+    districts: [],
     serviceIds: area.serviceIds || area.bindings?.map((item) => item.serviceId) || [],
     sortOrder: area.sortOrder ?? index,
     version: area.version || 1,
@@ -233,6 +234,19 @@ function serviceCitiesFromPayload(payload: ServiceAreaPayload): ServiceCityConfi
 function enabledServiceIds(cities: ServiceCityConfig[], fallback: string[]) {
   const ids = Array.from(new Set(cities.filter((city) => city.enabled).flatMap((city) => city.serviceIds || [])))
   return cities.length ? ids : fallback
+}
+
+function CityDistrictEditor({ city, onAdd, onRemove }: { city: ServiceCityConfig; onAdd: (value: string) => void; onRemove: (district: string) => void }) {
+  const [value, setValue] = useState('')
+  const add = () => {
+    onAdd(value)
+    setValue('')
+  }
+  return <div className="city-district-section">
+    <div className="city-service-heading"><div><span className="service-kicker">行政区</span><strong>设置寄货配送可选区域</strong><span>小程序选择该城市后，只展示这里的行政区</span></div><b className="district-count">{city.districts.length} 个</b></div>
+    <div className="district-editor"><input value={value} placeholder="输入行政区，例如：鹿城区" onChange={(event) => setValue(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); add() } }} /><button type="button" onClick={add}>添加行政区</button></div>
+    <div className="district-tags">{city.districts.length ? city.districts.map((district) => <span className="district-tag" key={district}>{district}<button type="button" aria-label={`删除${district}`} onClick={() => onRemove(district)}>×</button></span>) : <span className="district-empty">暂未配置行政区；启用寄货配送前请至少添加一个行政区</span>}</div>
+  </div>
 }
 
 export function ServiceAreasWorkspace({ api, onToast }: WorkspaceProps) {
@@ -250,7 +264,7 @@ export function ServiceAreasWorkspace({ api, onToast }: WorkspaceProps) {
       const existingIds = (Array.isArray(next.serviceIds) && next.serviceIds.length ? next.serviceIds : serviceIdsFromAreas(next.areas)).filter((id) => supportedIds.has(id))
       const fallbackIds = existingIds.length ? existingIds : SERVICE_CATALOG.map((service) => service.id)
       next.areas = Array.isArray(next.areas) ? next.areas : []
-      next.serviceCities = serviceCitiesFromPayload(next).map((city) => ({ ...city, serviceIds: (city.serviceIds || []).filter((id) => supportedIds.has(id)).length ? city.serviceIds.filter((id) => supportedIds.has(id)) : fallbackIds }))
+      next.serviceCities = serviceCitiesFromPayload(next).map((city) => ({ ...city, districts: Array.isArray(city.districts) ? city.districts : [], serviceIds: (city.serviceIds || []).filter((id) => supportedIds.has(id)).length ? city.serviceIds.filter((id) => supportedIds.has(id)) : fallbackIds }))
       next.serviceIds = fallbackIds
       next.policies = SERVICE_CATALOG.map((service) => data.draft?.payload?.policies?.find((policy) => policy.serviceId === service.id) || data.live?.policies?.find((policy) => policy.serviceId === service.id) || { serviceId: service.id, enforcementEnabled: false })
       setEnvelope(data)
@@ -286,7 +300,7 @@ export function ServiceAreasWorkspace({ api, onToast }: WorkspaceProps) {
   const addCity = () => {
     if (!payload) return
     const id = `city-${Date.now()}`
-    const nextCity: ServiceCityConfig = { id, name: '新服务城市', enabled: true, serviceIds: globalFallbackIds, sortOrder: cities.length, version: 1 }
+    const nextCity: ServiceCityConfig = { id, routeId: id, name: '新服务城市', enabled: true, districts: [], serviceIds: globalFallbackIds, sortOrder: cities.length, version: 1 }
     setPayload({ ...payload, serviceCities: [...cities, nextCity] })
     setSelectedCityId(id)
   }
@@ -299,6 +313,16 @@ export function ServiceAreasWorkspace({ api, onToast }: WorkspaceProps) {
     setSelectedCityId(nextCities[0]?.id || null)
   }
   const setAllCityServices = (cityId: string, enabled: boolean) => updateCity(cityId, { serviceIds: enabled ? SERVICE_CATALOG.map((service) => service.id) : [] })
+  const addDistrict = (cityId: string, value: string) => {
+    const district = value.trim()
+    const city = cities.find((item) => item.id === cityId)
+    if (!city || !district || city.districts.includes(district)) return
+    updateCity(cityId, { districts: [...city.districts, district] })
+  }
+  const removeDistrict = (cityId: string, district: string) => {
+    const city = cities.find((item) => item.id === cityId)
+    if (city) updateCity(cityId, { districts: city.districts.filter((item) => item !== district) })
+  }
   const save = async () => {
     if (!envelope || !desiredPayload) return
     setSaving(true)
@@ -317,7 +341,7 @@ export function ServiceAreasWorkspace({ api, onToast }: WorkspaceProps) {
       <div className="config-card city-overview-card"><div className="city-overview-heading"><div><span className="service-kicker">服务城市</span><h3>管理可接单城市</h3><p>一个城市可以独立启停，并选择该城市开放的业务。后续接入地图围栏时，可继续在城市下扩展精细边界。</p></div></div>
         <div className="city-workspace">
           <aside className="city-list" aria-label="服务城市列表"><div className="city-list-header"><div><span>城市列表</span><strong>{cities.length} 个</strong></div><button className="city-list-add" type="button" onClick={addCity}>+ 新增城市</button></div>{cities.length ? cities.map((city) => <button className={`city-list-item ${city.id === activeCity?.id ? 'active' : ''}`} type="button" key={city.id} onClick={() => setSelectedCityId(city.id)}><span className="city-list-icon">城</span><span className="city-list-copy"><strong>{city.name || '未命名城市'}</strong><small>{city.serviceIds.length} 项业务 · {city.enabled ? '接单中' : '已停用'}</small></span><i className={city.enabled ? 'on' : ''} /></button>) : <div className="city-empty"><span>＋</span><strong>还没有服务城市</strong><small>点击上方“新增城市”开始配置</small></div>}</aside>
-          <div className="city-editor">{activeCity ? <><div className="city-editor-heading"><div><span className="service-kicker">城市配置</span><h3>{activeCity.name || '未命名城市'}</h3><p>设置城市名称、接单状态和可提供的业务。</p></div><button className="remove-btn" type="button" onClick={() => removeCity(activeCity.id)}>移除城市</button></div><div className="city-editor-fields"><label className="config-field city-name-field"><span>城市名称</span><input list="service-city-options" value={activeCity.name} onChange={(event) => updateCity(activeCity.id, { name: event.target.value })} placeholder="例如：宁德市" /><datalist id="service-city-options"><option value="宁德市" /><option value="福鼎市" /><option value="温州市" /><option value="苍南县" /><option value="福州市" /></datalist></label><label className={`city-status-toggle ${activeCity.enabled ? 'enabled' : ''}`}><input type="checkbox" checked={activeCity.enabled} onChange={(event) => updateCity(activeCity.id, { enabled: event.target.checked })} /><span className="city-status-track"><i /></span><span><strong>{activeCity.enabled ? '城市接单中' : '城市已停用'}</strong><small>{activeCity.enabled ? '新订单可以进入该城市' : '暂不向用户开放该城市'}</small></span></label></div><div className="city-service-section"><div className="city-service-heading"><div><span className="service-kicker">业务能力</span><strong>选择该城市开放的服务</strong><span>只影响该城市的新订单入口</span></div><div className="city-service-actions"><b>{activeCity.serviceIds.length}<small> / {SERVICE_CATALOG.length} 项</small></b><button type="button" onClick={() => setAllCityServices(activeCity.id, true)} disabled={activeCity.serviceIds.length === SERVICE_CATALOG.length}>全选</button><button type="button" onClick={() => setAllCityServices(activeCity.id, false)} disabled={!activeCity.serviceIds.length}>清空</button></div></div><div className="city-service-grid">{SERVICE_CATALOG.map((service) => { const selected = activeCity.serviceIds.includes(service.id); return <label className={`city-service-card ${selected ? 'selected' : ''}`} key={service.id}><input type="checkbox" checked={selected} onChange={(event) => updateCityService(activeCity.id, service.id, event.target.checked)} /><span className="city-service-icon">{service.icon}</span><span className="city-service-copy"><strong>{service.name}</strong><small>{service.subtitle}</small></span><i aria-hidden="true">{selected ? '✓' : ''}</i></label> })}</div></div><div className="city-editor-note"><span>i</span><span>城市配置会先保存为草稿，点击“发布变更”后才会影响新订单；历史订单和已生成报价不受影响。</span></div></> : <div className="city-empty city-empty-editor"><span>＋</span><strong>等待新增服务城市</strong><small>新增入口位于左侧“城市列表”标题旁</small></div>}</div>
+          <div className="city-editor">{activeCity ? <><div className="city-editor-heading"><div><span className="service-kicker">城市配置</span><h3>{activeCity.name || '未命名城市'}</h3><p>设置城市名称、接单状态、行政区和可提供的业务。</p></div><button className="remove-btn" type="button" onClick={() => removeCity(activeCity.id)}>移除城市</button></div><div className="city-editor-fields"><label className="config-field city-name-field"><span>城市名称</span><input list="service-city-options" value={activeCity.name} onChange={(event) => updateCity(activeCity.id, { name: event.target.value })} placeholder="例如：温州市" /><datalist id="service-city-options"><option value="宁德市" /><option value="福鼎市" /><option value="温州市" /><option value="苍南县" /><option value="福州市" /></datalist></label><label className={`city-status-toggle ${activeCity.enabled ? 'enabled' : ''}`}><input type="checkbox" checked={activeCity.enabled} onChange={(event) => updateCity(activeCity.id, { enabled: event.target.checked })} /><span className="city-status-track"><i /></span><span><strong>{activeCity.enabled ? '城市接单中' : '城市已停用'}</strong><small>{activeCity.enabled ? '新订单可以进入该城市' : '暂不向用户开放该城市'}</small></span></label></div><CityDistrictEditor city={activeCity} onAdd={(value) => addDistrict(activeCity.id, value)} onRemove={(district) => removeDistrict(activeCity.id, district)} /><div className="city-service-section"><div className="city-service-heading"><div><span className="service-kicker">业务能力</span><strong>选择该城市开放的服务</strong><span>只影响该城市的新订单入口</span></div><div className="city-service-actions"><b>{activeCity.serviceIds.length}<small> / {SERVICE_CATALOG.length} 项</small></b><button type="button" onClick={() => setAllCityServices(activeCity.id, true)} disabled={activeCity.serviceIds.length === SERVICE_CATALOG.length}>全选</button><button type="button" onClick={() => setAllCityServices(activeCity.id, false)} disabled={!activeCity.serviceIds.length}>清空</button></div></div><div className="city-service-grid">{SERVICE_CATALOG.map((service) => { const selected = activeCity.serviceIds.includes(service.id); return <label className={`city-service-card ${selected ? 'selected' : ''}`} key={service.id}><input type="checkbox" checked={selected} onChange={(event) => updateCityService(activeCity.id, service.id, event.target.checked)} /><span className="city-service-icon">{service.icon}</span><span className="city-service-copy"><strong>{service.name}</strong><small>{service.subtitle}</small></span><i aria-hidden="true">{selected ? '✓' : ''}</i></label> })}</div></div><div className="city-editor-note"><span>i</span><span>城市配置会先保存为草稿，点击“发布变更”后才会影响新订单；历史订单和已生成报价不受影响。</span></div></> : <div className="city-empty city-empty-editor"><span>＋</span><strong>等待新增服务城市</strong><small>新增入口位于左侧“城市列表”标题旁</small></div>}</div>
         </div>
       </div>
     </div>
