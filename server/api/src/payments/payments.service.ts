@@ -565,14 +565,17 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
       existingSignature?.authorization ||
       this.buildAuthorization(method, path, timestamp, nonce, body)
     let response: Response
+    const requestHeaders: Record<string, string> = {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+      Authorization: `WECHATPAY2-SHA256-RSA2048 ${authorization}`,
+    }
+    const publicKeyId = this.config.get<string>('WECHAT_PAY_PUBLIC_KEY_ID') || ''
+    if (publicKeyId) requestHeaders['Wechatpay-Serial'] = publicKeyId
     try {
       response = await fetch(`https://api.mch.weixin.qq.com${path}`, {
         method,
-        headers: {
-          Accept: 'application/json',
-          'Content-Type': 'application/json',
-          Authorization: `WECHATPAY2-SHA256-RSA2048 ${authorization}`,
-        },
+        headers: requestHeaders,
         body: body || undefined,
       })
     } catch {
@@ -637,15 +640,26 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
     if (!headers.timestamp || !headers.nonce || !headers.signature || !headers.serial) {
       throw new UnauthorizedException('微信支付响应缺少验签信息')
     }
-    const configuredSerial = this.config.get<string>('WECHAT_PAY_PLATFORM_CERT_SERIAL') || ''
-    if (configuredSerial && configuredSerial !== headers.serial) {
-      throw new UnauthorizedException('微信支付平台证书序列号不匹配')
+
+    const publicKeyId = this.config.get<string>('WECHAT_PAY_PUBLIC_KEY_ID') || ''
+    const platformCertSerial = this.config.get<string>('WECHAT_PAY_PLATFORM_CERT_SERIAL') || ''
+    let verificationKey: string
+    if (publicKeyId) {
+      if (publicKeyId !== headers.serial) {
+        throw new UnauthorizedException('微信支付公钥 ID 不匹配')
+      }
+      verificationKey = this.loadPem('WECHAT_PAY_PUBLIC_KEY_PATH', 'WECHAT_PAY_PUBLIC_KEY')
+    } else {
+      if (platformCertSerial !== headers.serial) {
+        throw new UnauthorizedException('微信支付平台证书序列号不匹配')
+      }
+      verificationKey = this.loadPem('WECHAT_PAY_PLATFORM_CERT_PATH', 'WECHAT_PAY_PLATFORM_CERT')
     }
     const message = `${headers.timestamp}\n${headers.nonce}\n${body}\n`
     const valid = verify(
       'RSA-SHA256',
       Buffer.from(message),
-      this.loadPem('WECHAT_PAY_PLATFORM_CERT_PATH', 'WECHAT_PAY_PLATFORM_CERT'),
+      verificationKey,
       Buffer.from(headers.signature, 'base64'),
     )
     if (!valid) throw new UnauthorizedException('微信支付回调验签失败')
@@ -685,8 +699,28 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
     const path = this.config.get<string>(pathKey) || ''
     if (path) return readFileSync(path, 'utf8')
     const inline = this.config.get<string>(inlineKey) || ''
-    if (inline) return inline.replace(/\\n/g, '\n')
+    if (inline) return this.normalisePem(inline, inlineKey)
     throw new ServiceUnavailableException(`${pathKey} or ${inlineKey} must be configured`)
+  }
+
+  private normalisePem(value: string, keyName: string) {
+    const normalised = value.replace(/\\n/g, '\n').trim()
+    if (normalised.includes('-----BEGIN')) return normalised
+
+    const compact = normalised.replace(/\s+/g, '')
+    if (!compact || compact.length % 4 === 1 || !/^[A-Za-z0-9+/]+={0,2}$/.test(compact)) {
+      return normalised
+    }
+    const der = Buffer.from(compact, 'base64')
+    if (der.length < 128 || der[0] !== 0x30) return normalised
+
+    const label = keyName.includes('PRIVATE')
+      ? 'PRIVATE KEY'
+      : keyName.includes('PUBLIC')
+        ? 'PUBLIC KEY'
+        : 'CERTIFICATE'
+    const lines = compact.match(/.{1,64}/g)?.join('\n') || compact
+    return `-----BEGIN ${label}-----\n${lines}\n-----END ${label}-----`
   }
 
   private required(key: string) {

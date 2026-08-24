@@ -21,7 +21,20 @@ pass() {
 }
 
 value() {
-  sed -n "s/^$1=//p" "$ENV_FILE" | tail -n 1
+  awk -v wanted="$1" '
+    $0 ~ ("^" wanted "=") {
+      found = 1
+      sub("^" wanted "=", "", $0)
+      printf "%s", $0
+      next
+    }
+    found && $0 ~ /^[A-Za-z_][A-Za-z0-9_]*=/ { exit }
+    found && $0 !~ /^[[:space:]]*#/ {
+      gsub(/[[:space:]]/, "")
+      printf "%s", $0
+      next
+    }
+  ' "$ENV_FILE"
 }
 
 required_value() {
@@ -109,9 +122,38 @@ case "$payment_mode" in
     ;;
   wechat)
     [[ "$(value WECHAT_PAY_MOCK_ENABLED)" == "false" ]] || fail '微信支付模式必须关闭支付 Mock'
-    for key in WECHAT_PAY_MCH_ID WECHAT_PAY_CERT_SERIAL WECHAT_PAY_API_V3_KEY WECHAT_PAY_PLATFORM_CERT_SERIAL WECHAT_PAY_PRIVATE_KEY WECHAT_PAY_PLATFORM_CERT; do
+    for key in WECHAT_PAY_MCH_ID WECHAT_PAY_CERT_SERIAL WECHAT_PAY_API_V3_KEY; do
       required_value "$key"
     done
+    private_key="$(value WECHAT_PAY_PRIVATE_KEY)"
+    private_key_path="$(value WECHAT_PAY_PRIVATE_KEY_PATH)"
+    if [[ -n "$private_key" || -n "$private_key_path" ]]; then
+      pass '已配置微信支付商户私钥'
+    else
+      fail '必须配置 WECHAT_PAY_PRIVATE_KEY 或 WECHAT_PAY_PRIVATE_KEY_PATH'
+    fi
+    if [[ -n "$private_key" && ! "$private_key" =~ -----BEGIN[[:space:]]([A-Z]+[[:space:]])?PRIVATE[[:space:]]KEY----- && ( ! "$private_key" =~ ^[A-Za-z0-9+/]+={0,2}$ || ${#private_key} -lt 1000 ) ]]; then
+      fail 'WECHAT_PAY_PRIVATE_KEY 必须是 PEM 或完整 Base64-DER 格式私钥'
+    fi
+    platform_serial="$(value WECHAT_PAY_PLATFORM_CERT_SERIAL)"
+    platform_cert="$(value WECHAT_PAY_PLATFORM_CERT)"
+    platform_cert_path="$(value WECHAT_PAY_PLATFORM_CERT_PATH)"
+    public_key_id="$(value WECHAT_PAY_PUBLIC_KEY_ID)"
+    public_key="$(value WECHAT_PAY_PUBLIC_KEY)"
+    public_key_path="$(value WECHAT_PAY_PUBLIC_KEY_PATH)"
+    if [[ -n "$platform_serial" && ( -n "$platform_cert" || -n "$platform_cert_path" ) ]]; then
+      pass '已配置微信支付平台证书验签'
+    elif [[ -n "$public_key_id" && ( -n "$public_key" || -n "$public_key_path" ) ]]; then
+      pass '已配置微信支付公钥验签'
+    else
+      fail '必须配置平台证书（序列号+证书）或微信支付公钥（公钥 ID+公钥）'
+    fi
+    if [[ -n "$platform_cert" && ! "$platform_cert" =~ -----BEGIN[[:space:]]CERTIFICATE----- && ( ! "$platform_cert" =~ ^[A-Za-z0-9+/]+={0,2}$ || ${#platform_cert} -lt 500 ) ]]; then
+      fail 'WECHAT_PAY_PLATFORM_CERT 必须是 PEM 或完整 Base64-DER 格式证书'
+    fi
+    if [[ -n "$public_key" && ! "$public_key" =~ -----BEGIN[[:space:]]([A-Z]+[[:space:]])?PUBLIC[[:space:]]KEY----- && ( ! "$public_key" =~ ^[A-Za-z0-9+/]+={0,2}$ || ${#public_key} -lt 300 ) ]]; then
+      fail 'WECHAT_PAY_PUBLIC_KEY 必须是 PEM 或完整 Base64-DER 格式公钥'
+    fi
     ;;
   *)
     fail 'WECHAT_PAY_MODE 必须是 mock、disabled 或 wechat'

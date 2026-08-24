@@ -123,3 +123,30 @@ describe('AuthService account roles', () => {
     }))
   })
 })
+
+describe('AuthService WeChat login', () => {
+  it('uses the identity injected by wx.cloud.callContainer without calling jscode2session', async () => {
+    const { service, user, userRoleAssignment, riderProfile, riderApplication, tokens } = createService()
+    user.findFirst.mockResolvedValue(null)
+    user.create.mockResolvedValue({ id: 'user-1', openid: 'cloud-openid', unionid: 'cloud-unionid' })
+    user.findUnique.mockResolvedValue({ preferredRole: UserRole.CUSTOMER })
+    userRoleAssignment.findMany.mockResolvedValue([{ role: UserRole.CUSTOMER, status: RoleStatus.ACTIVE }])
+    userRoleAssignment.upsert.mockResolvedValue(undefined)
+    riderProfile.findUnique.mockResolvedValue(null)
+    riderApplication.findFirst.mockResolvedValue(null)
+    tokens.sign.mockReturnValue('signed-customer-token')
+    const fetchSpy = jest.spyOn(global, 'fetch')
+
+    const result = await service.wechatLogin(
+      { code: 'wx-code-that-must-not-be-exchanged' },
+      { openid: 'cloud-openid', unionid: 'cloud-unionid' },
+    )
+
+    expect(fetchSpy).not.toHaveBeenCalled()
+    expect(user.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ openid: 'cloud-openid', unionid: 'cloud-unionid' }),
+    }))
+    expect(result.token).toBe('signed-customer-token')
+    fetchSpy.mockRestore()
+  })
+})

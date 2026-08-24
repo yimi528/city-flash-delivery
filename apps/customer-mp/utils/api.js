@@ -1,5 +1,6 @@
 const DEFAULT_BASE_URL = 'http://127.0.0.1:3000/api'
 const cloudRequest = require('./cloud-request')
+const runtimeConfig = require('../config/runtime')
 
 const STATUS_LABELS = {
   PENDING: '待接单',
@@ -116,6 +117,10 @@ function buildHeaders() {
   }
   const token = getAuthToken()
   if (token) headers.Authorization = `Bearer ${token}`
+  try {
+    const developerOpenid = runtimeConfig.resolveDeveloperWxOpenid(wx)
+    if (developerOpenid) headers['x-wx-openid'] = developerOpenid
+  } catch (error) {}
   return headers
 }
 
@@ -123,7 +128,10 @@ function request(path, options) {
   const config = options || {}
   const headers = buildHeaders()
   if (config.header) Object.assign(headers, config.header)
-  if (cloudRequest.isConfigured()) {
+  if (cloudRequest.hasEnvironment()) {
+    if (!cloudRequest.isConfigured()) {
+      return Promise.reject(new Error('微信云托管调用不可用，请升级微信基础库并确认小程序已关联云环境'))
+    }
     return cloudRequest.requestCloud(path, {
       method: config.method || 'GET',
       data: config.data || {},

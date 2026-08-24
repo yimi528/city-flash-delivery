@@ -4,11 +4,11 @@ const test = require('node:test')
 
 const runtime = require(path.resolve(__dirname, '../config/runtime.js'))
 
-function wxFor(envVersion, override = '') {
+function wxFor(envVersion, override = '', developerOpenid = '') {
   return {
     getAccountInfoSync: () => ({ miniProgram: { envVersion } }),
     getSystemInfoSync: () => ({ platform: 'devtools' }),
-    getStorageSync: (key) => key === 'developerApiBaseUrl' ? override : ''
+    getStorageSync: (key) => key === 'developerApiBaseUrl' ? override : (key === 'developerWxOpenid' ? developerOpenid : '')
   }
 }
 
@@ -29,13 +29,24 @@ test('development on a real device keeps the local fallback until cloud config i
   assert.match(runtime.resolveApiBaseUrl(deviceWx), /^http:\/\//)
 })
 
-test('trial builds use the cloud test environment', () => {
-  assert.equal(runtime.resolveApiBaseUrl(wxFor('trial', 'http://127.0.0.1:3000/api')), runtime.LOCAL_API_BASE_URL)
-  assert.equal(runtime.resolveCloudEnvId(wxFor('trial')), runtime.WX_CLOUD_TEST_ENV_ID)
+test('developer cloud identity override is restricted to DevTools develop mode', () => {
+  assert.equal(runtime.resolveDeveloperWxOpenid(wxFor('develop', '', 'devtools-openid')), 'devtools-openid')
+  assert.equal(runtime.resolveDeveloperWxOpenid(wxFor('trial', '', 'trial-openid')), '')
+  assert.equal(runtime.resolveDeveloperWxOpenid({
+    getAccountInfoSync: () => ({ miniProgram: { envVersion: 'develop' } }),
+    getSystemInfoSync: () => ({ platform: 'ios' }),
+    getStorageSync: () => 'device-openid'
+  }), '')
 })
 
-test('release builds stay disabled until a production environment is configured', () => {
+test('trial builds use the production cloud environment and API', () => {
+  assert.equal(runtime.resolveApiBaseUrl(wxFor('trial', 'http://127.0.0.1:3000/api')), 'https://city-flash-api-298025-11-1469830209.sh.run.tcloudbase.com/api')
+  assert.equal(runtime.resolveCloudEnvId(wxFor('trial')), 'ding-delivery-prod-d8c1eea132b4c')
+  assert.equal(runtime.WX_CLOUD_TEST_ENV_ID, 'ding-delivery-test-d8clg2024ea54')
+})
+
+test('release builds use the production cloud environment and API', () => {
   const url = runtime.resolveApiBaseUrl(wxFor('release', 'http://127.0.0.1:3000/api'))
-  assert.equal(url, runtime.LOCAL_API_BASE_URL)
-  assert.equal(runtime.resolveCloudEnvId(wxFor('release')), '')
+  assert.equal(url, 'https://city-flash-api-298025-11-1469830209.sh.run.tcloudbase.com/api')
+  assert.equal(runtime.resolveCloudEnvId(wxFor('release')), 'ding-delivery-prod-d8c1eea132b4c')
 })

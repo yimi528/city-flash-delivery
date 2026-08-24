@@ -1,5 +1,5 @@
 {
-  "appid": "wx4878475053d6a722",
+  "appid": "wxee631108a5a95efc",
   "compileType": "miniprogram",
   "miniprogramRoot": "apps/customer-mp/",
   "projectname": "city-flash-delivery-customer",
@@ -43,5 +43,6 @@
     "include": []
   },
   "editorSetting": {},
-  "libVersion": "3.16.2"
+  "libVersion": "3.16.2",
+  "isGameTourist": false
 }

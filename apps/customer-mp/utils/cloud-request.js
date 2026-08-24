@@ -25,6 +25,10 @@ function isConfigured() {
   return Boolean(config.envId && typeof wx !== 'undefined' && wx.cloud && typeof wx.cloud.callContainer === 'function')
 }
 
+function hasEnvironment() {
+  return Boolean(getCloudConfig().envId)
+}
+
 function requestCloud(path, options) {
   const config = options || {}
   const cloud = getCloudConfig()
@@ -41,6 +45,7 @@ function requestCloud(path, options) {
 
 module.exports = {
   getCloudConfig,
+  hasEnvironment,
   isConfigured,
   requestCloud
 }

@@ -1,4 +1,4 @@
-import { Body, Controller, Post, UseGuards } from '@nestjs/common'
+import { Body, Controller, Headers, Post, UseGuards } from '@nestjs/common'
 import { ApiTags } from '@nestjs/swagger'
 import { AuthService } from './auth.service'
 import { OperatorLoginDto, WechatLoginDto, ChangePasswordDto } from './auth.dto'
@@ -12,8 +12,12 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post('wechat-login')
-  async wechatLogin(@Body() dto: WechatLoginDto) {
-    return this.authService.wechatLogin(dto)
+  async wechatLogin(
+    @Body() dto: WechatLoginDto,
+    @Headers('x-wx-openid') cloudOpenid?: string,
+    @Headers('x-wx-unionid') cloudUnionid?: string,
+  ) {
+    return this.authService.wechatLogin(dto, { openid: cloudOpenid, unionid: cloudUnionid })
   }
 
   @Post('operator-login')

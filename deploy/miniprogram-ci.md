@@ -1,6 +1,6 @@
 # miniprogram-ci 发布说明
 
-用户端和骑手端共用 `apps/customer-mp` 下的同一个微信小程序和 AppID `wx4878475053d6a722`。
+用户端和骑手端共用 `apps/customer-mp` 下的同一个微信小程序和 AppID `wxee631108a5a95efc`。
 仓库根目录的 `project.config.json` 是微信开发者工具项目入口，它的
 `miniprogramRoot` 指向 `apps/customer-mp/`，因此 CI 也必须以仓库根目录作为
 `miniprogram-ci` 的 `projectPath`。
@@ -44,11 +44,15 @@ npm run miniprogram:preview
 
 1. 本机开发版使用本地 API 和本地 MySQL，不会初始化微信云托管环境；
 2. 先部署微信云托管 API 和商家后台，并确认 API 健康检查通过；
-3. `apps/customer-mp/config/runtime.js` 中的 `WX_CLOUD_TEST_ENV_ID` 供体验版使用；正式上线前必须填写独立的 `WX_CLOUD_PROD_ENV_ID`；
+3. `apps/customer-mp/config/runtime.js` 中的 `WX_CLOUD_PROD_ENV_ID` 同时供体验版和正式版使用；`WX_CLOUD_TEST_ENV_ID` 仅保留给开发联调或后续显式切换；
 4. 在 Actions 中选择 `upload` 上传小程序代码；
 5. 上传成功后，在微信公众平台开发管理中将该版本设置为体验版，再进行用户端、骑手端、登录和订单流程验证。
 
-运行时隔离规则：`develop` 使用本地 Docker/本地数据库，`trial` 使用当前云托管测试环境，`release` 只有在配置独立生产环境 ID 后才会访问云托管。真机开发版如需访问本机 API，可继续使用 `developerApiBaseUrl` 临时覆盖本机局域网地址。
+运行时规则：`develop` 默认使用本地 Docker/本地数据库，开发联调时可通过 `developerApiBaseUrl` 或专门的测试配置切换到 `test`；`trial` 和 `release` 均使用客户正式云托管环境。体验版产生的订单、支付和业务数据都属于生产数据。
+
+注意不要混淆两个维度：`develop`、`trial`、`release` 是小程序版本通道；本机、`test`、`prod` 是 API/云托管运行环境。当前映射为 `develop → 本机`、`trial → prod`、`release → prod`。切换小程序版本不会自动切换云托管环境，修改云托管环境也不会自动改变已上传的小程序版本。
+
+商家后台也按云托管环境分配公网域名。`test` 和 `prod` 的 API 域名、商家后台域名原则上不同；商家后台构建时必须把 `VITE_API_BASE_URL` 指向同一环境的 API，API 的 `CORS_ORIGINS` 也必须登记同一环境的商家域名。当前生产地址记录在 [`docs/deploy-wxcloud.md`](../docs/deploy-wxcloud.md)；测试地址以对应云托管服务详情为准。
 
 GitHub Actions 当前只执行上传，不生成或保存预览二维码。若需要本地预览二维码，仍可使用上面的
 `npm run miniprogram:preview` 命令。

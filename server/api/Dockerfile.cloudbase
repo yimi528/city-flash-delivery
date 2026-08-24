@@ -1,6 +1,6 @@
 FROM node:22-alpine AS deps
 WORKDIR /app
-RUN apk add --no-cache openssl
+RUN apk add --no-cache ca-certificates openssl
 COPY package*.json ./
 RUN npm ci
 
@@ -11,14 +11,14 @@ RUN npm run prisma:generate && npm run build
 FROM node:22-alpine AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
-RUN apk add --no-cache openssl
+RUN apk add --no-cache ca-certificates openssl
 COPY package*.json ./
 COPY prisma ./prisma
 COPY --from=build /app/node_modules ./node_modules
 COPY --chown=node:node --from=build /app/dist ./dist
-COPY --chown=node:node /app/prisma ./prisma
+COPY --chown=node:node scripts/create-operator.mjs ./scripts/create-operator.mjs
 USER node
 EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
   CMD node -e "fetch('http://127.0.0.1:3000/api/health/live').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"
-CMD ["sh", "-c", "npm run prisma:cloudbase && node dist/main.js"]
+CMD ["sh", "-c", "set -e; if [ \"$RUN_MIGRATIONS_ON_STARTUP\" = \"true\" ]; then npm run prisma:deploy; fi; if [ \"$RUN_OPERATOR_INITIALIZATION_ON_STARTUP\" = \"true\" ]; then node scripts/create-operator.mjs; fi; exec node dist/main.js"]

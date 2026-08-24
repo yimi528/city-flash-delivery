@@ -18,6 +18,30 @@ const DEFAULT_SERVICES = [
   { id: 'pedicab_delivery', name: '送货/送客', sortOrder: 80, vehicleType: VehicleType.ETRIKE, vehicleName: '人力三轮车', passengerCapacity: 0 },
 ]
 
+// Keep the bootstrap values aligned with the customer mini-program's published
+// service descriptions. Existing rules are never overwritten here; operators
+// can still change them from the merchant config center.
+const DEFAULT_PRICING_RULES = [
+  { serviceId: 'send_parcel', id: 'send-parcel-v1', pricingMode: 'parcel_category', baseFeeFen: 0, includedDistanceMeters: 0, perKmFen: 0, maxDistanceMeters: 100000 },
+  { serviceId: 'carpool_ride', id: 'carpool-ride-v1', pricingMode: 'fixed_route', baseFeeFen: 0, includedDistanceMeters: 0, perKmFen: 0, maxDistanceMeters: 100000 },
+  { serviceId: 'cargo_haul', id: 'cargo-haul-v1', pricingMode: 'distance', baseFeeFen: 3300, includedDistanceMeters: 4000, perKmFen: 300, maxDistanceMeters: 100000 },
+  { serviceId: 'urgent_delivery', id: 'urgent-delivery-v1', pricingMode: 'distance_weather', baseFeeFen: 1300, includedDistanceMeters: 4000, perKmFen: 160, maxDistanceMeters: 100000, weatherSurchargeFen: 500 },
+  { serviceId: 'pickup', id: 'pickup-v1', pricingMode: 'distance_weather', baseFeeFen: 1000, includedDistanceMeters: 4000, perKmFen: 160, maxDistanceMeters: 100000, weatherSurchargeFen: 500 },
+  { serviceId: 'buy_for_me', id: 'buy-for-me-v1', pricingMode: 'distance_weather', baseFeeFen: 1200, includedDistanceMeters: 4000, perKmFen: 160, maxDistanceMeters: 100000, weatherSurchargeFen: 500 },
+  { serviceId: 'pedicab_delivery', id: 'pedicab-delivery-v1', pricingMode: 'distance', baseFeeFen: 1500, includedDistanceMeters: 4000, perKmFen: 200, maxDistanceMeters: 100000 },
+  { serviceId: 'moving_handling', id: 'moving-handling-v1', pricingMode: 'handling_fixed', baseFeeFen: 4800, includedDistanceMeters: 0, perKmFen: 0, maxDistanceMeters: 100000 },
+]
+
+const DEFAULT_SERVICE_ROUTES = [
+  { id: 'cangnan', serviceId: 'carpool_ride', destinationName: '苍南', priceUnit: RoutePriceUnit.PER_PERSON, unitPriceFen: 4000, sortOrder: 10 },
+  { id: 'wenzhou', serviceId: 'carpool_ride', destinationName: '温州', priceUnit: RoutePriceUnit.PER_PERSON, unitPriceFen: 15000, sortOrder: 20 },
+  { id: 'fuzhou', serviceId: 'carpool_ride', destinationName: '福州', priceUnit: RoutePriceUnit.PER_PERSON, unitPriceFen: 0, sortOrder: 30 },
+  { id: 'wenzhou_parcel', serviceId: 'send_parcel', destinationName: '温州', priceUnit: RoutePriceUnit.PER_ORDER, unitPriceFen: 1, sortOrder: 10 },
+  { id: 'cangnan_parcel', serviceId: 'send_parcel', destinationName: '苍南', priceUnit: RoutePriceUnit.PER_ORDER, unitPriceFen: 1, sortOrder: 20 },
+  { id: 'qinyu_parcel', serviceId: 'send_parcel', destinationName: '秦屿', priceUnit: RoutePriceUnit.PER_ORDER, unitPriceFen: 1, sortOrder: 30 },
+  { id: 'longan_parcel', serviceId: 'send_parcel', destinationName: '龙安', priceUnit: RoutePriceUnit.PER_ORDER, unitPriceFen: 1, sortOrder: 40 },
+]
+
 @Injectable()
 export class CatalogService implements OnModuleInit {
   constructor(
@@ -49,25 +73,24 @@ export class CatalogService implements OnModuleInit {
           update: {},
           create: { id: 'wenzhou', city: '温州', unitPriceFen: 15000 },
         }),
-        this.prisma.serviceRoute.upsert({
-          where: { id: 'fuzhou' },
-          update: { serviceId: 'carpool_ride', originName: '福鼎', destinationName: '福州', priceUnit: RoutePriceUnit.PER_PERSON, enabled: true, sortOrder: 30 },
-          create: { id: 'fuzhou', serviceId: 'carpool_ride', originName: '福鼎', destinationName: '福州', priceUnit: RoutePriceUnit.PER_PERSON, unitPriceFen: 0, sortOrder: 30 },
-        }),
-        this.prisma.pricingRule.upsert({
-          where: { serviceId: 'moving_handling' },
+        ...DEFAULT_SERVICE_ROUTES.map((route) => this.prisma.serviceRoute.upsert({
+          where: { id: route.id },
+          update: { serviceId: route.serviceId, originName: '福鼎', destinationName: route.destinationName, priceUnit: route.priceUnit, enabled: true, sortOrder: route.sortOrder },
+          create: { ...route, originName: '福鼎' },
+        })),
+        ...DEFAULT_PRICING_RULES.map((rule) => this.prisma.pricingRule.upsert({
+          where: { serviceId: rule.serviceId },
           update: {},
           create: {
-            id: 'moving-handling-v1',
-            serviceId: 'moving_handling',
-            baseFeeFen: 4800,
+            ...rule,
             deliveryStartFeeFen: 0,
-            includedDistanceMeters: 0,
-            perKmFen: 0,
             minimumFeeFen: 0,
-            maxDistanceMeters: 100000,
+            serviceSurchargeFen: 0,
+            maxFeeFen: 0,
+            weatherMultiplierBps: 10000,
+            weatherSurchargeFen: rule.weatherSurchargeFen || 0,
           },
-        }),
+        })),
       ])
     } catch (error) {
       if (this.config?.get<string>('NODE_ENV') === 'production') throw error

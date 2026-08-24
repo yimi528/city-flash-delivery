@@ -2,6 +2,7 @@ import {
   BadGatewayException,
   ForbiddenException,
   Injectable,
+  Logger,
   UnauthorizedException,
 } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
@@ -20,8 +21,15 @@ type CodeSessionResponse = {
   errmsg?: string
 }
 
+type CloudWechatIdentity = {
+  openid?: string
+  unionid?: string
+}
+
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name)
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
@@ -29,15 +37,20 @@ export class AuthService {
     private readonly audit: AuditService,
   ) {}
 
-  async wechatLogin(dto: WechatLoginDto) {
+  async wechatLogin(dto: WechatLoginDto, cloudIdentity: CloudWechatIdentity = {}) {
     const mockEnabled = this.isDevelopmentMockEnabled('WECHAT_LOGIN_MOCK_ENABLED')
     let openid = ''
     let unionid = ''
     let mode: 'wechat' | 'mock' = 'wechat'
+    const cloudOpenid = String(cloudIdentity.openid || '').trim()
+    const cloudUnionid = String(cloudIdentity.unionid || '').trim()
 
     if (mockEnabled) {
       openid = 'mock-openid-demo-user'
       mode = 'mock'
+    } else if (cloudOpenid) {
+      openid = cloudOpenid
+      unionid = cloudUnionid
     } else {
       if (!dto.code) throw new UnauthorizedException('微信登录凭证不能为空')
       const identity = await this.exchangeWechatCode(dto.code)
@@ -184,7 +197,26 @@ export class AuthService {
     let response: Response
     try {
       response = await fetch(`https://api.weixin.qq.com/sns/jscode2session?${query.toString()}`)
-    } catch {
+    } catch (error) {
+      const networkError = error as {
+        name?: unknown
+        message?: unknown
+        cause?: {
+          name?: unknown
+          code?: unknown
+          message?: unknown
+        }
+      }
+      const cause = networkError && typeof networkError.cause === 'object' && networkError.cause !== null
+        ? networkError.cause
+        : undefined
+      this.logger.error(`WeChat login upstream request failed: ${JSON.stringify({
+        name: typeof networkError?.name === 'string' ? networkError.name : 'unknown',
+        message: typeof networkError?.message === 'string' ? networkError.message : 'unknown',
+        causeName: typeof cause?.name === 'string' ? cause.name : undefined,
+        causeCode: typeof cause?.code === 'string' ? cause.code : undefined,
+        causeMessage: typeof cause?.message === 'string' ? cause.message : undefined,
+      })}`)
       throw new BadGatewayException('微信登录服务暂时不可用')
     }
     const data = (await response.json()) as CodeSessionResponse

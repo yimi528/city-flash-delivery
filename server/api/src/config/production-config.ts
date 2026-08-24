@@ -16,6 +16,22 @@ function requireValue(config: ConfigReader, key: string, errors: string[]) {
   return current
 }
 
+function hasPemHeader(valueToCheck: string, kind: 'PRIVATE KEY' | 'PUBLIC KEY' | 'CERTIFICATE') {
+  return new RegExp(`-----BEGIN (?:[A-Z]+ )?${kind}-----`).test(valueToCheck)
+}
+
+function hasBase64Der(valueToCheck: string, kind: 'PRIVATE KEY' | 'PUBLIC KEY' | 'CERTIFICATE') {
+  const compact = valueToCheck.replace(/\s+/g, '')
+  if (!compact || compact.length % 4 === 1 || !/^[A-Za-z0-9+/]+={0,2}$/.test(compact)) return false
+  const der = Buffer.from(compact, 'base64')
+  const minimumLength = kind === 'PRIVATE KEY' ? 512 : 128
+  return der.length >= minimumLength && der[0] === 0x30
+}
+
+function hasPemOrBase64Der(valueToCheck: string, kind: 'PRIVATE KEY' | 'PUBLIC KEY' | 'CERTIFICATE') {
+  return hasPemHeader(valueToCheck, kind) || hasBase64Der(valueToCheck, kind)
+}
+
 export function validateProductionConfig(config: ConfigReader) {
   if (value(config, 'NODE_ENV') !== 'production') return
 
@@ -89,7 +105,6 @@ export function validateProductionConfig(config: ConfigReader) {
       'WECHAT_PAY_MCH_ID',
       'WECHAT_PAY_CERT_SERIAL',
       'WECHAT_PAY_API_V3_KEY',
-      'WECHAT_PAY_PLATFORM_CERT_SERIAL',
       'WECHAT_PAY_NOTIFY_URL',
       'WECHAT_PAY_REFUND_NOTIFY_URL',
     ]) requireValue(config, key, errors)
@@ -110,12 +125,34 @@ export function validateProductionConfig(config: ConfigReader) {
     const privateKeyPath = value(config, 'WECHAT_PAY_PRIVATE_KEY_PATH')
     if (!privateKey && !privateKeyPath) {
       errors.push('WECHAT_PAY_PRIVATE_KEY or WECHAT_PAY_PRIVATE_KEY_PATH must be configured')
+    } else if (privateKey && !hasPemOrBase64Der(privateKey, 'PRIVATE KEY')) {
+      errors.push('WECHAT_PAY_PRIVATE_KEY must be a PEM-encoded or base64-DER private key')
     }
 
+    const platformCertSerial = value(config, 'WECHAT_PAY_PLATFORM_CERT_SERIAL')
     const platformCert = value(config, 'WECHAT_PAY_PLATFORM_CERT')
     const platformCertPath = value(config, 'WECHAT_PAY_PLATFORM_CERT_PATH')
-    if (!platformCert && !platformCertPath) {
+    const publicKeyId = value(config, 'WECHAT_PAY_PUBLIC_KEY_ID')
+    const publicKey = value(config, 'WECHAT_PAY_PUBLIC_KEY')
+    const publicKeyPath = value(config, 'WECHAT_PAY_PUBLIC_KEY_PATH')
+    const hasPlatformCertificate = Boolean(platformCertSerial && (platformCert || platformCertPath))
+    const hasPublicKey = Boolean(publicKeyId && (publicKey || publicKeyPath))
+    if (!hasPlatformCertificate && !hasPublicKey) {
+      errors.push(
+        'configure either WECHAT_PAY_PLATFORM_CERT_SERIAL with a platform certificate, or WECHAT_PAY_PUBLIC_KEY_ID with a public key',
+      )
+    }
+    if (platformCertSerial && !platformCert && !platformCertPath && !hasPublicKey) {
       errors.push('WECHAT_PAY_PLATFORM_CERT or WECHAT_PAY_PLATFORM_CERT_PATH must be configured')
+    }
+    if (publicKeyId && !publicKey && !publicKeyPath && !hasPlatformCertificate) {
+      errors.push('WECHAT_PAY_PUBLIC_KEY or WECHAT_PAY_PUBLIC_KEY_PATH must be configured')
+    }
+    if (platformCert && !hasPemOrBase64Der(platformCert, 'CERTIFICATE')) {
+      errors.push('WECHAT_PAY_PLATFORM_CERT must be a PEM-encoded or base64-DER certificate')
+    }
+    if (publicKey && !hasPemOrBase64Der(publicKey, 'PUBLIC KEY')) {
+      errors.push('WECHAT_PAY_PUBLIC_KEY must be a PEM-encoded or base64-DER public key')
     }
   }
 

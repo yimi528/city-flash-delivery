@@ -1,4 +1,5 @@
 import { validateProductionConfig } from './production-config'
+import { generateKeyPairSync } from 'node:crypto'
 
 const validConfig: Record<string, string> = {
   NODE_ENV: 'production',
@@ -31,6 +32,58 @@ function reader(values: Record<string, string>) {
 describe('validateProductionConfig', () => {
   it('accepts a complete production configuration', () => {
     expect(() => validateProductionConfig(reader(validConfig))).not.toThrow()
+  })
+
+  it('accepts the WeChat Pay public-key verification mode', () => {
+    const publicKeyConfig = { ...validConfig }
+    delete publicKeyConfig.WECHAT_PAY_PLATFORM_CERT_SERIAL
+    delete publicKeyConfig.WECHAT_PAY_PLATFORM_CERT_PATH
+    publicKeyConfig.WECHAT_PAY_PUBLIC_KEY_ID = 'PUB_KEY_ID_3000000001'
+    publicKeyConfig.WECHAT_PAY_PUBLIC_KEY_PATH = '/run/secrets/wechatpay_public_key.pem'
+
+    expect(() => validateProductionConfig(reader(publicKeyConfig))).not.toThrow()
+  })
+
+  it('accepts a base64-DER inline merchant private key', () => {
+    const { privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048 })
+    const base64PrivateKey = privateKey.export({ type: 'pkcs8', format: 'der' }).toString('base64')
+    const base64Config = {
+      ...validConfig,
+      WECHAT_PAY_PRIVATE_KEY_PATH: '',
+      WECHAT_PAY_PRIVATE_KEY: base64PrivateKey,
+    }
+
+    expect(() => validateProductionConfig(reader(base64Config))).not.toThrow()
+  })
+
+  it('accepts an unpadded base64-DER inline merchant private key', () => {
+    const { privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048 })
+    const base64PrivateKey = privateKey.export({ type: 'pkcs8', format: 'der' }).toString('base64').replace(/=+$/, '')
+    const base64Config = {
+      ...validConfig,
+      WECHAT_PAY_PRIVATE_KEY_PATH: '',
+      WECHAT_PAY_PRIVATE_KEY: base64PrivateKey,
+    }
+
+    expect(() => validateProductionConfig(reader(base64Config))).not.toThrow()
+  })
+
+  it('rejects real payments without a response-verification key', () => {
+    const incompleteConfig = { ...validConfig }
+    delete incompleteConfig.WECHAT_PAY_PLATFORM_CERT_SERIAL
+    delete incompleteConfig.WECHAT_PAY_PLATFORM_CERT_PATH
+
+    expect(() => validateProductionConfig(reader(incompleteConfig))).toThrow(
+      /configure either WECHAT_PAY_PLATFORM_CERT_SERIAL/,
+    )
+  })
+
+  it('rejects a non-PEM inline merchant private key', () => {
+    expect(() => validateProductionConfig(reader({
+      ...validConfig,
+      WECHAT_PAY_PRIVATE_KEY_PATH: '',
+      WECHAT_PAY_PRIVATE_KEY: 'not-a-private-key',
+    }))).toThrow(/WECHAT_PAY_PRIVATE_KEY must be a PEM-encoded or base64-DER private key/)
   })
 
   it('rejects mocks, placeholders and insecure endpoints', () => {

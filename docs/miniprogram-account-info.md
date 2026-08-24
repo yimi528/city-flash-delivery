@@ -2,7 +2,7 @@
 
 在微信公众平台填写「小程序信息」时使用下列文案和本地材料。本页只覆盖名称、简称、介绍、头像和证照；云托管发布见 [微信云托管部署](deploy-wxcloud.md)，代码上传见 [小程序 CI 发布](../deploy/miniprogram-ci.md)。
 
-当前仓库里的 `project.config.json` 仍是测试号 `wx4878475053d6a722`。客户正式发布目标为 AppID `wxee631108a5a95efc`，上传正式代码时使用客户 AppID 和客户代码上传密钥；不要把客户 AppSecret 或执照提交到 Git。
+当前仓库里的 `project.config.json` 已切换为客户正式 AppID `wxee631108a5a95efc`。上传正式代码时使用客户 AppID 和客户代码上传密钥；不要把客户 AppSecret 或执照提交到 Git。
 
 ## 正式发布账号
 

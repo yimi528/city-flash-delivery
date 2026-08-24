@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { ConflictException } from '@nestjs/common'
 import { OrderStatus, PaymentRecordStatus, PaymentStatus, QuoteStatus } from '@prisma/client'
+import { generateKeyPairSync, sign } from 'node:crypto'
 import { PaymentsService } from './payments.service'
 
 const now = new Date('2026-07-12T00:00:00.000Z')
@@ -129,6 +130,83 @@ describe('PaymentsService development flow', () => {
     )
   })
 
+  it('creates a signed JSAPI prepay request in real WeChat Pay mode', async () => {
+    const { privateKey, publicKey } = generateKeyPairSync('rsa', { modulusLength: 2048 })
+    const privateKeyDer = privateKey.export({ type: 'pkcs8', format: 'der' }).toString('base64')
+    const publicKeyPem = publicKey.export({ type: 'spki', format: 'pem' }).toString()
+    const realConfig = {
+      get: jest.fn((key: string) => ({
+        NODE_ENV: 'production',
+        WECHAT_PAY_MODE: 'wechat',
+        WECHAT_PAY_MOCK_ENABLED: 'false',
+        WECHAT_MINI_APP_ID: 'wx123',
+        WECHAT_PAY_MCH_ID: '1900000001',
+        WECHAT_PAY_CERT_SERIAL: 'MERCHANT-SERIAL',
+        WECHAT_PAY_PRIVATE_KEY: privateKeyDer,
+        WECHAT_PAY_PUBLIC_KEY_ID: 'PUB_KEY_ID_3000000001',
+        WECHAT_PAY_PUBLIC_KEY: publicKeyPem,
+        WECHAT_PAY_API_V3_KEY: '12345678901234567890123456789012',
+        WECHAT_PAY_NOTIFY_URL: 'https://api.city-flash.test/api/payments/wechat/notify',
+        WECHAT_PAY_REFUND_NOTIFY_URL: 'https://api.city-flash.test/api/payments/wechat/refund-notify',
+      })[key]),
+    }
+    const realOrder = order()
+    orderApi.findFirst.mockResolvedValue(realOrder)
+    paymentApi.upsert.mockResolvedValue({
+      id: 'payment-1',
+      status: PaymentRecordStatus.PENDING,
+    })
+    const realService = new PaymentsService(prisma as never, realConfig as never)
+    const responseBody = JSON.stringify({ prepay_id: 'wx-prepay-1' })
+    const responseTimestamp = String(Math.floor(Date.now() / 1000))
+    const responseNonce = 'response-nonce'
+    const responseSignature = sign(
+      'RSA-SHA256',
+      Buffer.from(`${responseTimestamp}\n${responseNonce}\n${responseBody}\n`),
+      privateKey,
+    ).toString('base64')
+    const fetchMock = jest.spyOn(global, 'fetch').mockResolvedValue(
+      new Response(responseBody, {
+        status: 200,
+        headers: {
+          'wechatpay-timestamp': responseTimestamp,
+          'wechatpay-nonce': responseNonce,
+          'wechatpay-signature': responseSignature,
+          'wechatpay-serial': 'PUB_KEY_ID_3000000001',
+        },
+      }),
+    )
+
+    try {
+      const result = await realService.createPrepay('order-1', 'user-1')
+
+      expect(result).toEqual(expect.objectContaining({ mode: 'wechat', amountFen: 1300 }))
+      expect(result.params).toEqual(expect.objectContaining({
+        package: 'prepay_id=wx-prepay-1',
+        signType: 'RSA',
+      }))
+      expect(fetchMock).toHaveBeenCalledWith(
+        'https://api.mch.weixin.qq.com/v3/pay/transactions/jsapi',
+        expect.objectContaining({
+          method: 'POST',
+          headers: expect.objectContaining({
+            Authorization: expect.stringContaining('mchid="1900000001"'),
+            'Wechatpay-Serial': 'PUB_KEY_ID_3000000001',
+          }),
+        }),
+      )
+      const [, request] = fetchMock.mock.calls[0]
+      expect(JSON.parse(String(request?.body))).toEqual(expect.objectContaining({
+        appid: 'wx123',
+        mchid: '1900000001',
+        amount: { total: 1300, currency: 'CNY' },
+        payer: { openid: 'openid-1' },
+      }))
+    } finally {
+      fetchMock.mockRestore()
+    }
+  })
+
   it('requires quote acceptance before manual service payment', async () => {
     orderApi.findFirst.mockResolvedValue(
       order({ isManualQuote: true, quoteStatus: QuoteStatus.QUOTED }),
@@ -219,6 +297,33 @@ describe('PaymentsService development flow', () => {
     expect(prisma.$transaction).not.toHaveBeenCalled()
     verifyNotification.mockRestore()
     decryptResource.mockRestore()
+  })
+
+  it('verifies WeChat Pay responses with the configured public key ID', () => {
+    const { privateKey, publicKey } = generateKeyPairSync('rsa', { modulusLength: 2048 })
+    const publicKeyPem = publicKey.export({ type: 'spki', format: 'pem' }).toString()
+    const publicKeyConfig = {
+      get: jest.fn((key: string) => ({
+        WECHAT_PAY_PUBLIC_KEY_ID: 'PUB_KEY_ID_3000000001',
+        WECHAT_PAY_PUBLIC_KEY: publicKeyPem,
+      })[key]),
+    }
+    const publicKeyService = new PaymentsService(prisma as never, publicKeyConfig as never)
+    const body = '{"code":"SUCCESS"}'
+    const timestamp = '1780000000'
+    const nonce = 'nonce'
+    const signature = sign(
+      'RSA-SHA256',
+      Buffer.from(`${timestamp}\n${nonce}\n${body}\n`),
+      privateKey,
+    ).toString('base64')
+
+    expect(() => (publicKeyService as any).verifyWechatResponse(body, {
+      timestamp,
+      nonce,
+      signature,
+      serial: 'PUB_KEY_ID_3000000001',
+    })).not.toThrow()
   })
 
   it('reconciles bill rows into explicit mismatch statuses', async () => {
