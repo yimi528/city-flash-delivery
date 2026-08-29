@@ -572,7 +572,7 @@ function getVehicleTypes() {
   return Promise.resolve([
     { id: 'ebike', type: 'EBIKE', name: '二轮车' },
     { id: 'cargo_tricycle', type: 'ETRIKE', name: '货三轮车' },
-    { id: 'small_car', type: 'VAN', name: '小车' }
+    { id: 'small_car', type: 'VAN', name: '面包车' }
   ])
 }
 

@@ -267,7 +267,7 @@ export class ConfigCenterService implements OnModuleInit {
       const entry = parcelPricing.find((candidate) => candidate.routeId === route.id && candidate.itemType === itemType && candidate.weightBand === weightBand)
       const totalFen = numberValue(entry?.priceFen, PARCEL_DEFAULT_PRICE_FEN)
       if (!entry?.enabled || totalFen <= PARCEL_DEFAULT_PRICE_FEN) throw new BadRequestException('当前线路、物品和重量的价格待配置')
-      return this.createQuote(userId, dto, rule.version, { route, unitPriceFen: totalFen, distanceMeters: 0, baseFeeFen: totalFen, distanceFeeFen: 0, weatherFeeFen: 0, productFeeFen: 0, totalFen, vehicleName: '小车' })
+      return this.createQuote(userId, dto, rule.version, { route, unitPriceFen: totalFen, distanceMeters: 0, baseFeeFen: totalFen, distanceFeeFen: 0, weatherFeeFen: 0, productFeeFen: 0, totalFen, vehicleName: '面包车' })
     }
     if (dto.taskId === 'moving_handling') {
       return this.createQuote(userId, dto, rule.version, { route: null, distanceMeters: 0, baseFeeFen: 0, distanceFeeFen: 0, weatherFeeFen: 0, productFeeFen: 0, totalFen: 0, vehicleName: '人力服务' })
@@ -528,7 +528,7 @@ export class ConfigCenterService implements OnModuleInit {
 
   private vehicleName(taskId: string, item?: string) {
     if (taskId === 'moving_handling' && item === '叉车') return '叉车服务'
-    const labels: Record<string, string> = { carpool_ride: '小车', send_parcel: '小车', cargo_haul: '货三轮车', urgent_delivery: '二轮车', pickup: '二轮车', buy_for_me: '二轮车', pedicab_delivery: '人力三轮车', moving_handling: '人力服务' }
+    const labels: Record<string, string> = { carpool_ride: '小车', send_parcel: '面包车', cargo_haul: '货三轮车', urgent_delivery: '二轮车', pickup: '二轮车', buy_for_me: '二轮车', pedicab_delivery: '人力三轮车', moving_handling: '人力服务' }
     return labels[taskId] || '配送车辆'
   }
 

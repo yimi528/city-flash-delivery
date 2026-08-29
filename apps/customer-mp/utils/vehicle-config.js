@@ -36,9 +36,9 @@ const VEHICLES = [
   },
   {
     id: 'small_car',
-    name: '小车',
-    shortName: '小车',
-    icon: '🚗',
+    name: '面包车',
+    shortName: '面包车',
+    icon: '🚐',
     desc: '适合寄货、拼车、小件货物',
     capacity: '30kg内 · 小于1立方米',
     tag: '拼小车推荐',

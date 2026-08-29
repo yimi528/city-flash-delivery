@@ -6,7 +6,7 @@ const PRIMARY_TASKS = [
     subtitle: '货物寄送 · 顺风出行',
     desc: '去程/返程固定线路，按物品和重量配置',
     vehicleType: 'small_car',
-    vehicleName: '小车',
+    vehicleName: '面包车',
     priceSummary: '价格按线路、物品和重量配置，当前待定',
     pricingMode: 'parcel_category',
     parcelPricing: [],

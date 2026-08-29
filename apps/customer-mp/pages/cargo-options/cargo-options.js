@@ -36,7 +36,7 @@ Page({
     statusBarHeight: 24,
     vehicles: vehicleConfig.VEHICLES,
     selectedVehicle: 'small_car',
-    selectedVehicleName: '小车',
+    selectedVehicleName: '面包车',
     taskName: '寄货/配送',
     routeText: '按当前任务推荐车型',
     from: '',

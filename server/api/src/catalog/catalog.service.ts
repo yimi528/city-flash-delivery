@@ -8,7 +8,7 @@ import { CarpoolQuoteDto, HandlingQuoteDto, UpdatePricingRuleDto, UpdateServiceC
 import { ConfigCenterService } from '../config-center/config-center.service'
 
 const DEFAULT_SERVICES = [
-  { id: 'send_parcel', name: '寄货配送', sortOrder: 10, vehicleType: VehicleType.VAN, vehicleName: '小车', passengerCapacity: 0 },
+  { id: 'send_parcel', name: '寄货配送', sortOrder: 10, vehicleType: VehicleType.VAN, vehicleName: '面包车', passengerCapacity: 0 },
   { id: 'carpool_ride', name: '顺风车', sortOrder: 15, vehicleType: VehicleType.VAN, vehicleName: '小车', passengerCapacity: 6 },
   { id: 'cargo_haul', name: '运货', sortOrder: 20, vehicleType: VehicleType.ETRIKE, vehicleName: '货三轮车', passengerCapacity: 0 },
   { id: 'moving_handling', name: '搬运装卸', sortOrder: 30, vehicleType: VehicleType.MANUAL, vehicleName: '人力服务', passengerCapacity: 0 },

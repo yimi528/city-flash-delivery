@@ -36,7 +36,7 @@ const TASK_VEHICLES: Record<string, { type: PrismaVehicleType; name: string }> =
   carpool_ride: { type: PrismaVehicleType.VAN, name: '小车' },
   cargo_haul: { type: PrismaVehicleType.ETRIKE, name: '货三轮车' },
   moving_handling: { type: PrismaVehicleType.MANUAL, name: '人力服务' },
-  send_parcel: { type: PrismaVehicleType.VAN, name: '小车' },
+  send_parcel: { type: PrismaVehicleType.VAN, name: '面包车' },
   urgent_delivery: { type: PrismaVehicleType.EBIKE, name: '二轮车' },
   pickup: { type: PrismaVehicleType.EBIKE, name: '二轮车' },
   buy_for_me: { type: PrismaVehicleType.EBIKE, name: '二轮车' },
