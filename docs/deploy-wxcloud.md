@@ -22,6 +22,7 @@ API 服务名：city-flash-api
 - [调用云托管服务](https://developers.weixin.qq.com/miniprogram/dev/wxcloudservice/wxcloudrun/src/development/call/)
 - [MySQL 数据库](https://developers.weixin.qq.com/miniprogram/dev/wxcloudservice/wxcloudrun/src/guide/mysql/)
 - [静态资源托管](https://developers.weixin.qq.com/miniprogram/dev/wxcloudservice/wxcloudrun/src/guide/resource/)
+- [下一次发布 Runbook](release-runbook.md)
 
 ## 1. 资源关系
 
@@ -84,23 +85,11 @@ wxcloud service:create \
   --region ap-shanghai
 ```
 
-服务只监听一个端口 `3000`。从 `server/api` 目录发布代码包：
-
-```bash
-cd server/api
-wxcloud run:deploy \
-  --targetDir . \
-  --dockerfile Dockerfile \
-  --containerPort 3000 \
-  --envId "$WX_CLOUD_ENV_ID" \
-  --serviceName city-flash-api \
-  --releaseType FULL \
-  --remark "mysql migration and cloud hosting"
-```
+服务只监听一个端口 `3000`。本机发布时不要直接把已经安装依赖的 `server/api` 作为 CLI 上传根目录；`wxcloud run:deploy` 会把目标目录中的 `node_modules` 一并打包。请按[下一次发布 Runbook 的 API 发布章节](release-runbook.md#6-发布-api必须使用精简临时上下文)创建精简临时上下文后再发布。GitHub Actions 使用全新 checkout，不会遇到本机已安装依赖的同一包体问题。
 
 本项目 Dockerfile 在 `RUN_MIGRATIONS_ON_STARTUP=true` 时执行幂等的 `prisma migrate deploy`，随后启动 API；不会执行 `migrate reset`。数据库连接串、JWT、微信 Secret、地图 Key、支付证书等通过云托管服务环境变量/密钥配置，不写进镜像和 Git。
 
-生产环境至少需要关闭：
+生产环境发布前至少核对以下关键值：
 
 ```text
 NODE_ENV=production
@@ -108,9 +97,10 @@ WECHAT_LOGIN_MOCK_ENABLED=false
 OPERATOR_BOOTSTRAP_ENABLED=false
 ENABLE_SWAGGER=false
 RUN_MIGRATIONS_ON_STARTUP=true
+RUN_OPERATOR_INITIALIZATION_ON_STARTUP=false
 ```
 
-测试环境可以暂时保留 Mock 登录/支付，但不能把测试密钥当正式密钥使用。
+同时应确认支付模式为 `wechat` 或 `disabled`，`mock` 只能用于测试环境。测试环境可以暂时保留 Mock 登录/支付，但不能把测试密钥当正式密钥使用。
 
 真实微信支付使用 API v3：商户私钥负责请求签名，微信支付公钥或平台证书负责验签，API v3 密钥负责解密回调。验签二选一：
 
@@ -130,32 +120,9 @@ WECHAT_PAY_PLATFORM_CERT_PATH=/run/secrets/wechatpay_platform.pem
 
 商家后台和 API 分成两个服务是常见的部署方式：后台页面负责展示和交互，API 负责业务逻辑和数据库访问。当前实际部署使用第二个云托管容器服务，避免依赖未开通的静态资源存储。
 
-先从 API 服务详情中取得 HTTPS 公网访问地址，例如 `https://<api-service-domain>`，再构建商家后台：
+先从 API 服务详情中取得 HTTPS 公网访问地址，再确认 API CORS 已包含商家来源，最后按[下一次发布 Runbook 的商家发布章节](release-runbook.md#7-构建和发布商家后台)注入 `VITE_API_BASE_URL`、构建 `dist`，并用临时上下文发布 `Dockerfile.cloud`、`nginx.conf` 和 `dist`。不要复用固定的临时目录，也不要把本地 `.env` 或凭证复制进去。
 
-```bash
-cd apps/merchant-web
-VITE_API_BASE_URL="https://<api-service-domain>/api" npm run build
-```
-
-把 `Dockerfile.cloud`、`nginx.conf` 和构建后的 `dist` 放在同一个临时目录，然后发布到商家服务：
-
-```bash
-mkdir -p /tmp/city-flash-merchant-cloud
-cp apps/merchant-web/Dockerfile.cloud /tmp/city-flash-merchant-cloud/Dockerfile
-cp apps/merchant-web/nginx.conf /tmp/city-flash-merchant-cloud/nginx.conf
-cp -R apps/merchant-web/dist /tmp/city-flash-merchant-cloud/dist
-
-wxcloud run:deploy /tmp/city-flash-merchant-cloud \
-  --targetDir . \
-  --dockerfile Dockerfile \
-  --containerPort 80 \
-  --envId "$WX_CLOUD_ENV_ID" \
-  --serviceName city-flash-merchant \
-  --releaseType FULL \
-  --region ap-shanghai
-```
-
-商家服务的默认公网地址形如 `https://<merchant-service-domain>.sh.run.tcloudbase.com`。把这个地址加入 API 的 `CORS_ORIGINS`，保留 API 自身地址，然后重新发布 API。当前环境已配置为：
+商家服务的默认公网地址形如 `https://<merchant-service-domain>.sh.run.tcloudbase.com`。发布前把这个地址加入 API 的 `CORS_ORIGINS`，保留 API 自身地址，然后再发布或重新发布 API。若云端服务域名发生变化，必须重新查询并更新完整环境变量集合；不要只用一个 `--envParams` 键覆盖原配置。当前环境已配置为：
 
 ```text
 https://city-flash-api-298025-11-1469830209.sh.run.tcloudbase.com
@@ -244,12 +211,12 @@ API 现在按调用来源处理身份：
 ## 6. 验收顺序
 
 ```bash
-curl --fail "https://<api-service-domain>/api/health"
-curl --fail "https://<merchant-service-domain>/"
+curl --fail "https://<api-service-domain>/api/health/ready"
 curl --fail "https://<merchant-service-domain>/healthz"
+curl --fail "https://<merchant-service-domain>/"
 ```
 
-随后依次验证：商家首页、运营员登录、订单列表、配置中心、地图代理、用户小程序登录、骑手登录和一个测试订单闭环。确认云端 MySQL 表已创建并且 API 日志没有 Prisma/连接错误后，才可以停止 osako 上的旧 Compose 环境。
+除 HTTP 检查外，还要在服务详情中确认 API 和商家最新版本均为正常状态、流量 100%、至少一个副本；API readiness 响应中的 `database` 必须为 `true`，商家构建产物必须包含当前 API 域名。CLI 若显示 `TopicNotExist` 或重复历史日志，不能单独据此判定失败，应以任务状态、版本详情和独立健康检查为准。随后依次验证：商家首页、运营员登录、订单列表、配置中心、地图代理、用户小程序登录、骑手登录和一个测试订单闭环。确认云端 MySQL 表已创建并且 API 日志没有 Prisma/连接错误后，才可以停止 osako 上的旧 Compose 环境。
 
 ## 7. 持续交付
 
@@ -275,22 +242,7 @@ WX_CLOUD_API_PUBLIC_DOMAIN
 
 常规代码变更由 `.github/workflows/ci.yml` 在 Pull Request 和 `main` 分支上执行质量检查；云托管工作流复用同一套质量门禁，不直接响应 `main` 推送。
 
-```bash
-cd server/api
-wxcloud run:deploy --targetDir . --dockerfile Dockerfile --containerPort 3000 \
-  --envId "$WX_CLOUD_ENV_ID" --serviceName city-flash-api --releaseType FULL
-cd ../../apps/merchant-web
-npm run build
-merchant_package_dir="$(mktemp -d)"
-cp Dockerfile.cloud "$merchant_package_dir/Dockerfile"
-cp nginx.conf "$merchant_package_dir/nginx.conf"
-cp -R dist "$merchant_package_dir/dist"
-wxcloud run:deploy "$merchant_package_dir" --targetDir . --dockerfile Dockerfile --containerPort 80 \
-  --envId "$WX_CLOUD_ENV_ID" --serviceName "$WX_CLOUD_MERCHANT_SERVICE_NAME" \
-  --releaseType FULL --region ap-shanghai
-```
-
-实际 CI 参数以官方文档和当前 CLI 帮助为准。首次接入新环境时，先完成一次手动部署和验收，再将 `WX_CLOUD_DEPLOY_ENABLED` 设为 `true`。
+本机手动发布的完整命令（包括 API 精简上传上下文、商家构建时 API 域名注入和发布后验收）见[下一次发布 Runbook](release-runbook.md)。实际 CI 参数以官方文档和当前 CLI 帮助为准。首次接入新环境时，先完成一次手动部署和验收，再将 `WX_CLOUD_DEPLOY_ENABLED` 设为 `true`。
 
 ## 8. 云端接管后的旧环境清理（仅迁移收尾）
 

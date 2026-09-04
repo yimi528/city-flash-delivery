@@ -152,8 +152,8 @@ npm run dev
 用微信开发者工具导入仓库根目录。project.config.json 已将 miniprogramRoot 指向 apps/customer-mp/。
 
 - 开发版默认访问本地 API：http://127.0.0.1:3000/api
-- 体验版通过 wx.cloud.callContainer 访问微信云托管测试环境
-- 正式版只有在 apps/customer-mp/config/runtime.js 填写独立生产环境 ID 后才访问生产环境
+- 体验版通过 wx.cloud.callContainer 访问微信云托管 `prod` 环境
+- 正式版通过 wx.cloud.callContainer 访问微信云托管 `prod` 环境；只有显式切换运行时配置时才使用 `test` 环境
 
 真机开发版不能访问手机自身的 127.0.0.1。联调时可在小程序运行时配置手机可访问的局域网 API 地址；体验版和正式版使用微信云托管。
 
@@ -235,6 +235,7 @@ node --test apps/customer-mp/tests/*.test.js
 - [微信云托管官方文档](https://developers.weixin.qq.com/miniprogram/dev/wxcloudservice/wxcloudrun/src/)
 - [微信云托管 CLI](https://cloud.weixin.qq.com/cli/)
 - [项目部署说明](docs/deploy-wxcloud.md)
+- [下一次发布 Runbook](docs/release-runbook.md)
 
 发布前必须保留以下边界：
 
@@ -253,7 +254,7 @@ node --test apps/customer-mp/tests/*.test.js
 4. 发布 API 和商家后台，依次验收健康检查、CORS、商家登录、小程序登录和测试订单闭环。
 5. 验收通过后再启用 CI/CD 发布开关。
 
-详细流程、环境变量、镜像文件和 GitHub Actions Secret 说明见 docs/deploy-wxcloud.md。在云端发布获得用户明确确认前，只进行 CLI 登录检查、环境/服务查询和本地构建验证。
+环境变量、镜像文件和底层配置说明见 docs/deploy-wxcloud.md；下一次发布按 docs/release-runbook.md 执行。在云端发布获得用户明确确认前，只进行 CLI 登录检查、环境/服务查询和本地构建验证。
 
 ## GitHub Actions
 
