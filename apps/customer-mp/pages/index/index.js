@@ -33,6 +33,7 @@ function ensureDraftTask(taskId) {
   if (!isTaskChanged && previousSelectedLine) draft.selectedLine = previousSelectedLine
   if (isTaskChanged && routeTask) {
     draft.selectedLine = null
+    draft.selectedDistrict = ''
     draft.remoteTaskLines = []
     draft.pickup = null
     draft.dropoff = null
@@ -65,8 +66,8 @@ function ensureDraftTask(taskId) {
     ? serviceConfig.applyHandlingType(draft, draft.item)
     : null
   vehicleConfig.applyVehicleToDraft(draft, handlingType ? handlingType.vehicleId : patch.recommendedVehicleType)
-  if (patch.taskId === 'send_parcel') draft.direction = draft.direction || 'OUTBOUND'
-  if (patch.taskId === 'send_parcel') draft.serviceMode = draft.serviceMode || 'PARCEL'
+  if (patch.taskId === 'send_parcel') draft.direction = isTaskChanged ? 'OUTBOUND' : (draft.direction || 'OUTBOUND')
+  if (patch.taskId === 'send_parcel') draft.serviceMode = isTaskChanged ? 'PARCEL' : (draft.serviceMode || 'PARCEL')
   if (patch.taskId === 'moving_handling') {
     draft.requiresDelivery = false
     draft.dropoff = null

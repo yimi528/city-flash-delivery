@@ -2,73 +2,24 @@ name: Deploy to WeChat Cloud Hosting
 
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
 
 permissions:
   contents: read
 
 jobs:
   quality:
-    name: Tests and quality checks
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    services:
-      mysql:
-        image: mysql:8.0
-        env:
-          MYSQL_DATABASE: city_flash_ci
-          MYSQL_USER: ci
-          MYSQL_PASSWORD: ci
-          MYSQL_ROOT_PASSWORD: root-ci
-        ports:
-          - 3306:3306
-        options: >-
-          --health-cmd="mysqladmin ping -h 127.0.0.1 -uci -pci --silent"
-          --health-interval=5s
-          --health-timeout=5s
-          --health-retries=20
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: |
-            package-lock.json
-            server/api/package-lock.json
-            apps/merchant-web/package-lock.json
-
-      - name: Install dependencies
-        run: |
-          npm ci
-          npm --prefix server/api ci
-          npm --prefix apps/merchant-web ci
-
-      - name: Generate Prisma Client
-        run: npm --prefix server/api run prisma:generate
-
-      - name: Run tests and checks
-        env:
-          DATABASE_URL: mysql://ci:ci@127.0.0.1:3306/city_flash_ci
-          VITE_API_BASE_URL: https://api.example.com/api
-        run: |
-          node --test apps/customer-mp/tests/*.test.js
-          npm --prefix server/api test -- --runInBand
-          npm --prefix server/api run lint
-          npm --prefix server/api run build
-          (cd server/api && npm run prisma:deploy)
-          (cd server/api && npm exec -- prisma validate)
-          npm --prefix apps/merchant-web run build
+    name: Shared CI gate
+    uses: ./.github/workflows/ci.yml
+    secrets: inherit
 
   deploy:
+    name: Deploy to WeChat Cloud Hosting
     needs: quality
-    if: github.event_name != 'pull_request' && vars.WX_CLOUD_DEPLOY_ENABLED == 'true'
+    if: github.ref == 'refs/heads/main' && vars.WX_CLOUD_DEPLOY_ENABLED == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment:
+      name: production
     env:
       WX_CLOUD_ENV_ID: ${{ secrets.WX_CLOUD_ENV_ID }}
       WX_CLOUD_APP_ID: ${{ secrets.WX_CLOUD_APP_ID }}
@@ -79,10 +30,10 @@ jobs:
       WX_CLOUD_API_ENV_PARAMS: ${{ secrets.WX_CLOUD_API_ENV_PARAMS }}
 
     steps:
-      - name: Checkout
+      - name: Check out source
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -92,7 +43,7 @@ jobs:
       - name: Install WeChat Cloud Hosting CLI
         run: npm install --global @wxcloud/cli
 
-      - name: Validate deployment secrets
+      - name: Validate deployment configuration
         run: |
           test -n "$WX_CLOUD_ENV_ID"
           test -n "$WX_CLOUD_APP_ID"
@@ -124,6 +75,11 @@ jobs:
           fi
           wxcloud run:deploy "${args[@]}" --noConfirm
 
+      - name: Check API readiness
+        run: >-
+          curl --fail --retry 12 --retry-delay 5 --retry-connrefused
+          "https://${WX_CLOUD_API_PUBLIC_DOMAIN}/api/health/ready"
+
       - name: Build merchant web
         working-directory: apps/merchant-web
         env:
@@ -136,6 +92,7 @@ jobs:
       - name: Deploy merchant web
         run: |
           merchant_package_dir="$(mktemp -d)"
+          trap 'rm -rf "$merchant_package_dir"' EXIT
           cp apps/merchant-web/Dockerfile.cloud "$merchant_package_dir/Dockerfile"
           cp apps/merchant-web/nginx.conf "$merchant_package_dir/nginx.conf"
           cp -R apps/merchant-web/dist "$merchant_package_dir/dist"
@@ -153,9 +110,19 @@ jobs:
   deployment-not-configured:
     name: Cloud deployment status
     needs: quality
-    if: github.event_name != 'pull_request' && vars.WX_CLOUD_DEPLOY_ENABLED != 'true'
+    if: github.ref == 'refs/heads/main' && vars.WX_CLOUD_DEPLOY_ENABLED != 'true'
     runs-on: ubuntu-latest
 
     steps:
       - name: Explain deployment is disabled
         run: echo "Quality checks passed. Set repository variable WX_CLOUD_DEPLOY_ENABLED=true and configure the wxcloud secrets to enable deployment."
+
+  deployment-not-main:
+    name: Production deployment requires main
+    needs: quality
+    if: github.ref != 'refs/heads/main'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Explain deployment branch protection
+        run: echo "Quality checks passed. Production deployment is restricted to the main branch."

@@ -253,7 +253,7 @@ curl --fail "https://<merchant-service-domain>/healthz"
 
 ## 7. 持续交付
 
-微信云托管官方 CLI 支持在自定义 CI/CD 中发布版本。持续交付需要把 `WX_CLOUD_ENV_ID`、AppID 和 CLI 私钥配置在 CI Secret 中；私钥不能进入仓库。每次合并到发布分支时，CI 应先跑本地测试和构建，再执行：
+微信云托管官方 CLI 支持在自定义 CI/CD 中发布版本。持续交付需要把 `WX_CLOUD_ENV_ID`、AppID 和 CLI 私钥配置在 CI Secret 中；私钥不能进入仓库。生产发布必须手动触发并经过 `production` Environment 审批，发布前由可复用的 CI 工作流完成测试和构建：
 
 `.github/workflows/wxcloud-deploy.yml` 使用以下 GitHub Actions Secret：
 
@@ -270,10 +270,10 @@ WX_CLOUD_API_PUBLIC_DOMAIN
 
 另外设置一个仓库变量 `WX_CLOUD_DEPLOY_ENABLED`：
 
-- 不设置或设置为 `false`：每次推送仍执行完整质量检查，但跳过云端发布；
-- 设置为 `true`：在上述 Secret 都已配置后，每次推送到 `main` 才发布 API 和商家后台。
+- 不设置或设置为 `false`：手动触发发布工作流时执行完整质量检查，但跳过云端发布；
+- 设置为 `true`：在上述 Secret 都已配置并通过生产环境审批后，手动触发才发布 API 和商家后台。
 
-当前仓库的最近一次 Actions 已验证质量检查通过；因为尚未配置云托管 Secret，发布开关应保持关闭，避免产生误报。
+常规代码变更由 `.github/workflows/ci.yml` 在 Pull Request 和 `main` 分支上执行质量检查；云托管工作流复用同一套质量门禁，不直接响应 `main` 推送。
 
 ```bash
 cd server/api
@@ -292,9 +292,9 @@ wxcloud run:deploy "$merchant_package_dir" --targetDir . --dockerfile Dockerfile
 
 实际 CI 参数以官方文档和当前 CLI 帮助为准。首次接入新环境时，先完成一次手动部署和验收，再将 `WX_CLOUD_DEPLOY_ENABLED` 设为 `true`。
 
-## 8. 云端接管后的旧环境清理
+## 8. 云端接管后的旧环境清理（仅迁移收尾）
 
-只有在 API、商家后台、MySQL 就绪检查、CORS 和小程序链路验收通过后，才停止 osako 上的旧 Compose 环境。清理运行时但保留数据库卷：
+以下内容只用于迁移完成后的历史环境收尾，不是新的部署方式。只有在 API、商家后台、MySQL 就绪检查、CORS 和小程序链路验收通过后，才由有权限的运维人员停止旧 Compose 环境：
 
 ```bash
 ssh osako-macbookair

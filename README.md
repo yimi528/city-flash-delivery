@@ -84,7 +84,7 @@ city-flash-delivery/
 
 ### 环境要求
 
-- Node.js 20 或更高版本（CI 和生产镜像使用 Node.js 22）
+- Node.js 22 或更高版本（以 `.nvmrc` 为准）
 - npm
 - Docker Desktop / Docker Compose
 - Bash、curl、lsof
@@ -190,6 +190,8 @@ VITE_API_BASE_URL="https://<api-service-domain>/api" npm run build
 
 ~~~
 # 根目录
+npm run check:quality     # 小程序、API 和商家后台质量检查
+npm run test:shared       # 校验跨端状态与角色契约
 npm run test:mvp          # 小程序、API 和商家后台验收
 npm run test:start-stop   # 验证一键启停流程
 npm run test:security     # 检查生产依赖漏洞
@@ -257,8 +259,8 @@ node --test apps/customer-mp/tests/*.test.js
 
 仓库工作流包括：
 
-- .github/workflows/ci-cd.yml：测试、构建和可选云托管发布
-- .github/workflows/wxcloud-deploy.yml：微信云托管发布流程
+- .github/workflows/ci.yml：Pull Request 和 main 分支的质量检查、构建验证
+- .github/workflows/wxcloud-deploy.yml：经手动触发并通过环境审批后发布微信云托管
 - .github/workflows/miniprogram-release.yml：小程序手动上传
 
 未配置云托管 Secret 或未将 WX_CLOUD_DEPLOY_ENABLED 设为 true 时，工作流只执行质量检查，不发布云端服务。CLI 私钥、微信 AppSecret、支付证书和数据库密码不得提交到仓库。

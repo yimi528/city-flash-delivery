@@ -789,7 +789,6 @@ Page({
     draft.pickup = null
     draft.dropoff = null
     draft.direction = 'OUTBOUND'
-    draft.remoteTaskLines = mode === 'CARPOOL' ? [] : draft.remoteTaskLines
     draft.quoteId = ''
     draft.routeDistanceKm = 0
     draft.routeDistanceSource = ''

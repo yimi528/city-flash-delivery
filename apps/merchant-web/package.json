@@ -3,6 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": ">=22",
+    "npm": ">=10"
+  },
   "description": "React operations console for city flash delivery.",
   "scripts": {
     "dev": "vite --host 127.0.0.1",

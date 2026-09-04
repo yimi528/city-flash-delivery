@@ -1,13 +1,24 @@
-const ORDER_STATUS_FLOW = ['待商家接单', '待骑手接单', '前往履约地点', '服务中', '已完成']
-const MERCHANT_STATUS_FLOW = ORDER_STATUS_FLOW
+// Keep transport-level values here. Display labels belong to each client.
+const ORDER_STATUS_FLOW = ['PENDING', 'ACCEPTED', 'PICKING_UP', 'DELIVERING', 'COMPLETED']
+const ORDER_UPDATE_STATUSES = [...ORDER_STATUS_FLOW, 'CANCELLED']
+const ORDER_STATUS_LABELS = {
+  PENDING: '待接单',
+  ACCEPTED: '已接单',
+  PICKING_UP: '取货中',
+  DELIVERING: '配送中',
+  COMPLETED: '已完成',
+  CANCELLED: '已取消'
+}
 const APP_ROLES = {
-  CUSTOMER: 'customer',
-  MERCHANT: 'merchant',
-  ADMIN: 'admin'
+  CUSTOMER: 'CUSTOMER',
+  OPERATOR: 'OPERATOR',
+  ADMIN: 'ADMIN',
+  RIDER: 'RIDER'
 }
 
 module.exports = {
   ORDER_STATUS_FLOW,
-  MERCHANT_STATUS_FLOW,
+  ORDER_UPDATE_STATUSES,
+  ORDER_STATUS_LABELS,
   APP_ROLES
 }

@@ -8,18 +8,18 @@ This is the backend for the city flash delivery project. All customer, rider, op
 - MySQL 8.0 + GIS
 - Prisma
 - Swagger / OpenAPI
-- Docker Compose
+- Docker Compose（仅用于本地 MySQL）
 
 ## Local Start
 
 ```bash
-cd /Users/Admin1/Documents/Codex/2026-07-09/xian/server/api
-cp .env.example .env
-/Applications/Docker.app/Contents/Resources/bin/docker compose up -d
-npm install
-npm run prisma:generate
-npm run prisma:deploy
-npm run start:dev
+# 在仓库根目录执行
+cp server/api/.env.example server/api/.env
+npm --prefix server/api ci
+(cd server/api && docker compose up -d --wait)
+npm --prefix server/api run prisma:generate
+npm --prefix server/api run prisma:deploy
+npm --prefix server/api run start:dev
 ```
 
 API base after startup:
@@ -87,7 +87,7 @@ npm run prisma:deploy
 
 Customer orders, operator quotes, and order status changes now write to MySQL. `order_status_logs` stores the status timeline, while quote fields on `orders` keep pending/quoted state visible to the customer mini program and operations web.
 
-The `搬运装卸` service now uses a server-side fixed base fee. A destination is optional; when delivery is enabled, Tencent Map driving distance adds the configured start and per-kilometer fee. Quotes expire after ten minutes and orders persist a price-rule snapshot. The legacy manual-quote fields and endpoints remain only for historical-order compatibility.
+The `搬运装卸` service uses a merchant-quote workflow. The customer submits the on-site service address without a destination or upfront payment; the merchant enters the final quote, the customer confirms it, and payment is then enabled. Quote records expire after ten minutes and orders persist the pricing-rule snapshot. The zero-value estimate is intentional and does not represent a fixed base fee.
 
 Buy-for-me orders persist `productFee` and `deliveryFee` separately. Their payable `totalFee` is always calculated as `productFee + deliveryFee`; the legacy `budget` and `serviceFee` response aliases remain available to older clients.
 

@@ -1,0 +1,120 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: city-flash-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: Tests and quality checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_DATABASE: city_flash_ci
+          MYSQL_USER: ci
+          MYSQL_PASSWORD: ci
+          MYSQL_ROOT_PASSWORD: root-ci
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uci -pci --silent"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+    env:
+      DATABASE_URL: mysql://ci:ci@127.0.0.1:3306/city_flash_ci
+      VITE_API_BASE_URL: https://ci.invalid/api
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            server/api/package-lock.json
+            apps/merchant-web/package-lock.json
+
+      - name: Install dependencies
+        run: |
+          npm ci
+          npm --prefix server/api ci
+          npm --prefix apps/merchant-web ci
+
+      - name: Generate Prisma Client
+        run: npm --prefix server/api run prisma:generate
+
+      - name: Run tests and static checks
+        run: npm run check:quality
+
+      - name: Apply CI database migrations
+        run: (cd server/api && npm run prisma:deploy)
+
+      - name: Check production dependencies
+        run: npm run test:security
+
+  containers:
+    name: Build production images
+    needs: quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build API runtime image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./server/api
+          file: ./server/api/Dockerfile
+          target: runtime
+          push: false
+          tags: city-flash-api:ci
+          cache-from: type=gha,scope=api-runtime
+          cache-to: type=gha,mode=max,scope=api-runtime
+          provenance: false
+
+      - name: Build API migration image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./server/api
+          file: ./server/api/Dockerfile
+          target: migration
+          push: false
+          tags: city-flash-api-migration:ci
+          cache-from: type=gha,scope=api-migration
+          cache-to: type=gha,mode=max,scope=api-migration
+          provenance: false
+
+      - name: Build merchant image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./apps/merchant-web
+          file: ./apps/merchant-web/Dockerfile
+          push: false
+          build-args: |
+            VITE_API_BASE_URL=https://ci.invalid/api
+          tags: city-flash-merchant:ci
+          cache-from: type=gha,scope=merchant
+          cache-to: type=gha,mode=max,scope=merchant
+          provenance: false
