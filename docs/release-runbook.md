@@ -15,7 +15,7 @@
 
 1. Git 提交和推送：保存代码与文档版本，推送 `main` 默认只触发 CI。
 2. 云托管发布：分别发布 API 和商家后台两个服务。
-3. 小程序上传：只有小程序代码或配置变化时才执行，不能由云托管服务发布代替。
+3. 小程序上传：只要小程序代码或配置发生变化就必须执行，不能由云托管服务发布代替。
 
 当前版本通道与 API 运行环境的映射是两个独立维度：
 
@@ -77,18 +77,25 @@ npm run check:quality
 
 `npm run check:quality` 必须完整通过，当前覆盖共享包测试、小程序测试与语法检查、API Jest/lint/build/Prisma 校验，以及商家端 TypeScript/Vite 构建。检查失败时不要进入发布步骤。
 
-## 4. 登录和目标服务核验
-
-### 4.1 只选择匹配当前 AppID 的云托管密钥
-
-`deploy/secrets/` 只保留本地未跟踪凭证。密钥文件名必须包含当前项目 AppID；不要把第一个 `.key` 文件当成默认凭证，也不要把支付私钥或小程序上传私钥拿来登录云托管。
+只要本次提交包含 `apps/customer-mp/`、根目录 `project.config.json` 或小程序配置，就要额外确认小程序门禁和版本号：
 
 ~~~sh
-KEY_COUNT="$(find deploy/secrets -maxdepth 1 -type f -name "*${PROJECT_APP_ID}*.key" | wc -l | tr -d ' ')"
-test "$KEY_COUNT" = 1
-KEY_FILE="$(find deploy/secrets -maxdepth 1 -type f -name "*${PROJECT_APP_ID}*.key" -print -quit)"
-chmod 600 "$KEY_FILE"
-CLOUD_PRIVATE_KEY="$(<"$KEY_FILE")"
+npm run test:mini
+find apps/customer-mp -name '*.js' -print0 | xargs -0 -n1 node --check
+git diff --check
+~~~
+
+然后在微信公众平台确认“当前已上传版本”，选择严格递增的新 `x.y.z` 版本；不要沿用工作流里过期的默认版本，也不要把云托管版本号当作小程序版本号。
+
+## 4. 登录和目标服务核验
+
+### 4.1 分清云托管密钥和小程序上传密钥
+
+`deploy/secrets/` 只保留本地未跟踪凭证。云托管 CLI 私钥、小程序代码上传私钥、微信支付私钥用途不同，不能按文件名或扩展名猜用途，也不能相互替代。尤其不要把小程序上传用的 PEM 私钥传给 `wxcloud login`；云托管密钥应从云托管控制台/官方 CLI 配置取得，并与目标 AppID 和租户匹配。
+
+~~~sh
+# 这里只能填云托管 CLI 私钥内容，不是小程序代码上传私钥路径
+CLOUD_PRIVATE_KEY="$(<"/安全位置/cloud-cli-private-key")"
 test -n "$CLOUD_PRIVATE_KEY"
 
 wxcloud login --appId "$PROJECT_APP_ID" --privateKey "$CLOUD_PRIVATE_KEY"
@@ -220,17 +227,28 @@ wxcloud run:deploy "$MERCHANT_CONTEXT" \
 
 如果商家首页能打开但 API 请求失败，优先检查构建产物中的 API 域名是否是当前值，以及 API `CORS_ORIGINS` 是否包含商家域名。若商家域名发生变化，先把完整的 CORS 环境变量集合更新到 API，再重新发布 API。
 
-## 8. 发布小程序（按需）
+## 8. 发布小程序（小程序有变化时必做）
 
-云托管发布不会上传小程序代码。小程序有变化时，按 [deploy/miniprogram-ci.md](../deploy/miniprogram-ci.md) 使用 `miniprogram-ci` 上传：
+云托管发布不会上传小程序代码。只要本次提交包含小程序代码或配置变化，就必须在 API/商家端验收通过后上传同一提交对应的小程序版本。上传前脚本会同时校验根目录与 `apps/customer-mp/project.config.json` 的 AppID，并通过微信项目属性接口校验上传密钥；这一步能尽早拦截旧 AppID 密钥或错误用途的密钥。
 
 ~~~sh
+NEXT_MINI_VERSION="1.0.2" # 按微信公众平台当前版本递增，示例值不是固定默认值
 WECHAT_PRIVATE_KEY_PATH="/安全位置/匹配当前 AppID 的小程序上传私钥" \
-WECHAT_VERSION="x.y.z" \
+WECHAT_VERSION="$NEXT_MINI_VERSION" \
+WECHAT_DESCRIPTION="体验版 main $(git rev-parse --short HEAD)" \
 npm run miniprogram:upload
 ~~~
 
-上传前确认 `project.config.json` 的 AppID 正确；体验版和正式版都按当前运行时代码访问 `prod`，不要把版本通道名称当作云环境名称。
+本地上传应使用 Node 22–24 运行 `miniprogram-ci@2.1.31`；如果系统 Node 版本更高，先切换到项目已验证的兼容 Node，再执行上面的脚本。上传成功后记录微信返回的 AppID、版本号、Git SHA 和包大小，并在微信公众平台手动点击“设为体验版”。上传本身不会自动切换体验版入口。
+
+若使用 GitHub Actions：
+
+1. 先把当前 AppID 对应的小程序代码上传密钥更新到仓库 Secret `WECHAT_PRIVATE_KEY`；该 Secret 不能使用旧 AppID 密钥、云托管 CLI 密钥或支付私钥。
+2. 手动运行 `.github/workflows/miniprogram-release.yml`，必须填写高于平台当前版本的 `version`；工作流不再提供可能过期的默认版本。
+3. 工作流在上传前执行完整小程序测试、JS 语法检查、密钥格式检查和远端 AppID 校验，并用并发锁避免重复上传。
+4. 上传失败时先看微信错误码和工作流打印的 Runner 出口 IP。`invalid ip` 表示微信公众平台“小程序代码上传 IP 白名单”拒绝了当前出口；GitHub 托管 Runner 的 IP 会变化。本次验证采用关闭上传 IP 白名单的配置；如果必须启用白名单，应先改用固定出口的自托管 Runner，再把固定 IP 加入微信白名单。
+
+体验版和正式版都按当前运行时代码访问 `prod`，不要把版本通道名称当作云环境名称。
 
 ## 9. 发布后验收
 
@@ -250,7 +268,7 @@ rg -n --fixed-strings "https://$API_DOMAIN/api" apps/merchant-web/dist
 - API 和商家最新版本均为正常状态、流量 100%、至少一个副本；
 - 商家构建产物包含当前 API 域名；
 - 生产变量仍满足 Mock 关闭、迁移开启、运营员启动初始化关闭等约束；
-- 小程序若本次有上传，上传版本、AppID、版本通道和目标环境记录一致。
+- 本次若改动了小程序，微信平台已存在对应 Git SHA 的新版本，AppID 正确，并已按需要手动设为体验版；`trial → prod`、`release → prod` 的目标环境记录一致。
 
 CLI 可能在发布过程中显示 `ResourceNotFound.TopicNotExist`，或重复打印历史日期的日志。这类输出不能单独作为失败依据；先检查任务是否 `finished`、最新版本状态/流量/副本和独立 HTTP 健康检查。只有任务未完成、版本异常或健康检查失败时才按失败处理，避免立即重复发布。
 
@@ -258,7 +276,7 @@ CLI 可能在发布过程中显示 `ResourceNotFound.TopicNotExist`，或重复�
 
 | 现象 | 原因 | 正确处理 |
 | --- | --- | --- |
-| CLI 登录失败，提示 AppID/密钥不匹配 | 选中了旧 AppID 的云托管密钥 | 只使用文件名匹配当前 AppID 的 `.key` |
+| CLI 登录失败，提示 AppID/密钥不匹配 | 选中了旧 AppID、支付或小程序上传密钥 | 使用云托管控制台提供的 CLI 私钥，并核对 AppID 与租户 |
 | `Tenant not found` | 当前账号没有目标租户或项目权限 | 停止操作，核对账号和权限 |
 | `TopicNotExist` 或旧日志反复出现 | CLI 任务日志观察器可能返回陈旧或无关日志 | 查任务、版本详情、健康检查，不要仅凭日志重跑 |
 | `ERR_FR_MAX_BODY_LENGTH_EXCEEDED` | CLI 把本地 `node_modules` 一起上传 | 使用本 Runbook 的精简临时上下文 |
@@ -269,6 +287,9 @@ CLI 可能在发布过程中显示 `ResourceNotFound.TopicNotExist`，或重复�
 | zsh 中定义 `path` 后命令异常 | zsh 的 `path` 与 `PATH` 绑定 | 使用 `endpoint_path` 等其他变量名 |
 | 凭证拿错用途 | 云托管、支付、小程序上传使用不同密钥 | 按命令用途选择对应密钥，任何凭证都不入 Git |
 | 把 `tcb` 当成 `wxcloud` | 混用了 CloudBase CLI 和微信云托管 CLI | 本项目统一使用官方 `@wxcloud/cli` 的 `wxcloud` 命令 |
+| 小程序上传返回 `invalid ip` | 当前本地或 GitHub Runner 出口不在微信上传白名单 | 当前白名单关闭时直接重试；若必须保留白名单，使用固定出口 Runner 并加入实际出口 IP |
+| 小程序上传提示私钥格式/项目属性错误 | Secret 是旧 AppID、云托管密钥或格式损坏 | 更新 `WECHAT_PRIVATE_KEY`，并先通过上传脚本的远端 AppID 校验 |
+| 工作流版本输入过期或重复 | 使用了静态默认版本或并发触发 | 填写高于平台当前版本的新版本，并等待已有上传完成 |
 
 ## 11. 最近一次成功发布记录
 
@@ -280,5 +301,12 @@ CLI 可能在发布过程中显示 `ResourceNotFound.TopicNotExist`，或重复�
 - API `/api/health/ready`、商家 `/healthz` 和首页均通过 HTTP 200，API 响应中的数据库状态为 `true`；
 - 生产变量核验通过：迁移开启、运营员启动初始化关闭、登录和支付 Mock 关闭；
 - 发布后工作树只保留本地未跟踪的 `deploy/secrets/`，没有把凭证提交到 Git。
+
+2026-09-04 小程序上传记录：
+
+- Git：`ee02f7d8c90034ce16e3037dc284c0bf48a7aee8`；
+- AppID：`wxee631108a5a95efc`；版本：`1.0.1`；
+- 使用当前 AppID 的小程序上传私钥、本地兼容 Node 24.19.0 上传成功，包大小约 334 KB；
+- 后续仍需在微信公众平台手动确认并设置为体验版；这条记录不代表云托管服务版本号。
 
 只有 Git 版本、两个云托管服务版本、独立健康检查和生产变量都通过，才算发布完成；“任务创建成功”或“首页能打开”都不够。

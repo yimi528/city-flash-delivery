@@ -49,7 +49,9 @@ API 和商家后台必须使用同一个云托管环境：
 4. `WX_CLOUD_ENV_ID`、`WX_CLOUD_APP_ID`、`WX_CLOUD_PRIVATE_KEY`、两个服务名和 `WX_CLOUD_API_PUBLIC_DOMAIN` 都来自同一云托管环境；
 5. `WX_CLOUD_MERCHANT_MAP_KEY`（如使用地图）和 `WX_CLOUD_API_ENV_PARAMS` 已按当前生产配置审计。
 
-工作流是手动触发的：推送 `main` 只执行 `ci.yml`，不会自动发布云托管。小程序上传也由独立的 `miniprogram-release.yml` 手动执行，云托管服务发布不会上传小程序代码。
+工作流是手动触发的：推送 `main` 只执行 `ci.yml`，不会自动发布云托管。小程序上传也由独立的 `miniprogram-release.yml` 手动执行，云托管服务发布不会上传小程序代码。只要小程序代码或配置有变更，就必须在对应 Git SHA 上手动填写一个高于微信平台当前版本的版本号；工作流不提供静态默认版本，并用并发锁避免重复上传。
+
+小程序工作流当前使用 GitHub 托管 Runner。由于其出口 IP 会变化，本次验证采用关闭微信代码上传 IP 白名单的配置；若生产要求启用白名单，应先改用固定出口的自托管 Runner。上传失败时工作流会打印当前 Runner 出口 IP，`invalid ip` 应按微信平台上传白名单问题处理。
 
 CI 的 API job 使用全新 checkout，仓库中没有本地 `node_modules`，所以可以从 `server/api` 直接构建上传；本机发布不能照抄这一点，必须使用 [Runbook 的精简 API 上下文](release-runbook.md#6-发布-api必须使用精简临时上下文)。
 

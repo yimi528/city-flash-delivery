@@ -5,14 +5,20 @@ const ci = require('miniprogram-ci')
 const repoRoot = path.resolve(__dirname, '..')
 const configPath = path.join(repoRoot, 'project.config.json')
 const projectConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'))
+const miniProgramConfigPath = path.join(repoRoot, 'apps/customer-mp/project.config.json')
+const miniProgramConfig = JSON.parse(fs.readFileSync(miniProgramConfigPath, 'utf8'))
+
+if (!projectConfig.appid || projectConfig.appid !== miniProgramConfig.appid) {
+  throw new Error('根目录与 apps/customer-mp 的 AppID 不一致，已停止上传')
+}
 
 const action = process.env.WECHAT_ACTION || 'preview'
 const version = process.env.WECHAT_VERSION
 const privateKeyPath = process.env.WECHAT_PRIVATE_KEY_PATH
 const qrcodeOutputDest = process.env.WECHAT_QRCODE_PATH || path.join(repoRoot, 'mini-program-preview.jpg')
 
-if (!['preview', 'upload'].includes(action)) {
-  throw new Error('WECHAT_ACTION 必须是 preview 或 upload')
+if (!['preview', 'upload', 'validate'].includes(action)) {
+  throw new Error('WECHAT_ACTION 必须是 preview、upload 或 validate')
 }
 
 if (!version || !/^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/.test(version)) {
@@ -62,6 +68,17 @@ const commonOptions = {
 }
 
 async function main() {
+  const remoteProject = await project.attr()
+  if (remoteProject && remoteProject.appid && remoteProject.appid !== projectConfig.appid) {
+    throw new Error(`上传密钥对应的 AppID 与项目不一致：${remoteProject.appid}`)
+  }
+  console.log(`[miniprogram-ci] AppID 已校验：${projectConfig.appid}`)
+
+  if (action === 'validate') {
+    console.log('[miniprogram-ci] 上传密钥与远端项目属性校验完成')
+    return
+  }
+
   if (action === 'preview') {
     fs.mkdirSync(path.dirname(qrcodeOutputDest), { recursive: true })
     await ci.preview({

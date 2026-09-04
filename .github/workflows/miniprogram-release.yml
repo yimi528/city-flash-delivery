@@ -11,15 +11,18 @@ on:
           - upload
         default: upload
       version:
-        description: '小程序版本号，例如 1.0.0'
+        description: '必须高于微信公众平台当前版本，例如 1.0.2'
         required: true
         type: string
-        default: 1.0.0
       description:
         description: '微信版本备注'
         required: false
         type: string
         default: ''
+
+concurrency:
+  group: miniprogram-release
+  cancel-in-progress: false
 
 permissions:
   contents: read
@@ -27,6 +30,7 @@ permissions:
 jobs:
   mini-program:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -53,6 +57,19 @@ jobs:
           printf '%s' "$WECHAT_PRIVATE_KEY" > "$RUNNER_TEMP/wechat-upload.key"
           chmod 600 "$RUNNER_TEMP/wechat-upload.key"
 
+      - name: Validate WeChat upload key format
+        run: |
+          test -s "$RUNNER_TEMP/wechat-upload.key"
+          grep -q '^-----BEGIN .*PRIVATE KEY-----$' "$RUNNER_TEMP/wechat-upload.key"
+          grep -q '^-----END .*PRIVATE KEY-----$' "$RUNNER_TEMP/wechat-upload.key"
+
+      - name: Validate WeChat project credentials
+        env:
+          WECHAT_PRIVATE_KEY_PATH: ${{ runner.temp }}/wechat-upload.key
+          WECHAT_ACTION: validate
+          WECHAT_VERSION: ${{ inputs.version }}
+        run: node scripts/miniprogram-ci.cjs
+
       - name: Upload Mini Program
         env:
           WECHAT_PRIVATE_KEY_PATH: ${{ runner.temp }}/wechat-upload.key
@@ -60,3 +77,10 @@ jobs:
           WECHAT_VERSION: ${{ inputs.version }}
           WECHAT_DESCRIPTION: ${{ inputs.description }}
         run: node scripts/miniprogram-ci.cjs
+
+      - name: Report runner egress IP on failure
+        if: ${{ failure() }}
+        run: |
+          echo 'GitHub runner egress IP (only needed when WeChat reports invalid ip):'
+          curl --fail --max-time 10 https://api.ipify.org || true
+          echo
