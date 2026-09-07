@@ -1,5 +1,4 @@
 const app = getApp()
-const map = require('../../utils/map')
 const serviceConfig = require('../../utils/service-config')
 const vehicleConfig = require('../../utils/vehicle-config')
 const navigation = require('../../utils/navigation')
@@ -109,7 +108,6 @@ Page({
     activeTask: serviceConfig.PRIMARY_TASKS[0],
     selectedTaskId: serviceConfig.PRIMARY_TASKS[0].id,
     isRouteTask: false,
-    locationText: '定位附近',
     isOpeningOrder: false,
     isTaskTransitioning: false
   },
@@ -178,24 +176,8 @@ Page({
     })
   },
 
-  refreshLocation() {
-    wx.showLoading({ title: '定位中' })
-    map.getCurrentLocation().then((location) => {
-      app.globalData.currentLocation = location
-      return map.reverseGeocode(location)
-    }).then((address) => {
-      app.globalData.currentAddress = address
-      if (address.city) app.globalData.city = address.city
-      this.setData({
-        city: app.globalData.city,
-        locationText: address.name || '当前位置'
-      })
-      wx.hideLoading()
-      wx.showToast({ title: '已定位附近地址', icon: 'success' })
-    }).catch(() => {
-      wx.hideLoading()
-      wx.showToast({ title: '定位失败，请稍后重试', icon: 'none' })
-    })
+  openAddressSelector() {
+    navigation.navigateTo(wx, { url: '/pages/address/address?type=pickup' })
   },
 
   chooseAddress(event) {

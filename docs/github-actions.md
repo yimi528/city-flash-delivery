@@ -1,16 +1,16 @@
 # GitHub Actions
 
-仓库使用三条职责明确的工作流：
+仓库使用两条发布入口，并保留一个被发布入口调用的小程序上传工作流：
 
 | 工作流 | 触发方式 | 作用 |
 | --- | --- | --- |
 | `.github/workflows/ci.yml` | Pull Request、`main` 推送、手动触发 | 小程序/API/商家后台测试，Prisma 校验，依赖审计和 Docker 镜像构建验证 |
-| `.github/workflows/wxcloud-deploy.yml` | 手动触发 | 通过 GitHub Environment 审批后，使用 `@wxcloud/cli` 发布 API 和商家后台 |
-| `.github/workflows/miniprogram-release.yml` | 手动触发 | 使用 `miniprogram-ci` 上传小程序代码 |
+| `.github/workflows/wxcloud-deploy.yml` | 推送 `v*` tag | 通过 GitHub Environment 审批后，发布 API、商家后台并调用小程序上传工作流 |
+| `.github/workflows/miniprogram-release.yml` | `workflow_call` | 从发布 tag 解析版本，使用 `miniprogram-ci` 上传小程序代码 |
 
 生产发布的唯一目标是微信云托管。仓库不再通过 SSH、传统生产主机或旧 Compose 链路发布生产服务。
 
-下一次手动发布按 [微信云托管发布 Runbook](release-runbook.md) 执行；本文件只说明 GitHub Actions 的触发条件和 Secret 边界。
+下一次发布按 [微信云托管发布 Runbook](release-runbook.md) 执行；本文件只说明 GitHub Actions 的触发条件和 Secret 边界。
 
 ## 生产发布保护
 
@@ -25,6 +25,17 @@ API 和商家后台必须使用同一个云托管环境：
 - 数据库使用微信云托管 MySQL 8.0，生产配置不能包含 `REDIS_URL`。
 
 工作流只从 GitHub Secrets/Variables 读取凭证，不读取或上传仓库中的本地密钥文件。CLI 私钥、微信 AppSecret、支付证书和数据库密码不得提交到 Git。
+
+## 统一发布标识
+
+项目使用 Git annotated tag `vX.Y.Z` 作为一次发布的统一标识。例如 `v1.0.3`：
+
+- 小程序上传版本自动取去掉 `v` 后的 `1.0.3`；
+- API 和商家后台的云托管内部版本号仍由平台生成；
+- 两个云托管版本的 `--remark` 会记录发布标签和 Git SHA，便于从平台版本反查源码；
+- 推送 `vX.Y.Z` tag 后，统一发布工作流自动开始，云托管健康检查通过后才上传小程序。
+
+创建并推送 tag 是代码发布唯一的人工触发动作。工作流会拒绝格式不正确、未指向当前提交或不在 `main` 分支历史中的标签；云托管仍通过 `production` Environment 保留生产审批。
 
 ## 质量门禁
 
@@ -43,13 +54,36 @@ API 和商家后台必须使用同一个云托管环境：
 
 按 GitHub Actions 发布时，先确认：
 
-1. 目标分支是 `main`；
+1. 代码已经推送到 `main`，并准备好指向该提交的 `vX.Y.Z` 发布标签；
 2. 仓库变量 `WX_CLOUD_DEPLOY_ENABLED` 为 `true`；
 3. `production` Environment 的审批和保护规则已满足；
-4. `WX_CLOUD_ENV_ID`、`WX_CLOUD_APP_ID`、`WX_CLOUD_PRIVATE_KEY`、两个服务名和 `WX_CLOUD_API_PUBLIC_DOMAIN` 都来自同一云托管环境；
+4. `WX_CLOUD_ENV_ID`、`WX_CLOUD_APP_ID`、`WX_CLOUD_PRIVATE_KEY`、两个服务名和两个公网域名都来自同一云托管环境；
 5. `WX_CLOUD_MERCHANT_MAP_KEY`（如使用地图）和 `WX_CLOUD_API_ENV_PARAMS` 已按当前生产配置审计。
 
-工作流是手动触发的：推送 `main` 只执行 `ci.yml`，不会自动发布云托管。小程序上传也由独立的 `miniprogram-release.yml` 手动执行，云托管服务发布不会上传小程序代码。只要小程序代码或配置有变更，就必须在对应 Git SHA 上手动填写一个高于微信平台当前版本的版本号；工作流不提供静态默认版本，并用并发锁避免重复上传。
+推送 `main` 只执行 `ci.yml`，不会发布生产。创建并推送合法 `vX.Y.Z` tag 后，发布工作流自动执行完整质量检查、云托管部署、API/商家健康检查和小程序上传；小程序版本仍必须高于微信平台当前版本，并用并发锁避免同一 tag 重复发布。
+
+### 创建发布 tag
+
+创建 tag 是唯一保留人工确认的发布动作。项目提供 `npm run release` 辅助计算版本和创建本地 annotated tag，但不会自动推送：
+
+~~~sh
+# 首次建立 Git 发布版本基线时手动指定；新项目可以从 1.0.0 开始
+npm run release -- 1.0.0
+
+# 已有发布 tag 后，不填版本号则自动递增 patch，例如 v1.0.2 -> v1.0.3
+npm run release
+
+# 也可以手动指定更高版本，例如大版本或次版本升级
+npm run release -- 2.0.0
+
+# 检查但不创建 tag
+npm run release -- --dry-run
+
+# 确认微信后台当前小程序版本和本次 tag 后，再手动推送
+git push origin v1.0.0
+~~~
+
+辅助命令要求工作区干净、当前分支为 `main`，且当前提交已经与 `origin/main` 一致。首次发布版本不应盲目使用 `1.0.0`：如果微信后台已有更高版本，应手动指定实际允许上传的下一个版本。后续自动递增只基于 Git tag，仍需留意微信平台上曾经手动上传但未形成 Git tag 的版本。
 
 小程序工作流当前使用 GitHub 托管 Runner。由于其出口 IP 会变化，本次验证采用关闭微信代码上传 IP 白名单的配置；若生产要求启用白名单，应先改用固定出口的自托管 Runner。上传失败时工作流会打印当前 Runner 出口 IP，`invalid ip` 应按微信平台上传白名单问题处理。
 

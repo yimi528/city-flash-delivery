@@ -31,7 +31,7 @@
       <view class="route-node node-b"><text>达</text></view>
       <view class="route-rider">➜</view>
     </view>
-    <view class="locate" bindtap="refreshLocation">⌖</view>
+    <view class="locate" bindtap="openAddressSelector" role="button" aria-label="选择发货地址">⌖</view>
   </view>
 
   <view class="order-panel">

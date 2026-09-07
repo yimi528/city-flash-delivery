@@ -24,14 +24,6 @@
     "backgroundColor": "#f5f6fa",
     "backgroundTextStyle": "dark"
   },
-  "permission": {
-    "scope.userLocation": {
-      "desc": "用于定位当前位置、搜索附近地址并计算配送距离"
-    }
-  },
-  "requiredPrivateInfos": [
-    "getLocation"
-  ],
   "tabBar": {
     "color": "#6f7788",
     "selectedColor": "#ff1f16",

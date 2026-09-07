@@ -76,7 +76,6 @@ Page({
     saveToAddressBook: false,
     resolving: true,
     moving: false,
-    locating: false,
     errorMessage: ''
   },
 
@@ -91,7 +90,7 @@ Page({
     const pendingMapAddress = globalData.pendingMapAddress || null
     const draftAddress = draft[draftKey(type)]
     const initialAddress = pendingMapAddress || (query.from === 'add' ? null : draftAddress)
-    const initialPoint = pointFrom(initialAddress) || pointFrom(globalData.currentLocation)
+    const initialPoint = pointFrom(initialAddress)
     // 下单提交会校验发货、购买和收货地址的联系人信息，新增地址必须在这里一次填完整。
     const requiresContact = true
 
@@ -124,7 +123,8 @@ Page({
       this.resolveLocation(this.initialPoint)
       return
     }
-    this.useCurrentLocation()
+    // 没有设备定位时，以默认地图中心作为起点，用户通过拖动图钉自行选择。
+    this.resolveLocation({ latitude: this.data.latitude, longitude: this.data.longitude })
   },
 
   onUnload() {
@@ -156,7 +156,7 @@ Page({
   resolveLocation(location) {
     const point = pointFrom(location)
     if (!point) {
-      this.setData({ resolving: false, errorMessage: '当前位置坐标无效，请重新选择' })
+      this.setData({ resolving: false, errorMessage: '地图中心坐标无效，请重新选择' })
       return
     }
     const key = pointKey(point)
@@ -206,25 +206,6 @@ Page({
         this.setData({ resolving: false, moving: false, errorMessage: '地址解析失败，请检查网络后重试' })
         this.activeResolveKey = ''
       }
-    })
-  },
-
-  useCurrentLocation() {
-    if (this.data.locating) return
-    this.setData({ locating: true, errorMessage: '' })
-    map.getCurrentLocation().then((location) => {
-      const point = pointFrom(location)
-      app.globalData.currentLocation = location
-      this.ignoreRegionEventsUntil = Date.now() + 1200
-      this.setData({
-        latitude: point.latitude,
-        longitude: point.longitude,
-        scale: 17,
-        locating: false
-      })
-      this.resolveLocation(point)
-    }).catch(() => {
-      this.setData({ locating: false, resolving: false, errorMessage: '定位失败，请检查位置权限' })
     })
   },
 

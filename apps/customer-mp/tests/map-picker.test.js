@@ -98,6 +98,8 @@ test('map picker is registered and uses the native Tencent map center pin flow',
   assert.match(template, /<map[\s\S]*bindregionchange="onRegionChange"/)
   assert.match(template, /<cover-image[\s\S]*class="center-pin/)
   assert.match(template, /src="\.\.\/\.\.\/assets\/map-pin\.png"/)
+  assert.doesNotMatch(template, /show-location/)
+  assert.doesNotMatch(template, /useCurrentLocation/)
   assert.match(template, /联系人 <text>\*<\/text>/)
   assert.match(template, /手机号 <text>\*<\/text>/)
   assert.match(addressTemplate, /bindtap="openMapPicker"/)
@@ -153,11 +155,13 @@ test('carpool map confirmation preserves route parameters', async () => {
   fixture.page.onLoad({ type: 'dropoff', mode: 'carpool', route: 'cangnan' })
   fixture.page.onReady()
   await flushPromises()
+  fixture.page.onRegionChange({ type: 'end' })
+  await flushPromises()
   fixture.page.data.form.detail = '苍南测试路1号'
   fixture.page.data.form.contact = '测试用户'
   fixture.page.data.form.phone = '13800000000'
   fixture.page.confirmLocation()
 
   assert.equal(fixture.app.globalData.draftOrder.dropoff.detail, '苍南测试路1号')
-  assert.equal(fixture.app.globalData.draftOrder.dropoff.latitude, 27.52)
+  assert.equal(fixture.app.globalData.draftOrder.dropoff.latitude, 27.51)
 })

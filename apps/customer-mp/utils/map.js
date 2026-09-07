@@ -1,4 +1,5 @@
 const cloudRequest = require('./cloud-request')
+const mockLocation = require('./mock-location')
 
 const QQ_MAP_HOST = 'https://apis.map.qq.com'
 const DEFAULT_REGION = '福鼎市'
@@ -504,39 +505,11 @@ function normalizeReverseGeocode(result, point) {
 }
 
 function getCurrentLocation() {
-  const config = getConfig()
-  return new Promise((resolve, reject) => {
-    if (typeof wx === 'undefined' || !wx.getLocation) {
-      reject(new Error('当前环境不支持真实定位'))
-      return
-    }
-    wx.getLocation({
-      type: 'gcj02',
-      isHighAccuracy: true,
-      highAccuracyExpireTime: 5000,
-      success(res) {
-        const latitude = Number(res.latitude)
-        const longitude = Number(res.longitude)
-        if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
-          reject(new Error('定位返回的坐标无效'))
-          return
-        }
-        const location = {
-          latitude,
-          longitude,
-          speed: res.speed,
-          accuracy: res.accuracy,
-          source: 'device'
-        }
-        const globalData = getGlobalData()
-        globalData.currentLocation = location
-        resolve(location)
-      },
-      fail(error) {
-        reject(error || new Error('定位失败，请检查位置权限'))
-      }
-    })
-  })
+  // 临时联调模式：不读取微信设备定位，后续可在此恢复真实定位实现。
+  const location = mockLocation.getMockLocation()
+  const globalData = getGlobalData()
+  globalData.currentLocation = location
+  return Promise.resolve(location)
 }
 
 function estimateDistance(from, to, options) {

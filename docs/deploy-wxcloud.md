@@ -220,7 +220,7 @@ curl --fail "https://<merchant-service-domain>/"
 
 ## 7. 持续交付
 
-微信云托管官方 CLI 支持在自定义 CI/CD 中发布版本。持续交付需要把 `WX_CLOUD_ENV_ID`、AppID 和 CLI 私钥配置在 CI Secret 中；私钥不能进入仓库。生产发布必须手动触发并经过 `production` Environment 审批，发布前由可复用的 CI 工作流完成测试和构建：
+微信云托管官方 CLI 支持在自定义 CI/CD 中发布版本。持续交付需要把 `WX_CLOUD_ENV_ID`、AppID 和 CLI 私钥配置在 CI Secret 中；私钥不能进入仓库。推送合法的 `vX.Y.Z` tag 会触发统一发布工作流，云托管发布仍经过 `production` Environment 审批，发布前由可复用的 CI 工作流完成测试和构建：
 
 `.github/workflows/wxcloud-deploy.yml` 使用以下 GitHub Actions Secret：
 
@@ -231,16 +231,17 @@ WX_CLOUD_PRIVATE_KEY
 WX_CLOUD_API_SERVICE_NAME
 WX_CLOUD_MERCHANT_SERVICE_NAME
 WX_CLOUD_API_PUBLIC_DOMAIN
+WX_CLOUD_MERCHANT_PUBLIC_DOMAIN
 ```
 
 `WX_CLOUD_MERCHANT_MAP_KEY` 可以作为可选的商家地图前端 Key；`WX_CLOUD_API_ENV_PARAMS` 只有在需要同步更新 API 环境变量时才设置，不能把私钥或密码提交到仓库。
 
 另外设置一个仓库变量 `WX_CLOUD_DEPLOY_ENABLED`：
 
-- 不设置或设置为 `false`：手动触发发布工作流时执行完整质量检查，但跳过云端发布；
-- 设置为 `true`：在上述 Secret 都已配置并通过生产环境审批后，手动触发才发布 API 和商家后台。
+- 不设置或设置为 `false`：tag 发布在配置门禁处失败，不发布云端服务，也不上传小程序；
+- 设置为 `true`：在上述 Secret 都已配置并通过生产环境审批后，tag 发布自动发布 API 和商家后台，并在健康检查通过后上传小程序。
 
-常规代码变更由 `.github/workflows/ci.yml` 在 Pull Request 和 `main` 分支上执行质量检查；云托管工作流复用同一套质量门禁，不直接响应 `main` 推送。
+常规代码变更由 `.github/workflows/ci.yml` 在 Pull Request 和 `main` 分支上执行质量检查；发布工作流复用同一套质量门禁，不直接响应 `main` 推送，只响应 `v*` tag。
 
 本机手动发布的完整命令（包括 API 精简上传上下文、商家构建时 API 域名注入和发布后验收）见[下一次发布 Runbook](release-runbook.md)。实际 CI 参数以官方文档和当前 CLI 帮助为准。首次接入新环境时，先完成一次手动部署和验收，再将 `WX_CLOUD_DEPLOY_ENABLED` 设为 `true`。
 

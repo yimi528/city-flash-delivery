@@ -4,23 +4,29 @@ const test = require('node:test')
 
 const mapPath = path.resolve(__dirname, '../utils/map.js')
 
-test('location failures do not silently use the hard-coded city center', async () => {
-  global.wx = {
-    getLocation(options) {
-      options.fail({ errMsg: 'getLocation:fail auth deny' })
+test('location helper uses an explicit mock coordinate without reading device location', async () => {
+  global.wx = {}
+  const globalData = {
+    city: '福鼎市',
+    currentLocation: null,
+    mapConfig: {
+      fallbackLocation: { latitude: 27.3245, longitude: 120.216 }
     }
   }
   global.getApp = () => ({
-    globalData: {
-      city: '福鼎市',
-      currentLocation: null,
-      mapConfig: {
-        fallbackLocation: { latitude: 27.3245, longitude: 120.216 }
-      }
-    }
+    globalData
   })
   delete require.cache[require.resolve(mapPath)]
   const map = require(mapPath)
 
-  await assert.rejects(map.getCurrentLocation(), (error) => error && /auth deny/.test(error.errMsg))
+  const location = await map.getCurrentLocation()
+  assert.deepEqual(location, {
+    latitude: 27.3245,
+    longitude: 120.216,
+    speed: 0,
+    accuracy: 50,
+    source: 'mock',
+    isMock: true
+  })
+  assert.deepEqual(globalData.currentLocation, location)
 })

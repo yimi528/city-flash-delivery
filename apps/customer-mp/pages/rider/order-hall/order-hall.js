@@ -2,6 +2,7 @@ const app = getApp()
 const navigation = require('../../../utils/navigation')
 const api = require('../../../utils/rider-api')
 const { createOrderAlert } = require('../../../utils/order-alert')
+const mockLocation = require('../../../utils/mock-location')
 
 const SOUND_STORAGE_KEY = 'riderNewOrderSound'
 
@@ -82,19 +83,16 @@ Page({
 
   goOnline() {
     if (this.data.online) return
-    wx.getLocation({
-      type: 'gcj02',
-      success: (location) => api.setOnline(true)
-        .then(() => api.updateLocation(location.latitude, location.longitude))
-        .then((rider) => {
-          app.updateRider(rider)
-          this.setData({ rider, online: true })
-          app.startRiderPresence()
-          this.loadOrders(true)
-        })
-        .catch((error) => wx.showToast({ title: error.message, icon: 'none' })),
-      fail: () => wx.showToast({ title: '上线需要位置权限', icon: 'none' })
-    })
+    const location = mockLocation.getMockLocation()
+    api.setOnline(true)
+      .then(() => api.updateLocation(location.latitude, location.longitude))
+      .then((rider) => {
+        app.updateRider(rider)
+        this.setData({ rider, online: true })
+        app.startRiderPresence()
+        this.loadOrders(true)
+      })
+      .catch((error) => wx.showToast({ title: error.message, icon: 'none' }))
   },
 
   // Keep one stable tap entry so a cached WXML/JS pair cannot lose the action

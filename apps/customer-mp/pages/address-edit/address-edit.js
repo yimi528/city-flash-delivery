@@ -93,7 +93,6 @@ Page({
     recognizing: false,
     mapKeyword: '',
     mapResults: [],
-    isLocating: false,
     isSearching: false
   },
 
@@ -272,27 +271,6 @@ Page({
     if (!selected) return
     this.setData({ form: fillFromMapAddress(this.data.form, selected), mapKeyword: selected.name, mapResults: [] })
     wx.showToast({ title: '已填入地图地址', icon: 'success' })
-  },
-
-  useCurrentLocation() {
-    this.setData({ isLocating: true })
-    map.getCurrentLocation().then((location) => {
-      app.globalData.currentLocation = location
-      return map.reverseGeocode(location)
-    }).then((address) => {
-      if (this.data.isCarpool && !carpool.isSelectedCityAddress(address, this.data.routeId, this.data.selectedDistrict)) {
-        this.setData({ isLocating: false })
-        wx.showToast({ title: `当前位置不在${this.data.routeName}境内`, icon: 'none' })
-        return
-      }
-      app.globalData.currentAddress = address
-      if (address.city) app.globalData.city = address.city
-      this.setData({ form: fillFromMapAddress(this.data.form, address), isLocating: false, mapKeyword: address.name })
-      wx.showToast({ title: '已定位当前位置', icon: 'success' })
-    }).catch(() => {
-      this.setData({ isLocating: false })
-      wx.showToast({ title: '定位失败', icon: 'none' })
-    })
   },
 
   selectTag(event) {

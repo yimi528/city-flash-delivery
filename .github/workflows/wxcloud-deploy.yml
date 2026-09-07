@@ -1,37 +1,94 @@
-name: Deploy to WeChat Cloud Hosting
+name: Release to WeChat Cloud Hosting and Mini Program
 
 on:
-  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
 
 permissions:
   contents: read
 
+concurrency:
+  group: city-flash-release-${{ github.ref_name }}
+  cancel-in-progress: false
+
 jobs:
+  release-context:
+    name: Validate release tag
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.release.outputs.tag }}
+      version: ${{ steps.release.outputs.version }}
+      sha: ${{ steps.release.outputs.sha }}
+    steps:
+      - name: Checkout release commit
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate tag and resolve version
+        id: release
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          set -Eeuo pipefail
+          if [[ ! "$GITHUB_REF" == refs/tags/* ]]; then
+            echo "发布工作流只能由 Git tag 触发" >&2
+            exit 1
+          fi
+          if [[ ! "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "发布 tag 必须是 vX.Y.Z 格式，例如 v1.0.3" >&2
+            exit 1
+          fi
+          git fetch origin main --no-tags
+          tag_sha="$(git rev-list -n 1 "$RELEASE_TAG")"
+          if [[ "$tag_sha" != "$GITHUB_SHA" ]]; then
+            echo "tag 必须指向当前 workflow 的 Git SHA" >&2
+            echo "tag=${tag_sha} workflow=${GITHUB_SHA}" >&2
+            exit 1
+          fi
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "发布 tag 必须指向 main 分支历史中的提交" >&2
+            exit 1
+          fi
+          release_version="${RELEASE_TAG#v}"
+          release_sha="$(git rev-parse --short "$GITHUB_SHA")"
+          echo "tag=${RELEASE_TAG}" >> "$GITHUB_OUTPUT"
+          echo "version=${release_version}" >> "$GITHUB_OUTPUT"
+          echo "sha=${release_sha}" >> "$GITHUB_OUTPUT"
+          echo "Release ${RELEASE_TAG} (${release_sha}) is ready"
+
   quality:
     name: Shared CI gate
+    needs: release-context
     uses: ./.github/workflows/ci.yml
     secrets: inherit
 
   deploy:
-    name: Deploy to WeChat Cloud Hosting
-    needs: quality
-    if: github.ref == 'refs/heads/main' && vars.WX_CLOUD_DEPLOY_ENABLED == 'true'
+    name: Deploy API and merchant web
+    needs: [release-context, quality]
+    if: vars.WX_CLOUD_DEPLOY_ENABLED == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment:
       name: production
     env:
+      RELEASE_TAG: ${{ needs.release-context.outputs.tag }}
+      RELEASE_SHA: ${{ needs.release-context.outputs.sha }}
       WX_CLOUD_ENV_ID: ${{ secrets.WX_CLOUD_ENV_ID }}
       WX_CLOUD_APP_ID: ${{ secrets.WX_CLOUD_APP_ID }}
       WX_CLOUD_PRIVATE_KEY: ${{ secrets.WX_CLOUD_PRIVATE_KEY }}
       WX_CLOUD_API_SERVICE_NAME: ${{ secrets.WX_CLOUD_API_SERVICE_NAME }}
       WX_CLOUD_MERCHANT_SERVICE_NAME: ${{ secrets.WX_CLOUD_MERCHANT_SERVICE_NAME }}
       WX_CLOUD_API_PUBLIC_DOMAIN: ${{ secrets.WX_CLOUD_API_PUBLIC_DOMAIN }}
+      WX_CLOUD_MERCHANT_PUBLIC_DOMAIN: ${{ secrets.WX_CLOUD_MERCHANT_PUBLIC_DOMAIN }}
       WX_CLOUD_API_ENV_PARAMS: ${{ secrets.WX_CLOUD_API_ENV_PARAMS }}
 
     steps:
       - name: Check out source
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -51,6 +108,7 @@ jobs:
           test -n "$WX_CLOUD_API_SERVICE_NAME"
           test -n "$WX_CLOUD_MERCHANT_SERVICE_NAME"
           test -n "$WX_CLOUD_API_PUBLIC_DOMAIN"
+          test -n "$WX_CLOUD_MERCHANT_PUBLIC_DOMAIN"
 
       - name: Login to WeChat Cloud Hosting
         run: wxcloud login --appId "$WX_CLOUD_APP_ID" --privateKey "$WX_CLOUD_PRIVATE_KEY"
@@ -66,7 +124,7 @@ jobs:
             --serviceName "$WX_CLOUD_API_SERVICE_NAME"
             --region ap-shanghai
             --releaseType FULL
-            --remark "GitHub Actions $GITHUB_SHA"
+            --remark "Release ${RELEASE_TAG} API ${RELEASE_SHA}"
           )
           if [ -n "$WX_CLOUD_API_ENV_PARAMS" ]; then
             args+=(--envParams "$WX_CLOUD_API_ENV_PARAMS")
@@ -89,6 +147,9 @@ jobs:
           npm ci
           npm run build
 
+      - name: Verify merchant API endpoint in build
+        run: rg -n --fixed-strings "https://${WX_CLOUD_API_PUBLIC_DOMAIN}/api" apps/merchant-web/dist
+
       - name: Deploy merchant web
         run: |
           merchant_package_dir="$(mktemp -d)"
@@ -104,25 +165,33 @@ jobs:
             --serviceName "$WX_CLOUD_MERCHANT_SERVICE_NAME" \
             --region ap-shanghai \
             --releaseType FULL \
-            --remark "GitHub Actions merchant $GITHUB_SHA" \
+            --remark "Release ${RELEASE_TAG} merchant ${RELEASE_SHA}" \
             --noConfirm
 
+      - name: Check merchant health
+        run: |
+          curl --fail --retry 12 --retry-delay 5 --retry-connrefused \
+            "https://${WX_CLOUD_MERCHANT_PUBLIC_DOMAIN}/healthz"
+          curl --fail --retry 12 --retry-delay 5 --retry-connrefused \
+            "https://${WX_CLOUD_MERCHANT_PUBLIC_DOMAIN}/"
+
   deployment-not-configured:
-    name: Cloud deployment status
-    needs: quality
-    if: github.ref == 'refs/heads/main' && vars.WX_CLOUD_DEPLOY_ENABLED != 'true'
+    name: Require cloud deployment configuration
+    needs: [release-context, quality]
+    if: needs.quality.result == 'success' && vars.WX_CLOUD_DEPLOY_ENABLED != 'true'
     runs-on: ubuntu-latest
 
     steps:
       - name: Explain deployment is disabled
-        run: echo "Quality checks passed. Set repository variable WX_CLOUD_DEPLOY_ENABLED=true and configure the wxcloud secrets to enable deployment."
+        run: |
+          echo 'WX_CLOUD_DEPLOY_ENABLED must be true and cloud secrets must be configured before a release tag is pushed.'
+          exit 1
 
-  deployment-not-main:
-    name: Production deployment requires main
-    needs: quality
-    if: github.ref != 'refs/heads/main'
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Explain deployment branch protection
-        run: echo "Quality checks passed. Production deployment is restricted to the main branch."
+  mini-program:
+    name: Upload mini program
+    needs: [release-context, deploy]
+    if: needs.deploy.result == 'success'
+    uses: ./.github/workflows/miniprogram-release.yml
+    with:
+      release_tag: ${{ needs.release-context.outputs.tag }}
+    secrets: inherit

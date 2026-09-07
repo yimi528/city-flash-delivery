@@ -3,8 +3,14 @@ let runtimeConfig = {
   resolveCloudEnvId: () => '',
   WX_CLOUD_SERVICE_NAME: 'city-flash-api'
 }
+let mockLocation = {
+  getMockLocation: () => ({ latitude: 27.3245, longitude: 120.216 })
+}
 try {
   if (typeof require === 'function') runtimeConfig = require('./config/runtime')
+} catch (error) {}
+try {
+  if (typeof require === 'function') mockLocation = require('./utils/mock-location')
 } catch (error) {}
 
 App({
@@ -223,11 +229,8 @@ App({
     const heartbeat = (latitude, longitude) => riderApi.heartbeat(latitude, longitude)
       .then((nextRider) => this.updateRider(nextRider))
       .catch(() => {})
-    wx.getLocation({
-      type: 'gcj02',
-      success: (location) => heartbeat(location.latitude, location.longitude),
-      fail: () => heartbeat()
-    })
+    const location = mockLocation.getMockLocation()
+    heartbeat(location.latitude, location.longitude)
   },
 
   globalData: {

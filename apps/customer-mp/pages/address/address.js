@@ -55,10 +55,7 @@ Page({
     myAddresses: [],
     frequentAddresses: [],
     mapResults: [],
-    currentAddress: null,
-    isLocating: false,
     isSearching: false,
-    locationTip: '点击定位后，会按当前位置推荐附近地址',
     scopeTip: ''
   },
 
@@ -86,9 +83,7 @@ Page({
       title: meta.title,
       pinLabel: meta.pinLabel,
       pinClass: meta.pinClass,
-      currentAddress: globalData.currentAddress || null,
       addresses: savedAddresses,
-      locationTip: isCarpool ? (route.allowAnyCity ? `仅显示${route.city}境内地址` : `仅显示${route.name}线路指定行政区地址`) : '点击定位后，会按当前位置推荐附近地址',
       scopeTip: isCarpool ? (route.allowAnyCity ? `已选${route.name}线，支持${route.city}境内地址` : `已选${route.name} · ${selectedDistrict || '请选择行政区'}，仅支持 ${(route.allowedDistricts || []).join('、')}`) : ''
     })
     if (isCarpool) this.loadCarpoolRecommendations()
@@ -198,34 +193,6 @@ Page({
     }).catch(() => {
       if (this.searchSeq === searchSeq) this.setData({ mapResults: [], isSearching: false })
     })
-  },
-
-  locateCurrent() {
-    this.setData({ isLocating: true, locationTip: '正在获取当前位置...' })
-    map.getCurrentLocation().then((location) => {
-      app.globalData.currentLocation = location
-      return map.reverseGeocode(location)
-    }).then((address) => {
-      app.globalData.currentAddress = address
-      if (address.city) app.globalData.city = address.city
-      this.setData({
-        currentAddress: address,
-        isLocating: false,
-        locationTip: `${address.source === 'tencent' ? '腾讯地图' : '本地'}定位 · ${address.distance}`
-      }, () => this.applySearch(app.globalData.addresses))
-      wx.showToast({ title: '定位成功', icon: 'success' })
-    }).catch(() => {
-      this.setData({ isLocating: false, locationTip: '定位失败，请检查授权后重试' })
-      wx.showToast({ title: '定位失败', icon: 'none' })
-    })
-  },
-
-  chooseCurrent() {
-    if (!this.data.currentAddress) {
-      this.locateCurrent()
-      return
-    }
-    this.openMapAddress(this.data.currentAddress)
   },
 
   openMapPicker() {

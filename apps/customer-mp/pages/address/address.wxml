@@ -26,19 +26,12 @@
   <view class="search-card">
     <text class="search-icon">⌕</text>
     <input placeholder="搜索小区、写字楼、门店" value="{{keyword}}" bindinput="onSearch" confirm-type="search" />
-    <view class="search-locate" role="button" aria-label="定位当前位置" bindtap="locateCurrent"><view class="search-locate-icon">⌖</view><view>{{isLocating ? '定位中' : '当前位置'}}</view></view>
   </view>
 
   <view class="map-picker-card" role="button" aria-label="打开地图选点" bindtap="openMapPicker">
     <view class="map-picker-visual"><view class="map-picker-icon"><view class="map-picker-dot"></view></view></view>
     <view class="location-copy"><view class="location-title">地图选点</view><view class="location-sub">拖动地图上的红色图钉，精确选择位置</view></view>
     <view class="map-picker-action">打开</view>
-  </view>
-
-  <view class="current-card" wx:if="{{currentAddress && !isCarpool}}" bindtap="chooseCurrent">
-    <view class="current-icon">⌖</view>
-    <view class="current-copy"><view class="current-label">当前位置</view><view class="current-name">{{currentAddress.name}}</view><view class="current-detail">{{currentAddress.detail}}</view></view>
-    <view class="current-use">使用 <text>›</text></view>
   </view>
 
   <view class="list-header">
