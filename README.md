@@ -261,11 +261,12 @@ node --test apps/customer-mp/tests/*.test.js
 仓库工作流包括：
 
 - .github/workflows/ci.yml：Pull Request 和 main 分支的质量检查、构建验证
-- .github/workflows/wxcloud-deploy.yml：推送 `vX.Y.Z` tag 后，经环境审批自动发布微信云托管并上传小程序
+- .github/workflows/wxcloud-deploy.yml：仅供手动备用发布，不响应 tag push
 - .github/workflows/miniprogram-release.yml：由统一发布工作流调用的小程序上传子工作流
 - `npm run release`：手动指定版本或根据最新 tag 自动递增 patch，创建本地发布 tag；不会自动推送
+- `npm run release:local`：在本机执行质量门禁、云托管部署、健康检查和小程序上传；不会触发 GitHub Actions
 
-未配置云托管 Secret 或未将 WX_CLOUD_DEPLOY_ENABLED 设为 true 时，tag 发布会在配置门禁处失败，不会上传小程序或发布云端服务。CLI 私钥、微信 AppSecret、支付证书和数据库密码不得提交到仓库。
+GitHub 的 `main` 推送仍执行质量检查，tag push 不再触发生产发布。云托管 CLI 私钥、微信 AppSecret、支付证书和数据库密码不得提交到仓库。
 
 ## 相关文档
 

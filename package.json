@@ -25,7 +25,8 @@
     "test:security": "npm --prefix server/api audit --omit=dev && npm --prefix apps/merchant-web audit --omit=dev",
     "test:containers": "bash scripts/check-containers.sh",
     "release:check": "bash scripts/validate-production.sh",
-    "release": "node scripts/release-tag.mjs"
+    "release": "node scripts/release-tag.mjs",
+    "release:local": "bash scripts/release-local.sh"
   },
   "devDependencies": {
     "miniprogram-ci": "^2.1.31"

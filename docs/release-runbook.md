@@ -11,11 +11,12 @@
 
 ## 1. 先理解一次发布包含什么
 
-一次发布包含三个阶段，其中创建并推送 tag 是唯一的代码发布触发动作：
+一次本地发布包含四个阶段，GitHub tag 只用于版本留痕，不触发生产部署：
 
-1. Git 提交、推送和打 tag：保存代码与文档版本，`vX.Y.Z` 是本次发布的统一标识，推送 `main` 默认只触发 CI。
-2. 自动云托管发布：发布 API 和商家后台两个服务，并执行健康检查。
-3. 自动小程序上传：云托管健康检查通过后，上传同一 tag 对应的小程序版本。
+1. Git 提交、推送和打 tag：保存代码与文档版本，`vX.Y.Z` 是本次发布的统一标识，推送 `main` 只触发 CI。
+2. 本地质量门禁：`npm run release:local` 先执行生产配置、测试、构建和依赖审计。
+3. 本地云托管发布：发布 API 和商家后台两个服务，并执行健康检查。
+4. 本地小程序上传：云托管健康检查通过后，上传同一 tag 对应的小程序版本。
 
 云托管 API 和商家后台的内部版本号由微信云托管平台生成，不能通过当前 `wxcloud run:deploy` 直接指定为 `X.Y.Z`；发布命令会把 `vX.Y.Z` 和 Git SHA 写入版本备注。小程序版本则使用同一个 tag 去掉 `v` 后的 `X.Y.Z`。
 
@@ -145,7 +146,7 @@ git push origin main
 git rev-parse HEAD
 git ls-remote origin refs/heads/main
 
-# 质量门禁通过后创建 tag。首次没有 Git 发布 tag 时必须手动指定版本；
+# 先推送已经提交的 main，再创建本地 tag。首次没有 Git 发布 tag 时必须手动指定版本；
 # 新项目可以从 1.0.0 开始。如果微信后台已有更高版本，应填写实际允许上传的下一个版本。
 # 首次发布（二选一）：
 # npm run release -- --dry-run 1.0.0
@@ -155,12 +156,15 @@ git ls-remote origin refs/heads/main
 # npm run release
 # 也可以手动指定更高版本：npm run release -- 2.0.0
 
-# 命令只创建本地 annotated tag，不会自动推送；确认微信后台版本后再推送。
+# tag 创建后直接在本机发布；命令不会触发 GitHub Actions。
 RELEASE_TAG="$(git describe --tags --exact-match HEAD)"
+npm run release:local -- "$RELEASE_TAG"
+
+# 本地发布成功后，再推送 tag 做版本留痕。
 git push origin "$RELEASE_TAG"
 ~~~
 
-如果 `origin/main` 在本地提交之后又有新提交，先停止发布，按项目协作约定处理 rebase 或合并并重新跑质量门禁。推送 `main` 只会触发 `.github/workflows/ci.yml`；推送合法的 `vX.Y.Z` tag 后，`.github/workflows/wxcloud-deploy.yml` 自动执行质量检查、云托管发布、健康检查和小程序上传，并受 `WX_CLOUD_DEPLOY_ENABLED` 与 `production` Environment 审批控制。
+如果 `origin/main` 在本地提交之后又有新提交，先停止发布，按项目协作约定处理 rebase 或合并并重新跑质量门禁。推送 `main` 只会触发 `.github/workflows/ci.yml`；推送 tag 不再触发生产部署。GitHub 的 `.github/workflows/wxcloud-deploy.yml` 仅保留手动 `workflow_dispatch` 备用入口。
 
 ## 6. 发布 API：必须使用精简临时上下文
 
@@ -247,24 +251,19 @@ wxcloud run:deploy "$MERCHANT_CONTEXT" \
 
 ## 8. 发布小程序（小程序有变化时必做）
 
-单独执行 `wxcloud run:deploy` 不会上传小程序代码；统一 tag 发布工作流会在 API/商家端健康检查通过后自动调用小程序上传子工作流。只要本次提交包含小程序代码或配置变化，就必须上传同一 tag 对应的小程序版本。上传前脚本会同时校验根目录与 `apps/customer-mp/project.config.json` 的 AppID，并通过微信项目属性接口校验上传密钥；这一步能尽早拦截旧 AppID 密钥或错误用途的密钥。
+单独执行 `wxcloud run:deploy` 不会上传小程序代码；`npm run release:local` 会在 API/商家端健康检查通过后调用小程序上传脚本。只要本次提交包含小程序代码或配置变化，就必须上传同一 tag 对应的小程序版本。上传前脚本会同时校验根目录与 `apps/customer-mp/project.config.json` 的 AppID，并通过微信项目属性接口校验上传密钥；这一步能尽早拦截旧 AppID 密钥或错误用途的密钥。
 
 ~~~sh
-RELEASE_TAG="v1.0.3" # 必须是指向当前 HEAD 的新 tag，并按微信平台当前版本递增
-RELEASE_VERSION="${RELEASE_TAG#v}"
-test "$(git rev-parse "$RELEASE_TAG^{commit}")" = "$(git rev-parse HEAD)"
-WECHAT_PRIVATE_KEY_PATH="/安全位置/匹配当前 AppID 的小程序上传私钥" \
-WECHAT_VERSION="$RELEASE_VERSION" \
-WECHAT_DESCRIPTION="Release $RELEASE_TAG ($(git rev-parse --short HEAD))" \
-npm run miniprogram:upload
+# API、商家后台和小程序统一由本地发布入口执行
+npm run release:local -- v1.0.5
 ~~~
 
 本地上传应使用 Node 22–24 运行 `miniprogram-ci@2.1.31`；如果系统 Node 版本更高，先切换到项目已验证的兼容 Node，再执行上面的脚本。上传成功后记录微信返回的 AppID、版本号、Git SHA 和包大小，并在微信公众平台手动点击“设为体验版”。上传本身不会自动切换体验版入口。
 
-若使用 GitHub Actions：
+若确需使用 GitHub Actions 备用发布：
 
 1. 先把当前 AppID 对应的小程序代码上传密钥更新到仓库 Secret `WECHAT_PRIVATE_KEY`；该 Secret 不能使用旧 AppID 密钥、云托管 CLI 密钥或支付私钥。
-2. 将代码推送到 `main` 后创建并推送本次 `vX.Y.Z` tag；发布工作流会自动执行完整质量检查、云托管部署、API/商家健康检查，并从 tag 解析出高于平台当前版本的 `X.Y.Z` 版本。
+2. 将代码和 tag 推送到 GitHub 后，在 `wxcloud-deploy.yml` 中手动执行 `workflow_dispatch`，填写本次 `vX.Y.Z` tag；工作流会执行完整质量检查、云托管部署和健康检查。
 3. 小程序上传子工作流会执行 JS 语法检查、密钥格式检查和远端 AppID 校验，并用并发锁避免重复上传。
 4. 上传失败时先看微信错误码和工作流打印的 Runner 出口 IP。`invalid ip` 表示微信公众平台“小程序代码上传 IP 白名单”拒绝了当前出口；GitHub 托管 Runner 的 IP 会变化。本次验证采用关闭上传 IP 白名单的配置；如果必须启用白名单，应先改用固定出口的自托管 Runner，再把固定 IP 加入微信白名单。
 

@@ -7,6 +7,11 @@ on:
       - main
   workflow_dispatch:
   workflow_call:
+    inputs:
+      checkout_ref:
+        description: '可选的发布 tag 或 Git ref'
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -41,6 +46,8 @@ jobs:
     steps:
       - name: Check out source
         uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.checkout_ref || github.ref }}
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
