@@ -1,4 +1,4 @@
-import type { ApiOrder, BackendStatus, ConfigCategory, ConfigEnvelope, DashboardPayload, Order, PricingConfig, RiderApplication, ServiceAreaConfig, Stats, Store, SystemSettingsConfig } from './types'
+import type { ApiOrder, BackendStatus, ConfigCategory, ConfigEnvelope, DashboardPayload, Order, PricingConfig, RiderApplication, ServiceAreaConfig, Stats, Store, SystemSettingsConfig } from '../types/domain'
 
 const configuredApiBase = String(import.meta.env.VITE_API_BASE_URL || '').trim().replace(/\/+$/, '')
 export const DEFAULT_API_BASE = configuredApiBase || 'http://127.0.0.1:3000/api'

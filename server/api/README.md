@@ -54,14 +54,14 @@ The production API includes:
 - `pricing`: delivery price estimate using fixed vehicle rules.
 - `maps`: server-side Tencent address search, reverse geocoding, route distance, and automatic bad-weather risk endpoints.
 - `payments`: WeChat Pay API v3, callbacks, close, refund, bills, and reconciliation.
-- `riders`: applications, review, availability, dispatch, lifecycle, and history.
+- `riders`: applications, review, availability, dispatch, lifecycle, and history; the public rider client is currently disabled by `RIDER_FEATURE_ENABLED=false`.
 - `health`: liveness and readiness checks.
 
 ## Unified customer and rider identity
 
-The customer and rider roles now share the same `users` row. A customer submits a rider application from the customer mini program; an operator review transaction creates or activates the `RIDER` role assignment and the rider profile. Rejected applications do not affect customer access, and suspend/resign operations only disable rider capabilities.
+The customer and rider roles still share the same `users` row for future re-enablement. The customer mini program currently exposes only customer features; rider applications, role switching, and rider APIs are blocked unless `RIDER_FEATURE_ENABLED=true`. Existing rider records are retained for operations and later reactivation.
 
-Customer sessions use the identity injected by WeChat Cloud Hosting when the mini program calls the API through `wx.cloud.callContainer` (`x-wx-openid`/`x-wx-unionid`). Local development requests that go directly to the API fall back to `wx.login` and `jscode2session`. The returned UnionID is persisted when the Mini Program is bound to a WeChat Open Platform account, while customer and rider tokens remain separate so switching back to customer mode does not end an active rider shift.
+Customer sessions use the identity injected by WeChat Cloud Hosting when the mini program calls the API through `wx.cloud.callContainer` (`x-wx-openid`/`x-wx-unionid`). Local development requests that go directly to the API fall back to `wx.login` and `jscode2session`. The returned UnionID is persisted when the Mini Program is bound to a WeChat Open Platform account; customer sessions are currently the only public mini-program sessions.
 
 The operations web app uses username + strong password authentication. Passwords are stored with salted scrypt hashes, and five consecutive failures lock the account for 15 minutes. Customer and rider credentials cannot be used to enter the operations console.
 

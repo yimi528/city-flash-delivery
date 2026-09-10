@@ -18,7 +18,8 @@ const riderApp = {
   globalData: {
     apiBaseUrl: 'http://127.0.0.1:3000/api',
     authToken: 'customer-token',
-    riderAuthToken: 'rider-token'
+    riderAuthToken: 'rider-token',
+    riderFeatureEnabled: true
   },
   clearRiderSession() {
     clearedRiderSession = true
@@ -48,6 +49,15 @@ test('rider requests recover after the app instance is temporarily unavailable',
   requestHandler = (options) => options.success({ statusCode: 200, data: { id: 'rider-1' } })
   const rider = await riderApi.me()
   assert.equal(rider.id, 'rider-1')
+})
+
+test('rider requests are blocked when the rider feature is disabled', async () => {
+  riderApp.globalData.riderFeatureEnabled = false
+  requestHandler = () => { throw new Error('the rider API must not be called') }
+
+  await assert.rejects(riderApi.me(), /骑手端暂未开放/)
+
+  riderApp.globalData.riderFeatureEnabled = true
 })
 
 test('an expired rider token clears only the rider session', async () => {
@@ -90,8 +100,9 @@ test('one mini program keeps customer and rider sessions isolated while switchin
     Promise
   }, { filename: appPath })
 
-  app.globalData.useBackend = false
   app.onLaunch()
+  app.globalData.riderFeatureEnabled = true
+  app.globalData.useBackend = false
   app.globalData.authToken = 'customer-token'
   app.setRiderSession({ token: 'rider-token', rider: { id: 'rider-1', online: true } })
 

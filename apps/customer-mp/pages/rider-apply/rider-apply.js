@@ -1,6 +1,7 @@
 const app = getApp()
 const api = require('../../utils/api')
 const navigation = require('../../utils/navigation')
+const riderFeature = require('../../utils/rider-feature')
 
 Page({
   data: {
@@ -18,11 +19,19 @@ Page({
   },
 
   onLoad() {
+    if (!riderFeature.isEnabled(app)) {
+      riderFeature.redirectToCustomer(app)
+      return
+    }
     this.agreementAccepted = false
     this.setData({ statusBarHeight: app.globalData.statusBarHeight || 24 })
   },
 
   onShow() {
+    if (!riderFeature.isEnabled(app)) {
+      riderFeature.redirectToCustomer(app)
+      return
+    }
     this.loadState()
     this.startStatePolling()
   },

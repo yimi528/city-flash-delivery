@@ -1,6 +1,7 @@
 const DEFAULT_BASE_URL = 'http://127.0.0.1:3000/api'
 const cloudRequest = require('./cloud-request')
 const runtimeConfig = require('../config/runtime')
+const riderFeature = require('./rider-feature')
 
 const STATUS_LABELS = {
   PENDING: '待接单',
@@ -500,14 +501,17 @@ function getAccountRoles() {
 }
 
 function switchAccountRole(role) {
+  if (role === 'rider' && !riderFeature.isEnabled()) return Promise.reject(new Error('骑手端暂未开放'))
   return request('/v1/account/switch-role', { method: 'POST', data: { role } })
 }
 
 function getCurrentRiderApplication() {
+  if (!riderFeature.isEnabled()) return Promise.reject(new Error('骑手端暂未开放'))
   return request('/v1/rider/applications/current')
 }
 
 function submitRiderApplication(payload) {
+  if (!riderFeature.isEnabled()) return Promise.reject(new Error('骑手端暂未开放'))
   return request('/v1/rider/applications', { method: 'POST', data: payload })
 }
 

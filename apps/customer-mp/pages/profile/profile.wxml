@@ -17,7 +17,7 @@
     </view>
   </view>
 
-  <view class="rider-entry" wx:if="{{isLoggedIn}}" bindtap="openRiderCenter">
+  <view class="rider-entry" wx:if="{{isLoggedIn && riderEnabled}}" bindtap="openRiderCenter">
     <view class="rider-entry-icon">骑</view>
     <view class="rider-entry-copy">
       <view class="rider-entry-title">{{riderState && riderState.rider && riderState.rider.roleStatus === 'active' ? '骑手工作台' : '申请成为骑手'}}</view>

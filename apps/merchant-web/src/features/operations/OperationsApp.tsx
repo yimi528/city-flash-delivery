@@ -7,10 +7,10 @@ import {
   normalizeDashboard,
   OperationsApi,
   statusClass
-} from './api'
-import type { Order, RiderApplication, Stats, Store } from './types'
-import { PricingWorkspace, ServiceAreasWorkspace, SystemSettingsWorkspace } from './ConfigWorkspaces'
-import { NewOrderAlert } from './newOrderAlert'
+} from '../../services/api'
+import type { Order, RiderApplication, Stats, Store } from '../../types/domain'
+import { PricingWorkspace, ServiceAreasWorkspace, SystemSettingsWorkspace } from '../config/ConfigWorkspaces'
+import { NewOrderAlert } from '../../services/newOrderAlert'
 
 const orderFilters = ['全部', '待商家接单', '待骑手接单', '待商家报价', '待确认报价', '待支付', '进行中', '已完成', '已取消']
 const PAGE_SIZE = 5

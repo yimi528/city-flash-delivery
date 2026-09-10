@@ -33,7 +33,9 @@ API 和商家后台必须使用同一个云托管环境：
 - 小程序上传版本自动取去掉 `v` 后的 `1.0.3`；
 - API 和商家后台的云托管内部版本号仍由平台生成；
 - 两个云托管版本的 `--remark` 会记录发布标签和 Git SHA，便于从平台版本反查源码；
-- 本地执行 `npm run release:local` 后直接发布云托管和小程序；Git tag 只作为版本留痕，推送 tag 不再触发生产发布。
+- 本地执行 `npm run release:local` 后直接发布发生变化的云托管服务和小程序；Git tag 只作为版本留痕，推送 tag 不再触发生产发布。
+
+本地发布会以当前 tag 与上一个发布 tag 的差异选择范围：`server/api/` 变化才部署 API，`apps/merchant-web/` 变化才构建并部署商家后台，`apps/customer-mp/` 或小程序配置变化才上传小程序。API 和商家后台同时变化时并行提交云托管任务；需要完整重发时使用 `RELEASE_FORCE_ALL=true`。
 
 创建 tag 和执行本地发布是人工确认动作。GitHub 云发布工作流仅保留为应急备用入口，要求手动选择 tag，并会拒绝格式不正确、未指向当前提交或不在 `main` 分支历史中的标签。
 
@@ -55,12 +57,12 @@ API 和商家后台必须使用同一个云托管环境：
 按本地发布时，先确认：
 
 1. 代码已经推送到 `main`，并准备好指向该提交的 `vX.Y.Z` 发布标签；
-2. `deploy/secrets/production.env` 已在本机安全位置配置，且未被 Git 跟踪；
+2. 本机发布使用的 macOS `~/Library/Application Support/city-flash-delivery/secrets/production.env` 或 Linux `~/.config/city-flash-delivery/secrets/production.env` 已在安全位置配置；GitHub Actions 发布则使用仓库 Secret，不读取本机文件；
 3. 本机 `wxcloud` CLI、云托管 CLI 私钥和当前 AppID 的小程序上传私钥可用；
 4. API、商家服务和数据库均来自同一云托管环境，当前域名以 `wxcloud service:list` 为准；
 5. 微信后台允许本次小程序版本上传，并已确认支付、Mock 和迁移配置。
 
-推送 `main` 只执行 `ci.yml`，不会发布生产；推送 tag 也不会触发生产工作流。创建 tag 后执行 `npm run release:local`，本地会依次完成质量检查、API/商家部署、健康检查和小程序上传；确认成功后再将 `main` 和 tag 推送到 GitHub 做版本留痕。
+推送 `main` 只执行 `ci.yml`，不会发布生产；推送 tag 也不会触发生产工作流。创建 tag 后执行 `npm run release:local`，本地会按变更范围完成质量检查、必要的 API/商家部署、健康检查和小程序上传；确认成功后再将 `main` 和 tag 推送到 GitHub 做版本留痕。
 
 ### 创建发布 tag
 

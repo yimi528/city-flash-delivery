@@ -4,6 +4,10 @@ const test = require('node:test')
 
 const runtime = require(path.resolve(__dirname, '../config/runtime.js'))
 
+test('rider client is disabled in the current release configuration', () => {
+  assert.equal(runtime.RIDER_FEATURE_ENABLED, false)
+})
+
 function wxFor(envVersion, override = '', developerOpenid = '') {
   return {
     getAccountInfoSync: () => ({ miniProgram: { envVersion } }),

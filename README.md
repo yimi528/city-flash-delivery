@@ -1,31 +1,30 @@
 # 鼎温榕同城配送 · City Flash Delivery
 
-面向城市即时配送场景的端到端系统，覆盖用户下单、商家调度、骑手抢单与配送履约。
+面向城市即时配送场景的端到端系统，当前对外开放用户下单和商家运营；骑手端暂不开放，相关后端模块和数据模型保留。
 
 项目采用 monorepo 组织，包含微信小程序、React 商家运营后台、NestJS API 和 MySQL 8.0 数据库。当前仓库适合本地开发、功能演示和业务验收；正式上线前必须完成真实微信登录、微信支付、地图服务、生产账号、HTTPS 和微信云托管配置。
 
 ## 功能概览
 
-### 用户与骑手小程序
+### 用户小程序
 
 - 寄货、急送、帮取、帮买、运货、搬运、顺风车等服务
 - 地图选点、地址搜索、地址簿和文本地址识别
 - 服务端统一计价，支持车型、重量、线路和天气风险规则
 - 下单、报价确认、支付、取消、退款和订单进度查询
-- 用户与骑手身份切换
-- 骑手申请、审核、上下线、抢单、取货、配送、完成和收入记录
+- 当前仅开放用户端；骑手申请、身份切换和骑手工作台暂不对外开放
 
 ### 商家运营后台
 
 - 运营员登录、权限控制和审计
 - 新订单提醒、接单、报价和订单调度
 - 订单搜索、状态/日期筛选和小票打印
-- 骑手申请审核、状态管理和履约查看
+- 骑手申请审核、状态管理和履约查看（运营模块保留，用户端暂不开放）
 - 价格规则、服务范围、营业状态和公告配置
 
 ### API 服务
 
-- 用户、运营员、骑手多角色鉴权
+- 用户、运营员鉴权；骑手鉴权和履约 API 默认关闭
 - 订单状态机、状态日志、审计日志和请求 ID
 - 规则版本快照、服务区域边界校验和 MySQL GIS 查询
 - 微信登录、微信支付、退款与对账基础能力
@@ -35,7 +34,7 @@
 ## 系统架构
 
 ~~~
-微信小程序（用户 / 骑手） ──┐
+微信小程序（用户端；骑手端暂不开放） ──┐
                             ├── NestJS API ── MySQL 8.0 + GIS
 React 商家运营后台 ─────────┘       │
                                    ├── 微信登录 / 微信支付
@@ -69,16 +68,20 @@ API 和商家后台是两个独立服务，每个服务只监听一个端口。�
 ~~~
 city-flash-delivery/
 ├── apps/
-│   ├── customer-mp/       # 用户端与骑手端微信小程序
+│   ├── customer-mp/       # 用户端微信小程序（骑手端代码保留但暂不开放）
 │   └── merchant-web/      # React 商家运营后台
+│       └── src/           # features、services、types 分层
 ├── server/api/            # NestJS API、Prisma Schema 和迁移
 ├── packages/shared/       # 多端共享订单状态约定
 ├── scripts/               # 开发、测试和生产配置检查脚本
 ├── deploy/                # 小程序 CI 发布说明
 ├── docs/                  # 云托管、需求和参考资料
 ├── docker-compose.yml     # 本地 MySQL 编排
-└── package.json           # 根目录统一命令
+├── package.json           # 根目录统一命令；不启用 npm workspaces
+└── package-lock.json      # 根目录工具依赖锁文件
 ~~~
+
+API 和商家端是独立部署包，各自保留 `package.json` 与 `package-lock.json`；根目录负责开发、质量检查和发布编排。`packages/shared` 是独立的私有共享契约包，但当前应用仍保留本地适配层，以兼容小程序工具链和独立 Docker 构建上下文。
 
 ## 本地开发
 
@@ -184,7 +187,7 @@ cd apps/merchant-web
 VITE_API_BASE_URL="https://<api-service-domain>/api" npm run build
 ~~~
 
-所有 .env、微信 AppSecret、支付证书、数据库密码、CLI 私钥和上传密钥都只能保存在本机或云端密钥配置中，不能提交到 Git。
+所有 .env、微信 AppSecret、支付证书、数据库密码、CLI 私钥和上传密钥都只能保存在本机或云端密钥配置中，不能提交到 Git。本机目录、CI/CD 和生产运行时的凭证边界见 [`docs/credentials.md`](docs/credentials.md)。
 
 ## 测试与校验
 
@@ -215,13 +218,13 @@ node --test apps/customer-mp/tests/*.test.js
 
 ~~~
 选择服务与地址 → 服务端计价并创建订单 → 支付 → 商家接单
-→ 骑手抢单 → 到达取货 → 配送中 → 已完成
+→ 待后续履约（骑手端暂不开放）
 ~~~
 
 需要人工报价的订单：
 
 ~~~
-提交需求 → 商家报价 → 用户确认并支付 → 商家接单 → 骑手履约
+提交需求 → 商家报价 → 用户确认并支付 → 商家接单 → 待后续履约（骑手端暂不开放）
 ~~~
 
 订单状态由服务端状态机控制，不允许跳级、倒退或重复完成。
@@ -264,7 +267,8 @@ node --test apps/customer-mp/tests/*.test.js
 - .github/workflows/wxcloud-deploy.yml：仅供手动备用发布，不响应 tag push
 - .github/workflows/miniprogram-release.yml：由统一发布工作流调用的小程序上传子工作流
 - `npm run release`：手动指定版本或根据最新 tag 自动递增 patch，创建本地发布 tag；不会自动推送
-- `npm run release:local`：在本机执行质量门禁、云托管部署、健康检查和小程序上传；不会触发 GitHub Actions
+- `npm run release:local`：按当前 tag 与上一个 tag 的变更范围，在本机执行必要的质量门禁、云托管部署、健康检查和小程序上传；不会触发 GitHub Actions
+- `RELEASE_FORCE_ALL=true npm run release:local -- vX.Y.Z`：需要时强制重新发布全部服务
 
 GitHub 的 `main` 推送仍执行质量检查，tag push 不再触发生产发布。云托管 CLI 私钥、微信 AppSecret、支付证书和数据库密码不得提交到仓库。
 

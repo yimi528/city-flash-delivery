@@ -1,7 +1,8 @@
 let runtimeConfig = {
   resolveApiBaseUrl: () => 'http://127.0.0.1:3000/api',
   resolveCloudEnvId: () => '',
-  WX_CLOUD_SERVICE_NAME: 'city-flash-api'
+  WX_CLOUD_SERVICE_NAME: 'city-flash-api',
+  RIDER_FEATURE_ENABLED: false
 }
 let mockLocation = {
   getMockLocation: () => ({ latitude: 27.3245, longitude: 120.216 })
@@ -15,6 +16,7 @@ try {
 
 App({
   onLaunch() {
+    this.globalData.riderFeatureEnabled = runtimeConfig.RIDER_FEATURE_ENABLED === true
     const cloudEnvId = typeof runtimeConfig.resolveCloudEnvId === 'function'
       ? runtimeConfig.resolveCloudEnvId(wx)
       : ''
@@ -37,9 +39,12 @@ App({
         wx.removeStorageSync('customerAuthToken')
         wx.removeStorageSync('currentUser')
       }
-      if (savedRiderToken) {
+      if (savedRiderToken && this.globalData.riderFeatureEnabled) {
         this.globalData.riderAuthToken = savedRiderToken
         this.globalData.rider = savedRider || null
+      } else if (!this.globalData.riderFeatureEnabled && wx.removeStorageSync) {
+        wx.removeStorageSync('riderAuthToken')
+        wx.removeStorageSync('currentRider')
       }
     } catch (error) {}
     if (this.globalData.useBackend) {
@@ -50,7 +55,7 @@ App({
 
   onShow() {
     const rider = this.globalData.rider
-    if (this.globalData.riderAuthToken && rider && rider.online) this.startRiderPresence()
+    if (this.globalData.riderFeatureEnabled && this.globalData.riderAuthToken && rider && rider.online) this.startRiderPresence()
   },
 
   onHide() {},
@@ -158,6 +163,10 @@ App({
   },
 
   setRiderSession(payload) {
+    if (!this.globalData.riderFeatureEnabled) {
+      this.clearRiderSession()
+      return
+    }
     const session = payload || {}
     this.globalData.riderAuthToken = session.token || ''
     const rider = session.rider
@@ -196,22 +205,21 @@ App({
 
   setCustomerRoleSession(payload) {
     const session = payload || {}
+    if (!this.globalData.riderFeatureEnabled) this.clearRiderSession()
     if (session.token) {
       this.globalData.authToken = session.token
       try { if (wx.setStorageSync) wx.setStorageSync('customerAuthToken', session.token) } catch (error) {}
     }
-    // Switching to the customer role must not end an active rider shift.
-    // Keep the rider token and online state so the rider can return without
-    // having to go online again. The rider can explicitly end the shift from
-    // the rider workspace, which calls the API and updates this state.
+    // When the rider feature is enabled, switching roles keeps the separate
+    // rider session. With the feature disabled, the guard above clears it.
     this.globalData.currentRole = 'customer'
-    if (this.globalData.riderAuthToken && this.globalData.rider && this.globalData.rider.online) {
+    if (this.globalData.riderFeatureEnabled && this.globalData.riderAuthToken && this.globalData.rider && this.globalData.rider.online) {
       this.startRiderPresence()
     }
   },
 
   startRiderPresence() {
-    if (this.riderPresenceTimer || !this.globalData.riderAuthToken) return
+    if (!this.globalData.riderFeatureEnabled || this.riderPresenceTimer || !this.globalData.riderAuthToken) return
     this.sendRiderPresence()
     this.riderPresenceTimer = setInterval(() => this.sendRiderPresence(), 30000)
   },
@@ -224,7 +232,7 @@ App({
 
   sendRiderPresence() {
     const rider = this.globalData.rider
-    if (!this.globalData.riderAuthToken || !rider || !rider.online) return
+    if (!this.globalData.riderFeatureEnabled || !this.globalData.riderAuthToken || !rider || !rider.online) return
     const riderApi = require('./utils/rider-api')
     const heartbeat = (latitude, longitude) => riderApi.heartbeat(latitude, longitude)
       .then((nextRider) => this.updateRider(nextRider))
@@ -241,6 +249,7 @@ App({
     authToken: '',
     riderAuthToken: '',
     rider: null,
+    riderFeatureEnabled: runtimeConfig.RIDER_FEATURE_ENABLED === true,
     accountRoles: [{ role: 'customer', status: 'active' }],
     currentRole: 'customer',
     isLoggedIn: false,

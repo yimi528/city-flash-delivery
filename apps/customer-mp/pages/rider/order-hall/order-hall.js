@@ -3,6 +3,7 @@ const navigation = require('../../../utils/navigation')
 const api = require('../../../utils/rider-api')
 const { createOrderAlert } = require('../../../utils/order-alert')
 const mockLocation = require('../../../utils/mock-location')
+const riderFeature = require('../../../utils/rider-feature')
 
 const SOUND_STORAGE_KEY = 'riderNewOrderSound'
 
@@ -17,6 +18,10 @@ Page({
   data: { rider: null, online: false, orders: [], loading: false, claimingId: '', soundEnabled: true },
 
   onShow() {
+    if (!riderFeature.isEnabled(app)) {
+      riderFeature.redirectToCustomer(app)
+      return
+    }
     if (!app.globalData.riderAuthToken) {
       this.returnToUser('骑手会话已失效，请重新进入')
       return

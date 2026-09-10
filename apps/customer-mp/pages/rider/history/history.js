@@ -1,6 +1,7 @@
 const app = getApp()
 const navigation = require('../../../utils/navigation')
 const riderApi = require('../../../utils/rider-api')
+const riderFeature = require('../../../utils/rider-feature')
 
 const RIDER_PAGES = {
   hall: '/pages/rider/order-hall/order-hall',
@@ -53,6 +54,10 @@ Page({
   },
 
   onShow() {
+    if (!riderFeature.isEnabled(app)) {
+      riderFeature.redirectToCustomer(app)
+      return
+    }
     if (!app.globalData.riderAuthToken) {
       wx.switchTab({ url: '/pages/profile/profile' })
       return

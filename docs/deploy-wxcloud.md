@@ -155,7 +155,7 @@ const WX_CLOUD_PROD_ENV_ID = 'ding-delivery-prod-d8c1eea132b4c'
 const WX_CLOUD_SERVICE_NAME = 'city-flash-api'
 ```
 
-开发版默认不初始化云托管、访问本机 API；如需云端联调，应显式切换到 `WX_CLOUD_TEST_ENV_ID`；体验版和正式版均初始化 `WX_CLOUD_PROD_ENV_ID`。用户端和骑手端请求统一通过 `wx.cloud.callContainer` 访问 `/api/...`。体验版产生的订单、支付和业务数据均属于生产数据。小程序基础库最低版本要满足官方文档要求（当前项目配置为 3.16.2）。修改后用微信开发者工具真机预览，再按现有 `miniprogram-ci` 流程上传正式 AppID 的代码版本。
+开发版默认不初始化云托管、访问本机 API；如需云端联调，应显式切换到 `WX_CLOUD_TEST_ENV_ID`；体验版和正式版均初始化 `WX_CLOUD_PROD_ENV_ID`。当前小程序只开放用户端，用户请求通过 `wx.cloud.callContainer` 访问 `/api/...`；骑手页面未注册，骑手 API 由 `RIDER_FEATURE_ENABLED=false` 默认关闭。体验版产生的订单、支付和业务数据均属于生产数据。小程序基础库最低版本要满足官方文档要求（当前项目配置为 3.16.2）。修改后用微信开发者工具真机预览，再按现有 `miniprogram-ci` 流程上传正式 AppID 的代码版本。
 
 通过 `wx.cloud.callContainer` 访问时，微信云托管会把当前微信用户身份注入 `x-wx-openid`/`x-wx-unionid` 请求头；API 优先使用这组身份完成小程序登录，不再依赖容器主动访问 `api.weixin.qq.com`。本地开发版直连 API 时没有这些请求头，才回退到 `wx.login` + `jscode2session`，因此本地仍需配置正确的 AppSecret。具体以[官方小程序调用云托管文档](https://developers.weixin.qq.com/miniprogram/dev/wxcloudservice/wxcloudrun/src/development/call/mini.html)为准。
 
@@ -216,11 +216,11 @@ curl --fail "https://<merchant-service-domain>/healthz"
 curl --fail "https://<merchant-service-domain>/"
 ```
 
-除 HTTP 检查外，还要在服务详情中确认 API 和商家最新版本均为正常状态、流量 100%、至少一个副本；API readiness 响应中的 `database` 必须为 `true`，商家构建产物必须包含当前 API 域名。CLI 若显示 `TopicNotExist` 或重复历史日志，不能单独据此判定失败，应以任务状态、版本详情和独立健康检查为准。随后依次验证：商家首页、运营员登录、订单列表、配置中心、地图代理、用户小程序登录、骑手登录和一个测试订单闭环。确认云端 MySQL 表已创建并且 API 日志没有 Prisma/连接错误后，才可以停止 osako 上的旧 Compose 环境。
+除 HTTP 检查外，还要在服务详情中确认 API 和商家最新版本均为正常状态、流量 100%、至少一个副本；API readiness 响应中的 `database` 必须为 `true`，商家构建产物必须包含当前 API 域名。CLI 若显示 `TopicNotExist` 或重复历史日志，不能单独据此判定失败，应以任务状态、版本详情和独立健康检查为准。随后依次验证：商家首页、运营员登录、订单列表、配置中心、地图代理、用户小程序登录和一个用户订单闭环；骑手端当前不作为发布验收项，直到显式重新启用。确认云端 MySQL 表已创建并且 API 日志没有 Prisma/连接错误后，才可以停止 osako 上的旧 Compose 环境。
 
 ## 7. 持续交付
 
-微信云托管官方 CLI 支持在本机或自定义 CI/CD 中发布版本。本项目默认使用本机发布：`npm run release:local` 会读取未跟踪的 `deploy/secrets/production.env`，执行质量门禁、API/商家部署、健康检查和小程序上传。GitHub 只保留手动备用工作流，推送合法的 `vX.Y.Z` tag 不再触发生产发布。
+微信云托管官方 CLI 支持在本机或自定义 CI/CD 中发布版本。本项目默认使用本机发布：macOS 上 `npm run release:local` 读取仓库外 `~/Library/Application Support/city-flash-delivery/secrets/production.env`，Linux/其他环境读取 `~/.config/city-flash-delivery/secrets/production.env`。也可以通过 `RELEASE_SECRETS_DIR` 或 `RELEASE_ENV_FILE` 指定其他安全目录；脚本不会回退读取仓库内的凭证。GitHub 只保留手动备用工作流，推送合法的 `vX.Y.Z` tag 不再触发生产发布。完整规则见 [`docs/credentials.md`](credentials.md)。
 
 `.github/workflows/wxcloud-deploy.yml` 使用以下 GitHub Actions Secret：
 

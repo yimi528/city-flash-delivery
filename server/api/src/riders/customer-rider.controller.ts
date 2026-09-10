@@ -5,6 +5,7 @@ import { CustomerAuthGuard } from '../auth/auth.guard'
 import { AuthPrincipal } from '../auth/auth-token.service'
 import { AuthService } from '../auth/auth.service'
 import { SwitchRoleDto } from '../auth/auth.dto'
+import { RiderFeatureGuard } from './rider-feature'
 import { RiderApplicationDto } from './riders.dto'
 import { RidersService } from './riders.service'
 
@@ -28,16 +29,19 @@ export class CustomerRiderController {
   }
 
   @Post('rider/applications')
+  @UseGuards(RiderFeatureGuard)
   apply(@CurrentAuth() auth: AuthPrincipal, @Body() dto: RiderApplicationDto) {
     return this.riders.applyForUser(auth.subjectId, dto)
   }
 
   @Get('rider/applications/current')
+  @UseGuards(RiderFeatureGuard)
   currentApplication(@CurrentAuth() auth: AuthPrincipal) {
     return this.riders.currentApplication(auth.subjectId)
   }
 
   @Post('rider/applications/:id/withdraw')
+  @UseGuards(RiderFeatureGuard)
   withdraw(@CurrentAuth() auth: AuthPrincipal, @Param('id') id: string) {
     return this.riders.withdrawApplication(auth.subjectId, id)
   }

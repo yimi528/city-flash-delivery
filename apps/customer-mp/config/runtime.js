@@ -1,5 +1,7 @@
 // 开发版默认访问本机 API；体验版和正式版访问云托管生产环境。
 const LOCAL_API_BASE_URL = 'http://127.0.0.1:3000/api'
+// 骑手端暂不对外开放；保留代码和数据模型，后续重新启用时改为 true。
+const RIDER_FEATURE_ENABLED = false
 
 // 保留测试环境 ID，供开发联调或后续显式切换使用；体验版不再指向测试环境。
 const WX_CLOUD_TEST_ENV_ID = 'ding-delivery-test-d8clg2024ea54'
@@ -76,6 +78,7 @@ function resolveApiBaseUrl(wxApi) {
 
 module.exports = {
   LOCAL_API_BASE_URL,
+  RIDER_FEATURE_ENABLED,
   API_BASE_URLS,
   WX_CLOUD_TEST_ENV_ID,
   WX_CLOUD_PROD_ENV_ID,

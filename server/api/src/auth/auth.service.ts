@@ -12,6 +12,7 @@ import { UserRole, RoleStatus } from '@prisma/client'
 import { AuthTokenService } from './auth-token.service'
 import { ChangePasswordDto, OperatorLoginDto, WechatLoginDto } from './auth.dto'
 import { AuditService } from '../audit/audit.service'
+import { isRiderFeatureEnabled } from '../riders/rider-feature'
 
 type CodeSessionResponse = {
   openid?: string
@@ -134,18 +135,24 @@ export class AuthService {
   }
 
   async accountRoles(userId: string) {
+    const riderEnabled = isRiderFeatureEnabled(this.config)
     const [user, roles, rider, application] = await Promise.all([
       this.prisma.user.findUnique({ where: { id: userId }, select: { preferredRole: true } }),
       this.prisma.userRoleAssignment.findMany({ where: { userId }, orderBy: { createdAt: 'asc' } }),
-      this.prisma.riderProfile.findUnique({ where: { userId }, select: { id: true, status: true, roleStatus: true, workStatus: true, online: true, name: true, vehicleName: true } }),
-      this.prisma.riderApplication.findFirst({ where: { userId }, orderBy: { createdAt: 'desc' } }),
+      riderEnabled
+        ? this.prisma.riderProfile.findUnique({ where: { userId }, select: { id: true, status: true, roleStatus: true, workStatus: true, online: true, name: true, vehicleName: true } })
+        : Promise.resolve(null),
+      riderEnabled
+        ? this.prisma.riderApplication.findFirst({ where: { userId }, orderBy: { createdAt: 'desc' } })
+        : Promise.resolve(null),
     ])
+    const visibleRoles = riderEnabled ? roles : roles.filter((role) => role.role !== UserRole.RIDER)
     return {
-      roles: roles.map((role) => ({ role: role.role.toLowerCase(), status: role.status.toLowerCase() })),
-      availableRoles: roles.filter((role) => role.status === RoleStatus.ACTIVE).map((role) => role.role.toLowerCase()),
-      currentRole: user?.preferredRole === UserRole.RIDER && roles.some((role) => role.role === UserRole.RIDER && role.status === RoleStatus.ACTIVE) ? 'rider' : 'customer',
-      rider: rider ? { ...rider, roleStatus: rider.roleStatus.toLowerCase(), workStatus: rider.workStatus.toLowerCase() } : null,
-      application: application ? {
+      roles: visibleRoles.map((role) => ({ role: role.role.toLowerCase(), status: role.status.toLowerCase() })),
+      availableRoles: visibleRoles.filter((role) => role.status === RoleStatus.ACTIVE).map((role) => role.role.toLowerCase()),
+      currentRole: riderEnabled && user?.preferredRole === UserRole.RIDER && roles.some((role) => role.role === UserRole.RIDER && role.status === RoleStatus.ACTIVE) ? 'rider' : 'customer',
+      rider: riderEnabled && rider ? { ...rider, roleStatus: rider.roleStatus.toLowerCase(), workStatus: rider.workStatus.toLowerCase() } : null,
+      application: riderEnabled && application ? {
         id: application.id,
         status: application.status.toLowerCase(),
         realName: application.realName,
@@ -162,6 +169,7 @@ export class AuthService {
       await this.prisma.user.update({ where: { id: userId }, data: { preferredRole: UserRole.CUSTOMER } })
       return { token: this.tokens.sign(userId, 'customer'), currentRole: 'customer' }
     }
+    if (!isRiderFeatureEnabled(this.config)) throw new ForbiddenException('骑手端暂未开放')
     const assignment = await this.prisma.userRoleAssignment.findUnique({ where: { userId_role: { userId, role: UserRole.RIDER } } })
     const rider = await this.prisma.riderProfile.findUnique({ where: { userId } })
     if (!assignment || assignment.status !== RoleStatus.ACTIVE || !rider || rider.roleStatus !== RoleStatus.ACTIVE) {

@@ -1,6 +1,7 @@
 const app = getApp()
 const api = require('../../utils/api')
 const navigation = require('../../utils/navigation')
+const riderFeature = require('../../utils/rider-feature')
 
 const services = [
   { iconClass: 'address', name: '地址簿', action: 'address' },
@@ -27,6 +28,7 @@ Page({
     accountCaption: '登录后管理订单与支付',
     memberLevel: '登录领取权益',
     riderState: null,
+    riderEnabled: false,
     stats: [
       { label: '我的订单', value: '0', action: 'orders' },
       { label: '常用地址', value: '0', action: 'address' }
@@ -35,10 +37,12 @@ Page({
   },
 
   onShow() {
+    const riderEnabled = riderFeature.isEnabled(app)
     this.syncUserState()
     this.validateSession()
     this.loadStats()
-    if (app.globalData.isLoggedIn && app.globalData.useBackend) this.loadRiderState()
+    if (riderEnabled && app.globalData.isLoggedIn && app.globalData.useBackend) this.loadRiderState()
+    if (!riderEnabled) this.setData({ riderState: null })
   },
 
   syncUserState() {
@@ -49,6 +53,7 @@ Page({
       statusBarHeight: app.globalData.statusBarHeight,
       isLoggedIn,
       currentUser,
+      riderEnabled: riderFeature.isEnabled(app),
       displayName: isLoggedIn ? (displayPhone || currentUser.nickname || '微信用户') : '微信授权登录',
       accountCaption: isLoggedIn
         ? (displayPhone ? (currentUser.nickname || '微信账号已登录') : '微信账号已登录')
@@ -94,6 +99,7 @@ Page({
   },
 
   loadRiderState() {
+    if (!riderFeature.isEnabled(app)) return Promise.resolve(null)
     api.getAccountRoles().then((state) => {
       app.globalData.accountRoles = state.roles || app.globalData.accountRoles
       this.setData({ riderState: state })
@@ -101,6 +107,10 @@ Page({
   },
 
   openRiderCenter() {
+    if (!riderFeature.isEnabled(app)) {
+      wx.showToast({ title: '骑手端暂未开放', icon: 'none' })
+      return
+    }
     if (!this.data.isLoggedIn) {
       this.login()
       return
@@ -145,7 +155,7 @@ Page({
     this.setData({ isLoggingIn: true })
     app.ensureWechatLogin().then(() => {
         this.syncUserState()
-        this.loadRiderState()
+        if (riderFeature.isEnabled(app)) this.loadRiderState()
         wx.showToast({ title: '登录成功', icon: 'success' })
       }).catch((error) => {
         wx.showToast({ title: error.message || '微信登录失败', icon: 'none' })

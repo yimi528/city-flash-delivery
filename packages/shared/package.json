@@ -1,0 +1,16 @@
+{
+  "name": "@city-flash/shared",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Shared transport-level contracts for city flash delivery clients and API.",
+  "main": "./orderStatus.js",
+  "exports": {
+    ".": "./orderStatus.js"
+  },
+  "scripts": {
+    "test": "node --test orderStatus.test.js"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

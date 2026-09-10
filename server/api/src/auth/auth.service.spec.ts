@@ -31,7 +31,7 @@ function createService() {
   const tokens = { sign: jest.fn(() => 'signed-operator-token') }
   const audit = { record: jest.fn().mockResolvedValue(undefined) }
   const service = new AuthService(prisma as never, config as never, tokens as never, audit as never)
-  return { service, operator, user, userRoleAssignment, riderProfile, riderApplication, tokens, audit }
+  return { service, operator, user, userRoleAssignment, riderProfile, riderApplication, tokens, audit, values }
 }
 
 function enabledOperator(overrides: Record<string, unknown> = {}) {
@@ -98,7 +98,8 @@ describe('AuthService operator password login', () => {
 
 describe('AuthService account roles', () => {
   it('returns the rider online state in the customer role summary', async () => {
-    const { service, user, userRoleAssignment, riderProfile, riderApplication } = createService()
+    const { service, user, userRoleAssignment, riderProfile, riderApplication, values } = createService()
+    values.RIDER_FEATURE_ENABLED = 'true'
     user.findUnique.mockResolvedValue({ preferredRole: UserRole.CUSTOMER })
     userRoleAssignment.findMany.mockResolvedValue([
       { role: UserRole.CUSTOMER, status: RoleStatus.ACTIVE },
@@ -121,6 +122,33 @@ describe('AuthService account roles', () => {
     expect(riderProfile.findUnique).toHaveBeenCalledWith(expect.objectContaining({
       select: expect.objectContaining({ online: true }),
     }))
+  })
+
+  it('hides rider roles and rider data while the rider feature is disabled', async () => {
+    const { service, user, userRoleAssignment, riderProfile, riderApplication } = createService()
+    user.findUnique.mockResolvedValue({ preferredRole: UserRole.RIDER })
+    userRoleAssignment.findMany.mockResolvedValue([
+      { role: UserRole.CUSTOMER, status: RoleStatus.ACTIVE },
+      { role: UserRole.RIDER, status: RoleStatus.ACTIVE },
+    ])
+
+    const result = await service.accountRoles('user-1')
+
+    expect(result).toEqual({
+      roles: [{ role: 'customer', status: 'active' }],
+      availableRoles: ['customer'],
+      currentRole: 'customer',
+      rider: null,
+      application: null,
+    })
+    expect(riderProfile.findUnique).not.toHaveBeenCalled()
+    expect(riderApplication.findFirst).not.toHaveBeenCalled()
+  })
+
+  it('rejects rider role switching while the rider feature is disabled', async () => {
+    const { service } = createService()
+
+    await expect(service.switchRole('user-1', 'rider')).rejects.toThrow('骑手端暂未开放')
   })
 })
 

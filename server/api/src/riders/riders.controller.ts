@@ -4,11 +4,12 @@ import { CurrentAuth } from '../auth/current-auth.decorator'
 import { RiderAuthGuard } from '../auth/auth.guard'
 import { AuthPrincipal } from '../auth/auth-token.service'
 import { RiderApplicationDto, RiderExceptionDto, RiderHeartbeatDto, RiderLocationDto, RiderOnlineDto, RiderStatusDto, RiderVehicleUpdateDto } from './riders.dto'
+import { RiderFeatureGuard } from './rider-feature'
 import { RidersService } from './riders.service'
 
 @ApiTags('riders')
 @Controller('v1/rider')
-@UseGuards(RiderAuthGuard)
+@UseGuards(RiderFeatureGuard, RiderAuthGuard)
 export class RidersController {
   constructor(private readonly riders: RidersService) {}
 

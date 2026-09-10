@@ -78,8 +78,8 @@ function assertReleasePointIsSafe() {
     .split('\n')
     .map((line) => line.trimEnd())
     .filter(Boolean)
-    // 本项目约定 deploy/secrets/ 只保存本地未跟踪凭证，不属于发布内容。
-    .filter((line) => !(line.startsWith('?? ') && line.slice(3).startsWith('deploy/secrets/')));
+    // 只允许用 .gitkeep 保留空目录；真实凭证必须位于仓库外。
+    .filter((line) => line !== '?? deploy/secrets/.gitkeep');
   if (statusLines.length > 0) {
     throw new Error(`工作区不干净，请先提交或处理以下变更：\n${statusLines.join('\n')}`);
   }

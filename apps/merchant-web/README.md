@@ -34,3 +34,16 @@ npm run preview
 ```
 
 The built website is generated in `dist/` and can later be deployed behind a domain such as `ops.example.com`.
+
+## Source layout
+
+```text
+src/
+├── features/
+│   ├── config/             # 价格、服务范围和系统设置工作区
+│   └── operations/         # 订单、骑手和登录运营界面
+├── services/               # API client and notifications
+├── types/                  # Frontend domain types
+├── main.tsx
+└── styles.css
+```

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import type { ConfigCategory, ConfigEnvelope, ParcelPricingConfig, PricingConfig, PricingRuleConfig, ServiceAreaConfig, ServiceCityConfig, SystemSettingsConfig } from './types'
-import type { OperationsApi } from './api'
+import type { ConfigCategory, ConfigEnvelope, ParcelPricingConfig, PricingConfig, PricingRuleConfig, ServiceAreaConfig, ServiceCityConfig, SystemSettingsConfig } from '../../types/domain'
+import type { OperationsApi } from '../../services/api'
 
 type WorkspaceProps = { api: OperationsApi; onToast: (message: string) => void }
 

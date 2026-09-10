@@ -1,4 +1,5 @@
 const cloudRequest = require('./cloud-request')
+const riderFeature = require('./rider-feature')
 
 function request(path, options) {
   const config = options || {}
@@ -6,6 +7,10 @@ function request(path, options) {
     const app = typeof getApp === 'function' ? getApp() : null
     if (!app || !app.globalData) {
       reject(new Error('小程序状态正在初始化，请稍后重试'))
+      return
+    }
+    if (!riderFeature.isEnabled(app)) {
+      reject(new Error('骑手端暂未开放'))
       return
     }
     const header = Object.assign({ 'content-type': 'application/json' }, config.header || {})

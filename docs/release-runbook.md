@@ -14,9 +14,20 @@
 一次本地发布包含四个阶段，GitHub tag 只用于版本留痕，不触发生产部署：
 
 1. Git 提交、推送和打 tag：保存代码与文档版本，`vX.Y.Z` 是本次发布的统一标识，推送 `main` 只触发 CI。
-2. 本地质量门禁：`npm run release:local` 先执行生产配置、测试、构建和依赖审计。
-3. 本地云托管发布：发布 API 和商家后台两个服务，并执行健康检查。
-4. 本地小程序上传：云托管健康检查通过后，上传同一 tag 对应的小程序版本。
+2. 本地质量门禁：`npm run release:local` 根据当前 tag 与上一个发布 tag 的差异，只执行受影响范围的生产配置、测试、构建和依赖审计。
+3. 本地云托管发布：只发布发生变化的 API 或商家后台服务；两者同时变化时并行提交，并执行对应健康检查。
+4. 本地小程序上传：只有小程序代码或配置发生变化时，才上传同一 tag 对应的小程序版本。
+
+默认范围规则：
+
+| 变更范围 | 本地动作 |
+| --- | --- |
+| `server/api/` | API 质量门禁、依赖审计、云托管部署和 readiness 检查 |
+| `apps/merchant-web/` | 商家端构建、依赖审计、云托管部署和健康检查 |
+| `apps/customer-mp/`、小程序配置或上传脚本 | 小程序测试、语法检查和上传 |
+| 仅文档或发布工具 | 不部署运行服务，不上传小程序 |
+
+需要完整重新发布时使用 `RELEASE_FORCE_ALL=true npm run release:local -- vX.Y.Z`。
 
 云托管 API 和商家后台的内部版本号由微信云托管平台生成，不能通过当前 `wxcloud run:deploy` 直接指定为 `X.Y.Z`；发布命令会把 `vX.Y.Z` 和 Git SHA 写入版本备注。小程序版本则使用同一个 tag 去掉 `v` 后的 `X.Y.Z`。
 
@@ -80,7 +91,7 @@ npm run check:quality
 
 `npm run check:quality` 必须完整通过，当前覆盖共享包测试、小程序测试与语法检查、API Jest/lint/build/Prisma 校验，以及商家端 TypeScript/Vite 构建。检查失败时不要进入发布步骤。
 
-当前小程序临时不申请微信设备定位权限：用户通过地址搜索或地图拖动选点，骑手端使用福鼎市中心联调坐标进行上线、心跳和附近订单匹配。恢复真实定位前，必须重新核对 `apps/customer-mp/app.json` 的权限声明、隐私说明、骑手附近订单筛选和接口审核状态，不能把联调坐标当作生产定位能力。
+当前小程序仅开放用户端，不注册骑手页面；骑手代码和数据模型保留但由 `RIDER_FEATURE_ENABLED=false` 默认关闭。用户通过地址搜索或地图拖动选点，当前版本不申请微信设备定位权限。重新开放骑手端前，必须重新核对 `apps/customer-mp/app.json` 的页面注册、隐私说明、骑手定位和接口审核状态。
 
 只要本次提交包含 `apps/customer-mp/`、根目录 `project.config.json` 或小程序配置，就要额外确认小程序门禁和版本号：
 
@@ -96,7 +107,7 @@ git diff --check
 
 ### 4.1 分清云托管密钥和小程序上传密钥
 
-`deploy/secrets/` 只保留本地未跟踪凭证。云托管 CLI 私钥、小程序代码上传私钥、微信支付私钥用途不同，不能按文件名或扩展名猜用途，也不能相互替代。尤其不要把小程序上传用的 PEM 私钥传给 `wxcloud login`；云托管密钥应从云托管控制台/官方 CLI 配置取得，并与目标 AppID 和租户匹配。
+真实凭证不属于仓库；本机发布在 macOS 默认从 `~/Library/Application Support/city-flash-delivery/secrets/` 读取，Linux/其他环境默认从 `~/.config/city-flash-delivery/secrets/` 读取，脚本不会回退读取仓库内的凭证。云托管 CLI 私钥、小程序代码上传私钥、微信支付私钥用途不同，不能按文件名或扩展名猜用途，也不能相互替代。尤其不要把小程序上传用的 PEM 私钥传给 `wxcloud login`；云托管密钥应从云托管控制台/官方 CLI 配置取得，并与目标 AppID 和租户匹配。具体目录和跨项目规则见 [`docs/credentials.md`](credentials.md)。
 
 ~~~sh
 # 这里只能填云托管 CLI 私钥内容，不是小程序代码上传私钥路径
@@ -156,7 +167,7 @@ git ls-remote origin refs/heads/main
 # npm run release
 # 也可以手动指定更高版本：npm run release -- 2.0.0
 
-# tag 创建后直接在本机发布；命令不会触发 GitHub Actions。
+# tag 创建后直接在本机按变更范围发布；命令不会触发 GitHub Actions。
 RELEASE_TAG="$(git describe --tags --exact-match HEAD)"
 npm run release:local -- "$RELEASE_TAG"
 
@@ -251,7 +262,7 @@ wxcloud run:deploy "$MERCHANT_CONTEXT" \
 
 ## 8. 发布小程序（小程序有变化时必做）
 
-单独执行 `wxcloud run:deploy` 不会上传小程序代码；`npm run release:local` 会在 API/商家端健康检查通过后调用小程序上传脚本。只要本次提交包含小程序代码或配置变化，就必须上传同一 tag 对应的小程序版本。上传前脚本会同时校验根目录与 `apps/customer-mp/project.config.json` 的 AppID，并通过微信项目属性接口校验上传密钥；这一步能尽早拦截旧 AppID 密钥或错误用途的密钥。
+单独执行 `wxcloud run:deploy` 不会上传小程序代码；`npm run release:local` 只在检测到小程序代码或配置变化时调用小程序上传脚本。上传动作本身会先校验根目录与 `apps/customer-mp/project.config.json` 的 AppID，并通过微信项目属性接口校验上传密钥，因此不再额外重复执行一次 `validate`。
 
 ~~~sh
 # API、商家后台和小程序统一由本地发布入口执行
@@ -319,7 +330,7 @@ CLI 可能在发布过程中显示 `ResourceNotFound.TopicNotExist`，或重复�
 - 商家：版本 `city-flash-merchant-009`，状态正常，流量 100%，1 个副本；
 - API `/api/health/ready`、商家 `/healthz` 和首页均通过 HTTP 200，API 响应中的数据库状态为 `true`；
 - 生产变量核验通过：迁移开启、运营员启动初始化关闭、登录和支付 Mock 关闭；
-- 发布后工作树只保留本地未跟踪的 `deploy/secrets/`，没有把凭证提交到 Git。
+- 发布后工作树不应包含真实凭证；凭证应保留在仓库外的安全目录中，没有把凭证提交到 Git。
 
 2026-09-04 小程序上传记录：
 
