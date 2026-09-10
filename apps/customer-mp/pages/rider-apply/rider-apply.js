@@ -8,10 +8,10 @@ Page({
     statusBarHeight: 24,
     mode: 'loading',
     application: null,
-    form: { name: '', phone: '', vehicleType: 'ETRIKE', vehicleTypes: ['ETRIKE'], vehicleName: '货三轮车', statement: '', agreementAccepted: false },
+    form: { name: '', phone: '', vehicleType: 'ETRIKE', vehicleTypes: ['ETRIKE'], vehicleName: '三轮车', statement: '', agreementAccepted: false },
     vehicleOptions: [
       { value: 'EBIKE', label: '二轮车', selected: false },
-      { value: 'ETRIKE', label: '货三轮车', selected: true },
+      { value: 'ETRIKE', label: '三轮车', selected: true },
       { value: 'VAN', label: '小车', selected: false },
       { value: 'MANUAL', label: '人力服务', selected: false }
     ],

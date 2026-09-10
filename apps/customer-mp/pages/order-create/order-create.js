@@ -3,6 +3,7 @@ const api = require('../../utils/api')
 const map = require('../../utils/map')
 const carpool = require('../../utils/carpool')
 const serviceConfig = require('../../utils/service-config')
+const serviceAvailability = require('../../utils/service-availability')
 const vehicleConfig = require('../../utils/vehicle-config')
 const navigation = require('../../utils/navigation')
 const addressValidation = require('../../utils/address-validation')
@@ -12,12 +13,12 @@ const WEATHER_TASK_IDS = new Set(['urgent_delivery', 'pickup', 'buy_for_me'])
 
 const FIELD_PRESETS = {
   send_parcel: {
-    sectionTitle: '货物信息',
-    sectionHint: '选择货物类型与重量',
-    itemTypes: ['普通货物', '宠物'],
+    sectionTitle: '物品信息',
+    sectionHint: '选择物品类型与重量',
+    itemTypes: ['普通物品', '宠物'],
     showWeight: true,
     limitText: '先选择线路与去返程，再填写对应行政区地址',
-    remarkPlaceholder: '备注：货物尺寸、件数、取件码、是否易碎'
+    remarkPlaceholder: '备注：物品尺寸、件数、取件码、是否易碎'
   },
   carpool: {
     sectionTitle: '顺风车信息',
@@ -28,12 +29,12 @@ const FIELD_PRESETS = {
     remarkPlaceholder: '备注：出发时间、行李数量、其他乘车要求'
   },
   cargo_haul: {
-    sectionTitle: '拉货信息',
+    sectionTitle: '用车信息',
     sectionHint: '用于判断是否需要装卸',
     itemTypes: ['门店补货', '建材五金', '生鲜果蔬', '家具家电', '多件包裹'],
     showWeight: true,
     limitText: '',
-    remarkPlaceholder: '备注：货物尺寸、件数、是否需要装货/卸货/搬楼'
+    remarkPlaceholder: '备注：物品尺寸、件数、是否需要装卸/搬楼'
   },
   urgent_delivery: {
     sectionTitle: '急送物品',
@@ -65,7 +66,7 @@ const FIELD_PRESETS = {
     itemTypes: ['搬运装卸'],
     showWeight: false,
     limitText: '',
-    remarkPlaceholder: '请写清楼层、有无电梯、货物数量、是否需要多人'
+    remarkPlaceholder: '请写清楼层、有无电梯、物品数量、是否需要多人'
   }
 }
 
@@ -210,7 +211,7 @@ function estimateFee(draft) {
     isPricePending = priceFen <= 1
     serviceFee = priceFen / 100
     base = serviceFee
-    baseTitle = isPet ? '宠物配送费' : (weight <= 10 ? '普通货物（10kg内）' : '普通货物（30kg内）')
+    baseTitle = isPet ? '宠物配送费' : (weight <= 10 ? '普通物品（10kg内）' : '普通物品（30kg内）')
     pricingNote = isPricePending ? '当前线路、物品和重量的价格待定' : '商家已配置当前线路、物品和重量价格'
   } else if (isFixedLine) {
     const passengerCount = pricingMode === 'fixed_line_ride' || selectedLine.priceUnit === 'PER_PERSON' ? Number((draft && draft.passengerCount) || 1) : 1
@@ -229,7 +230,7 @@ function estimateFee(draft) {
     base = Number(draft && draft.servicePricing && draft.servicePricing.basePrice || 48)
     serviceFee = base
     baseTitle = '固定上门搬运费'
-    pricingNote = '仅收固定人工服务费；如需运输请使用运货'
+    pricingNote = '仅收固定人工服务费；如需用车请选择三轮车服务'
   } else {
     base = rule.basePrice
     const extraKm = Math.ceil(Math.max(distance - rule.baseDistanceKm, 0))
@@ -539,7 +540,7 @@ Page({
     statusBarHeight: 24,
     draft: {},
     estimate: {},
-    itemTypes: ['普通货物', '宠物'],
+    itemTypes: ['普通物品', '宠物'],
     weights: DEFAULT_WEIGHT_OPTIONS,
     taskLines: [],
     requiresLine: false,
@@ -564,6 +565,12 @@ Page({
 
   onShow() {
     const draft = app.globalData.draftOrder
+    // 审核口径：被关闭的服务不允许进入下单页，避免旧草稿或深链绕过首页入口。
+    if (!serviceAvailability.isTaskEnabled(draft.taskId, app)) {
+      wx.showToast({ title: '该服务升级中，敬请期待', icon: 'none' })
+      wx.navigateBack()
+      return
+    }
     const backendPricing = Boolean(app.globalData.useBackend)
     normalizeHandlingDraft(draft)
     applyRemotePricing(draft)
@@ -794,7 +801,7 @@ Page({
     draft.routeDistanceSource = ''
     draft.routeDuration = ''
     draft.passengerCount = 1
-    draft.item = mode === 'CARPOOL' ? '1人' : '普通货物'
+    draft.item = mode === 'CARPOOL' ? '1人' : '普通物品'
     draft.pricingMode = mode === 'CARPOOL' ? 'fixed_line_ride' : 'parcel_category'
     this.refreshLocalEstimate()
   },
@@ -923,6 +930,11 @@ Page({
 
   submitOrder() {
     const draft = app.globalData.draftOrder
+    // 审核口径：被关闭的服务不允许下单，避免任何入口绕过 mock 开关。
+    if (!serviceAvailability.isTaskEnabled(draft.taskId, app)) {
+      wx.showToast({ title: '该服务升级中，敬请期待', icon: 'none' })
+      return
+    }
     const contactError = (address, label) => {
       const validation = addressValidation.validateAddress(address)
       return validation.valid ? '' : `${label}地址${validation.message}，请返回补充`

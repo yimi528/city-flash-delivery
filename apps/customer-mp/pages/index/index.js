@@ -1,5 +1,6 @@
 const app = getApp()
 const serviceConfig = require('../../utils/service-config')
+const serviceAvailability = require('../../utils/service-availability')
 const vehicleConfig = require('../../utils/vehicle-config')
 const navigation = require('../../utils/navigation')
 
@@ -22,7 +23,16 @@ function ensureDefaultOrderAddresses(draft) {
 
 function ensureDraftTask(taskId) {
   const draft = app.globalData.draftOrder
-  const nextTaskId = taskId || draft.taskId || 'send_parcel'
+  const requestedTaskId = taskId || draft.taskId
+  // 审核口径：被关闭的服务不进入草稿，避免首页默认选中或深链绕过入口。
+  // 只有隐式选择（未显式指定服务）时才额外要求服务出现在首页当前可见清单里，
+  // 显式选择仍按调用方要求切换，避免旧草稿或远端缺项把用户锁死在默认服务。
+  const enabled = Boolean(requestedTaskId) && serviceAvailability.isTaskEnabled(requestedTaskId, app)
+  const visibleIds = taskId ? null : visibleTasks().map((item) => item.id)
+  const visible = !visibleIds || !visibleIds.length || visibleIds.indexOf(requestedTaskId) !== -1
+  const nextTaskId = enabled && visible
+    ? requestedTaskId
+    : defaultTaskId()
   const routeTask = serviceConfig.isRouteTask(nextTaskId)
   const isTaskChanged = draft.taskId !== nextTaskId
   const previousTaskId = draft.taskId
@@ -73,19 +83,21 @@ function ensureDraftTask(taskId) {
   }
   const remoteService = (app.globalData.remoteServices || []).find((item) => item.id === nextTaskId)
   if (remoteService) {
-    if (remoteService.priceSummary) draft.priceSummary = remoteService.priceSummary
-    if (remoteService.vehicleName) draft.recommendedVehicleName = remoteService.vehicleName
+    if (remoteService.priceSummary) draft.priceSummary = serviceConfig.sanitizeServiceText(remoteService.priceSummary)
+    if (remoteService.vehicleName) draft.recommendedVehicleName = serviceConfig.sanitizeServiceText(remoteService.vehicleName)
   }
   serviceConfig.applyRemoteConfigToDraft(draft, app.globalData.appConfig)
   return draft
 }
 
 function visibleTasks() {
+  // 审核口径：被关闭的服务（如寄货配送）不进入首页服务列表。
+  const enabled = serviceAvailability.filterEnabledTasks(serviceConfig.ALL_TASKS, app)
   const remote = app.globalData.remoteServices || []
-  if (!remote.length) return serviceConfig.ALL_TASKS
+  if (!remote.length) return enabled
   const order = new Map(remote.map((item) => [item.id, item]))
-  const preferredOrder = new Map(serviceConfig.ALL_TASKS.map((item, index) => [item.id, index]))
-  return serviceConfig.ALL_TASKS
+  const preferredOrder = new Map(enabled.map((item, index) => [item.id, index]))
+  return enabled
     .filter((task) => order.has(task.id))
     .sort((left, right) => {
       const leftOrder = Number(order.get(left.id).sortOrder)
@@ -96,17 +108,28 @@ function visibleTasks() {
     })
 }
 
+const initialTasks = serviceAvailability.filterEnabledTasks(serviceConfig.ALL_TASKS, app)
+const initialTask = initialTasks[0] || serviceConfig.PRIMARY_TASKS[0]
+
+// 默认选中首页当前可见服务中的第一项：既能落在远端排序结果上，
+// 也不会因为某个服务被 mock 关闭而选中不可用服务。
+function defaultTaskId() {
+  const tasks = visibleTasks()
+  if (tasks.length) return tasks[0].id
+  return serviceAvailability.firstEnabledTaskId(serviceConfig.ALL_TASKS, app) || 'cargo_haul'
+}
+
 Page({
   data: {
     statusBarHeight: 24,
     city: '福鼎市',
-    serviceCount: serviceConfig.ALL_TASKS.length,
+    serviceCount: initialTasks.length,
     draft: {},
-    allTasks: serviceConfig.ALL_TASKS,
-    coreTasks: serviceConfig.ALL_TASKS.slice(0, 3),
-    moreTasks: serviceConfig.ALL_TASKS.slice(3),
-    activeTask: serviceConfig.PRIMARY_TASKS[0],
-    selectedTaskId: serviceConfig.PRIMARY_TASKS[0].id,
+    allTasks: initialTasks,
+    coreTasks: initialTasks.slice(0, 3),
+    moreTasks: initialTasks.slice(3),
+    activeTask: initialTask,
+    selectedTaskId: initialTask.id,
     isRouteTask: false,
     isOpeningOrder: false,
     isTaskTransitioning: false
@@ -155,6 +178,11 @@ Page({
       return
     }
     const taskId = event.currentTarget.dataset.task
+    if (!serviceAvailability.isTaskEnabled(taskId, app)) {
+      // 审核口径：被关闭的服务不响应选择，避免通过旧草稿或分享链接重新进入。
+      wx.showToast({ title: '该服务升级中，敬请期待', icon: 'none' })
+      return
+    }
     const nextTask = serviceConfig.getTask(taskId)
     this.setData({
       selectedTaskId: taskId,

@@ -31,6 +31,7 @@ const SERVICE_VALUES = {
   顺风车: 'CARPOOL',
   拉货: 'CARGO',
   运货: 'CARGO',
+  三轮车服务: 'CARGO',
   急送: 'DELIVERY',
   帮送: 'DELIVERY',
   帮取: 'PICKUP',
@@ -48,7 +49,7 @@ const SERVICE_VALUES = {
 const SERVICE_LABELS = {
   DELIVERY: '帮送',
   PICKUP: '帮取',
-  CARGO: '送货',
+  CARGO: '三轮车服务',
   BUY_FOR_ME: '帮买',
   CARPOOL: '顺风车',
   MOVING: '搬运装卸',
@@ -73,6 +74,7 @@ const VEHICLE_VALUES = {
   二轮车: 'EBIKE',
   二轮电动: 'EBIKE',
   货三轮车: 'ETRIKE',
+  三轮车: 'ETRIKE',
   人力三轮车: 'ETRIKE',
   三轮电动: 'ETRIKE',
   面包车: 'VAN'
@@ -80,7 +82,7 @@ const VEHICLE_VALUES = {
 
 const VEHICLE_LABELS = {
   EBIKE: '二轮车',
-  ETRIKE: '货三轮车',
+  ETRIKE: '三轮车',
   VAN: '小车',
   MANUAL: '人力服务'
 }
@@ -575,7 +577,7 @@ function deleteAddress(id) {
 function getVehicleTypes() {
   return Promise.resolve([
     { id: 'ebike', type: 'EBIKE', name: '二轮车' },
-    { id: 'cargo_tricycle', type: 'ETRIKE', name: '货三轮车' },
+    { id: 'cargo_tricycle', type: 'ETRIKE', name: '三轮车' },
     { id: 'small_car', type: 'VAN', name: '面包车' }
   ])
 }

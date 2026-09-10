@@ -93,6 +93,8 @@ npm run check:quality
 
 当前小程序仅开放用户端，不注册骑手页面；骑手代码和数据模型保留但由 `RIDER_FEATURE_ENABLED=false` 默认关闭。用户通过地址搜索或地图拖动选点，当前版本不申请微信设备定位权限。重新开放骑手端前，必须重新核对 `apps/customer-mp/app.json` 的页面注册、隐私说明、骑手定位和接口审核状态。
 
+寄货配送（`send_parcel`）因货物运输类目审核未通过，由客户端 `PARCEL_SERVICE_ENABLED=false` 与服务端 `serviceCatalog.enabled=false` 默认关闭；运货已改名为「三轮车服务」。整改范围、开关恢复方式与再次提审自查项见 [`review-remediation-parcel.md`](review-remediation-parcel.md)。
+
 只要本次提交包含 `apps/customer-mp/`、根目录 `project.config.json` 或小程序配置，就要额外确认小程序门禁和版本号：
 
 ~~~sh

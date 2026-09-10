@@ -2,6 +2,9 @@
 const LOCAL_API_BASE_URL = 'http://127.0.0.1:3000/api'
 // 骑手端暂不对外开放；保留代码和数据模型，后续重新启用时改为 true。
 const RIDER_FEATURE_ENABLED = false
+// 审核口径：小程序不得对外提供货物运输服务。寄货配送（含跨城寄递与顺风车）改为占位处理，
+// 首页不展示入口、不可下单；线路、计价和页面代码保留，后续重新开放时改为 true。
+const PARCEL_SERVICE_ENABLED = false
 
 // 保留测试环境 ID，供开发联调或后续显式切换使用；体验版不再指向测试环境。
 const WX_CLOUD_TEST_ENV_ID = 'ding-delivery-test-d8clg2024ea54'
@@ -79,6 +82,7 @@ function resolveApiBaseUrl(wxApi) {
 module.exports = {
   LOCAL_API_BASE_URL,
   RIDER_FEATURE_ENABLED,
+  PARCEL_SERVICE_ENABLED,
   API_BASE_URLS,
   WX_CLOUD_TEST_ENV_ID,
   WX_CLOUD_PROD_ENV_ID,

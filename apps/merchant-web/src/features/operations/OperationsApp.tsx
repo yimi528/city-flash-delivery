@@ -190,7 +190,7 @@ function StatsGrid({ stats }: { stats: Stats }) {
   )
 }
 
-const RIDER_VEHICLE_LABELS: Record<string, string> = { EBIKE: '二轮车', ETRIKE: '货三轮车', VAN: '小车', MANUAL: '人力服务' }
+const RIDER_VEHICLE_LABELS: Record<string, string> = { EBIKE: '二轮车', ETRIKE: '三轮车', VAN: '小车', MANUAL: '人力服务' }
 
 function riderRequestedVehicles(rider: RiderApplication) {
   return rider.application?.requestedVehicleTypes?.map((type) => RIDER_VEHICLE_LABELS[type] || type).join('、') || rider.application?.requestedVehicleName || rider.application?.requestedVehicleType || '未选择车型'

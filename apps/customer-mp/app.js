@@ -2,7 +2,8 @@ let runtimeConfig = {
   resolveApiBaseUrl: () => 'http://127.0.0.1:3000/api',
   resolveCloudEnvId: () => '',
   WX_CLOUD_SERVICE_NAME: 'city-flash-api',
-  RIDER_FEATURE_ENABLED: false
+  RIDER_FEATURE_ENABLED: false,
+  PARCEL_SERVICE_ENABLED: false
 }
 let mockLocation = {
   getMockLocation: () => ({ latitude: 27.3245, longitude: 120.216 })
@@ -17,6 +18,7 @@ try {
 App({
   onLaunch() {
     this.globalData.riderFeatureEnabled = runtimeConfig.RIDER_FEATURE_ENABLED === true
+    this.globalData.parcelServiceEnabled = runtimeConfig.PARCEL_SERVICE_ENABLED === true
     const cloudEnvId = typeof runtimeConfig.resolveCloudEnvId === 'function'
       ? runtimeConfig.resolveCloudEnvId(wx)
       : ''
@@ -250,6 +252,7 @@ App({
     riderAuthToken: '',
     rider: null,
     riderFeatureEnabled: runtimeConfig.RIDER_FEATURE_ENABLED === true,
+    parcelServiceEnabled: runtimeConfig.PARCEL_SERVICE_ENABLED === true,
     accountRoles: [{ role: 'customer', status: 'active' }],
     currentRole: 'customer',
     isLoggedIn: false,
@@ -294,26 +297,26 @@ App({
       cargo: true
     },
     draftOrder: {
-      taskId: 'send_parcel',
-      taskName: '寄货配送',
-      serviceGroupId: 'small_car',
-      serviceGroupName: '面包车',
-      serviceId: 'send_parcel',
-      service: '寄货配送',
-      subServiceId: 'send_parcel',
-      subServiceName: '寄货配送',
-      serviceDesc: '价格按线路、物品和重量配置，当前待定',
-      priceSummary: '价格按线路、物品和重量配置，当前待定',
-      pricingMode: 'parcel_category',
-      recommendedVehicleType: 'small_car',
-      recommendedVehicleName: '面包车',
+      taskId: 'cargo_haul',
+      taskName: '三轮车服务',
+      serviceGroupId: 'cargo_tricycle',
+      serviceGroupName: '三轮车',
+      serviceId: 'cargo_haul',
+      service: '三轮车服务',
+      subServiceId: 'cargo_haul',
+      subServiceName: '三轮车服务',
+      serviceDesc: '市场代采、商家补货',
+      priceSummary: '三轮车4公里内33元，超出3元/公里',
+      pricingMode: 'distance',
+      recommendedVehicleType: 'cargo_tricycle',
+      recommendedVehicleName: '三轮车',
       selectedLine: null,
-      serviceMode: 'PARCEL',
+      serviceMode: '',
       selectedDistrict: '',
-      direction: 'OUTBOUND',
+      direction: '',
       parcelPricing: [],
-      serviceLimits: { maxWeightKg: 30, maxVolumeM3: 1 },
-      servicePricing: { baseDistanceKm: 0, basePrice: 0, extraPerKm: 0, badWeatherMultiplier: 1, badWeatherSurcharge: 0, serviceSurcharge: 0, linePriceMultiplier: 1, maxDeliveryFee: 0 },
+      serviceLimits: null,
+      servicePricing: { baseDistanceKm: 4, basePrice: 33, extraPerKm: 3, badWeatherMultiplier: 1, badWeatherSurcharge: 0, serviceSurcharge: 0, linePriceMultiplier: 0.85, maxDeliveryFee: 0 },
       pickup: {
         id: 'a1',
         name: '恒生一品苑',
@@ -328,7 +331,7 @@ App({
         tag: '发'
       },
       dropoff: null,
-      item: '普通货物',
+      item: '门店补货',
       weight: 1,
       buyItems: '',
       budget: 50,
@@ -337,19 +340,19 @@ App({
       routeDistanceSource: '',
       routeDuration: '',
       cargoOptions: {
-        categoryId: 'send_parcel',
-        categoryName: '寄货配送',
-        vehicleId: 'small_car',
-        vehicleName: '面包车',
-        vehicleShortName: '面包车',
-        vehicleCapacity: '30kg内 · 小于1立方米',
+        categoryId: 'cargo_haul',
+        categoryName: '三轮车服务',
+        vehicleId: 'cargo_tricycle',
+        vehicleName: '三轮车',
+        vehicleShortName: '三轮',
+        vehicleCapacity: '大件/多件物品',
         vehicleFee: 0,
-        baseFee: 38,
-        distanceRate: 0,
-        linePriceMultiplier: 1,
-        maxDeliveryFee: 168,
+        baseFee: 33,
+        distanceRate: 3,
+        linePriceMultiplier: 0.85,
+        maxDeliveryFee: 0,
         weightRate: 0,
-        maxWeight: 30,
+        maxWeight: 300,
         weight: 1,
         weightLabel: '≤1公斤'
       },

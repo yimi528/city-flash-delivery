@@ -31,7 +31,7 @@ const SERVICE_LABELS: Record<string, string> = {
 
 const VEHICLE_LABELS: Record<string, string> = {
   EBIKE: '二轮车',
-  ETRIKE: '货三轮车',
+  ETRIKE: '三轮车',
   VAN: '小车'
 }
 

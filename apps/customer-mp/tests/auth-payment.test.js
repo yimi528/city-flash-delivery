@@ -86,7 +86,7 @@ test('address writes only send the persisted backend fields', async () => {
 
 test('order payload maps Chinese service names to backend enums', () => {
   const payload = api.buildNestOrderPayload({
-    service: '运货',
+    service: '三轮车服务',
     taskId: 'cargo_haul',
     pickup: { name: '发货点', detail: '1号', contact: '发货人', phone: '13800000000' },
     dropoff: { name: '收货点', detail: '2号', contact: '收货人', phone: '13900000000' }
@@ -95,6 +95,15 @@ test('order payload maps Chinese service names to backend enums', () => {
   assert.equal(payload.serviceType, 'CARGO')
   assert.equal(payload.pickupContact, '发货人')
   assert.equal(payload.dropoffContact, '收货人')
+
+  // 历史订单仍使用旧服务名，必须继续映射到同一枚举。
+  const legacyPayload = api.buildNestOrderPayload({
+    service: '运货',
+    taskId: 'cargo_haul',
+    pickup: { name: '发货点', detail: '1号', contact: '发货人', phone: '13800000000' },
+    dropoff: { name: '收货点', detail: '2号', contact: '收货人', phone: '13900000000' }
+  })
+  assert.equal(legacyPayload.serviceType, 'CARGO')
 })
 
 test('handling order payload does not invent a destination address', () => {

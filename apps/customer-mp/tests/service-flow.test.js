@@ -85,9 +85,16 @@ function createHarness() {
     return page
   }
 
+  // 寄货配送在线上默认被 mock 关闭；只有显式打开开关时才回到旧行为，
+  // 用来保留顺风车等既有链路的历史覆盖。
+  function enableParcel() {
+    app.globalData.parcelServiceEnabled = true
+  }
+
   return {
     app,
     calls,
+    enableParcel,
     event: (dataset = {}, detail = {}) => ({ currentTarget: { dataset }, detail }),
     loadPage
   }
@@ -113,9 +120,7 @@ test('all customer services create an order with their fixed vehicle', () => {
   index.onShow()
 
   const cases = [
-    { id: 'send_parcel', mode: 'PARCEL', service: '寄货配送', vehicle: 'small_car', alternate: 'ebike' },
-    { id: 'send_parcel', mode: 'CARPOOL', service: '顺风车', vehicle: 'small_car', alternate: 'ebike' },
-    { id: 'cargo_haul', service: '运货', vehicle: 'cargo_tricycle', alternate: 'small_car' },
+    { id: 'cargo_haul', service: '三轮车服务', vehicle: 'cargo_tricycle', alternate: 'small_car' },
     { id: 'moving_handling', service: '搬运装卸', vehicle: 'manual_labor', alternate: 'small_car' },
     { id: 'urgent_delivery', service: '急送', vehicle: 'ebike', alternate: 'small_car' },
     { id: 'pickup', service: '帮取', vehicle: 'ebike', alternate: 'small_car' },
@@ -124,7 +129,6 @@ test('all customer services create an order with their fixed vehicle', () => {
   ]
 
   assert.deepEqual(index.data.allTasks.map((item) => item.id), [
-    'send_parcel',
     'cargo_haul',
     'moving_handling',
     'urgent_delivery',
@@ -136,28 +140,15 @@ test('all customer services create an order with their fixed vehicle', () => {
   cases.forEach((flow) => {
     index.chooseTask(event({ task: flow.id }))
     const draft = app.globalData.draftOrder
-    let page
-    if (flow.mode === 'CARPOOL') {
-      page = loadPage('pages/order-create/order-create.js')
-      page.onShow()
-      page.selectServiceMode(event({ mode: 'CARPOOL' }))
-      page.selectLine(event({ id: 'wenzhou' }))
-      carpool.applySelectedAddress(draft, WENZHOU_ADDRESS, 'dropoff', 'wenzhou')
-    } else if (flow.id === 'send_parcel') {
-      configureParcelPrice(draft)
-    } else {
-      draft.pickup = app.globalData.addresses[0]
-      draft.dropoff = app.globalData.addresses[1]
-    }
+    draft.pickup = app.globalData.addresses[0]
+    draft.dropoff = app.globalData.addresses[1]
     draft.routeDistanceKm = 2.5
     if (flow.id === 'buy_for_me') {
       draft.buyItems = '测试商品'
       draft.budget = 50
     }
-    if (!page) {
-      page = loadPage('pages/order-create/order-create.js')
-      page.onShow()
-    }
+    const page = loadPage('pages/order-create/order-create.js')
+    page.onShow()
     const recommendedVehicle = page.data.selectedVehicle
     page.selectVehicle(event({ id: flow.alternate }))
     assert.equal(page.data.selectedVehicle, recommendedVehicle, `${flow.service} should keep its fixed vehicle`)
@@ -185,6 +176,92 @@ test('all customer services create an order with their fixed vehicle', () => {
   })
 })
 
+test('the mocked parcel service never reaches the customer service list', () => {
+  const harness = createHarness()
+  const { app, event, calls, loadPage } = harness
+  const runtime = require('../config/runtime')
+
+  assert.equal(runtime.PARCEL_SERVICE_ENABLED, false)
+  assert.equal(app.globalData.parcelServiceEnabled, false)
+
+  const index = loadPage('pages/index/index.js')
+  index.onShow()
+
+  assert.equal(app.globalData.draftOrder.taskId, 'cargo_haul')
+  assert.equal(index.data.selectedTaskId, 'cargo_haul')
+  assert.equal(index.data.activeTask.name, '三轮车服务')
+  assert.equal(index.data.allTasks.some((item) => item.id === 'send_parcel'), false)
+  assert.equal(index.data.coreTasks.some((item) => item.id === 'send_parcel'), false)
+  assert.equal(index.data.moreTasks.some((item) => item.id === 'send_parcel'), false)
+  assert.equal(index.data.serviceCount, index.data.allTasks.length)
+  assert.equal(calls.some((call) => call.type === 'showToast'), false)
+})
+
+test('the mocked parcel service cannot be re-entered from a stale draft', () => {
+  const { app, event, calls, loadPage } = createHarness()
+  const index = loadPage('pages/index/index.js')
+  index.onShow()
+
+  app.globalData.draftOrder.taskId = 'send_parcel'
+  app.globalData.draftOrder.service = '寄货配送'
+  index.chooseTask(event({ task: 'send_parcel' }))
+
+  assert.equal(calls.at(-1).type, 'showToast')
+  assert.equal(calls.at(-1).options.title, '该服务升级中，敬请期待')
+  assert.equal(app.globalData.draftOrder.taskId, 'send_parcel')
+
+  const page = loadPage('pages/order-create/order-create.js')
+  page.onShow()
+  assert.equal(calls.at(-1).type, 'navigateBack')
+
+  const beforeCount = app.globalData.orders.length
+  page.submitOrder()
+  assert.equal(app.globalData.orders.length, beforeCount)
+  assert.equal(calls.at(-1).type, 'showToast')
+  assert.equal(calls.at(-1).options.title, '该服务升级中，敬请期待')
+})
+
+test('cargo haul is renamed so freight wording leaves the customer app', () => {
+  const serviceConfig = require('../utils/service-config')
+  const vehicleConfig = require('../utils/vehicle-config')
+
+  const task = serviceConfig.getTask('cargo_haul')
+  assert.equal(task.name, '三轮车服务')
+  assert.equal(task.vehicleName, '三轮车')
+  assert.equal(task.subtitle, '三轮车')
+  assert.equal(vehicleConfig.findVehicle('cargo_tricycle').name, '三轮车')
+  assert.equal(vehicleConfig.findVehicle('moving_van').name, '厢式车')
+
+  const { app, event, loadPage } = createHarness()
+  const index = loadPage('pages/index/index.js')
+  index.onShow()
+  index.chooseTask(event({ task: 'cargo_haul' }))
+  assert.equal(app.globalData.draftOrder.taskName, '三轮车服务')
+  assert.equal(app.globalData.draftOrder.service, '三轮车服务')
+  assert.equal(app.globalData.draftOrder.recommendedVehicleName, '三轮车')
+})
+
+test('legacy service labels from remote config are rewritten before they reach the UI', () => {
+  assert.equal(require('../utils/service-config').sanitizeServiceText('运货 · 货三轮车'), '三轮车服务 · 三轮车')
+  assert.equal(require('../utils/service-config').sanitizeServiceText('货三轮4公里内33元'), '三轮4公里内33元')
+  assert.equal(require('../utils/service-config').sanitizeServiceText('厢式货车搬家'), '厢式车搬家')
+  assert.equal(require('../utils/service-config').sanitizeServiceText(''), '')
+  assert.equal(require('../utils/service-config').sanitizeServiceText(undefined), undefined)
+
+  const { app, loadPage } = createHarness()
+  app.globalData.appConfig = {
+    services: [{ id: 'cargo_haul', priceSummary: '货三轮4公里内33元', vehicleName: '货三轮车' }],
+    pricing: { rules: [{ serviceId: 'cargo_haul', pricingMode: 'distance', baseFeeFen: 3300, includedDistanceMeters: 4000, perKmFen: 300 }] }
+  }
+  app.globalData.remoteServices = app.globalData.appConfig.services
+  const index = loadPage('pages/index/index.js')
+  index.onShow()
+
+  assert.deepEqual(index.data.allTasks.map((item) => item.id), ['cargo_haul'])
+  assert.equal(index.data.draft.recommendedVehicleName, '三轮车')
+  assert.equal(index.data.draft.priceSummary, '三轮4公里内33元')
+})
+
 test('all customer services keep their primary form interactions', () => {
   const cases = [
     {
@@ -201,21 +278,6 @@ test('all customer services keep their primary form interactions', () => {
       select(page, event) {
         page.selectItem(event({ item: '搬运装卸' }))
         assert.equal(page.data.selectedItem, '搬运装卸')
-      }
-    },
-    {
-      id: 'send_parcel',
-      select(page, event) {
-        page.selectItem(event({ item: '普通货物' }))
-        page.selectWeight(event({ weight: 10 }))
-        assert.equal(page.data.selectedLineId, '')
-        assert.equal(page.data.selectedItem, '普通货物')
-        assert.equal(page.data.selectedWeight, 10)
-        page.selectServiceMode(event({ mode: 'CARPOOL' }))
-        assert.equal(page.data.draft.serviceMode, 'CARPOOL')
-        assert.deepEqual(page.data.taskLines.map((line) => line.id), ['cangnan', 'wenzhou', 'fuzhou'])
-        page.selectLine(event({ id: 'wenzhou' }))
-        assert.equal(page.data.selectedLineId, 'wenzhou')
       }
     },
     {
@@ -281,7 +343,8 @@ test('forklift is a phone appointment and cannot become a handling order', () =>
 })
 
 test('parcel and carpool modes choose their own lines inside the order form', () => {
-  const { app, event, calls, loadPage } = createHarness()
+  const { app, event, calls, loadPage, enableParcel } = createHarness()
+  enableParcel()
   const index = loadPage('pages/index/index.js')
   index.onShow()
 
@@ -302,7 +365,8 @@ test('parcel and carpool modes choose their own lines inside the order form', ()
 })
 
 test('unconfigured parcel matrix stays pending and blocks submission', () => {
-  const { app, event, calls, loadPage } = createHarness()
+  const { app, event, calls, loadPage, enableParcel } = createHarness()
+  enableParcel()
   const index = loadPage('pages/index/index.js')
   index.onShow()
   index.chooseTask(event({ task: 'send_parcel' }))
@@ -325,7 +389,8 @@ test('unconfigured parcel matrix stays pending and blocks submission', () => {
 })
 
 test('published pricing is merged into the customer draft and route prices', () => {
-  const { app, event, loadPage } = createHarness()
+  const { app, event, loadPage, enableParcel } = createHarness()
+  enableParcel()
   app.globalData.appConfig = {
     pricingVersion: 42,
     services: [
@@ -373,7 +438,8 @@ test('legacy moving entry opens the unified handling service', () => {
 })
 
 test('switching from carpool mode to cargo clears the carpool-only destination', () => {
-  const { app, event, loadPage } = createHarness()
+  const { app, event, loadPage, enableParcel } = createHarness()
+  enableParcel()
   const index = loadPage('pages/index/index.js')
 
   index.onShow()
@@ -417,7 +483,8 @@ test('switching away from buy-for-me clears the stale product budget before hand
 })
 
 test('switching from a remote fixed route to handling clears stale route choices', () => {
-  const { app, event, loadPage } = createHarness()
+  const { app, event, loadPage, enableParcel } = createHarness()
+  enableParcel()
   app.globalData.appConfig = {
     services: [{
       id: 'send_parcel',
@@ -479,7 +546,8 @@ test('all seeded customer addresses satisfy the order contact rules', () => {
 })
 
 test('carpool fare follows passenger count and return always ends in Fuding', () => {
-  const { app, event, loadPage } = createHarness()
+  const { app, event, loadPage, enableParcel } = createHarness()
+  enableParcel()
   const index = loadPage('pages/index/index.js')
   index.onShow()
   index.chooseTask(event({ task: 'send_parcel' }))
@@ -499,7 +567,8 @@ test('carpool fare follows passenger count and return always ends in Fuding', ()
 })
 
 test('carpool direction can be selected before the route', () => {
-  const { app, event, loadPage } = createHarness()
+  const { app, event, loadPage, enableParcel } = createHarness()
+  enableParcel()
   const index = loadPage('pages/index/index.js')
   index.onShow()
   index.chooseTask(event({ task: 'send_parcel' }))
@@ -518,7 +587,8 @@ test('carpool direction can be selected before the route', () => {
 })
 
 test('carpool address selection accepts configured cities and matches the route', async () => {
-  const { app, calls, event, loadPage } = createHarness()
+  const { app, calls, event, loadPage, enableParcel } = createHarness()
+  enableParcel()
   const index = loadPage('pages/index/index.js')
   index.onShow()
   index.chooseTask(event({ task: 'send_parcel' }))
@@ -588,7 +658,8 @@ test('cancelling a manual quote order keeps it cancelled and stops quoting', () 
 })
 
 test('order detail preserves a user-adjusted map viewport during order refresh', () => {
-  const { app, event, loadPage } = createHarness()
+  const { app, event, loadPage, enableParcel } = createHarness()
+  enableParcel()
   const index = loadPage('pages/index/index.js')
   index.onShow()
   index.chooseTask(event({ task: 'send_parcel' }))
@@ -633,7 +704,8 @@ test('all services expose cancellation before payment', () => {
 
   flows.forEach((flow) => {
     const taskId = flow.taskId
-    const { app, event, loadPage } = createHarness()
+    const { app, event, loadPage, enableParcel } = createHarness()
+    enableParcel()
     const index = loadPage('pages/index/index.js')
     index.onShow()
     index.chooseTask(event({ task: taskId }))
@@ -670,7 +742,8 @@ test('all services expose cancellation before payment', () => {
 })
 
 test('a paid order awaiting merchant acceptance can cancel with an automatic mock refund', () => {
-  const { app, event, loadPage } = createHarness()
+  const { app, event, loadPage, enableParcel } = createHarness()
+  enableParcel()
   const index = loadPage('pages/index/index.js')
   index.onShow()
   index.chooseTask(event({ task: 'send_parcel' }))

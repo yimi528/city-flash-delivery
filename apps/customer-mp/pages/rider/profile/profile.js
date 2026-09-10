@@ -24,7 +24,7 @@ function workStatusLabel(status, online) {
 
 const VEHICLE_OPTIONS = [
   { value: 'EBIKE', label: '二轮车' },
-  { value: 'ETRIKE', label: '货三轮车' },
+  { value: 'ETRIKE', label: '三轮车' },
   { value: 'VAN', label: '小车' },
   { value: 'MANUAL', label: '人力服务' }
 ]

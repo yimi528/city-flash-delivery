@@ -58,7 +58,7 @@
         <view class="muted">{{draft.serviceMode === 'CARPOOL' ? '按线路和人数' : '按物品和重量'}}</view>
       </view>
       <view class="service-mode-switch">
-        <view class="service-mode-option {{draft.serviceMode !== 'CARPOOL' ? 'active' : ''}}" data-mode="PARCEL" bindtap="selectServiceMode"><text>寄货/配送</text><small>普通货物 · 宠物</small></view>
+        <view class="service-mode-option {{draft.serviceMode !== 'CARPOOL' ? 'active' : ''}}" data-mode="PARCEL" bindtap="selectServiceMode"><text>物品配送</text><small>普通物品 · 宠物</small></view>
         <view class="service-mode-option {{draft.serviceMode === 'CARPOOL' ? 'active' : ''}}" data-mode="CARPOOL" bindtap="selectServiceMode"><text>顺风车</text><small>固定线路 · 乘客出行</small></view>
       </view>
       <view class="line-helper" wx:if="{{requiresLine && (!selectedLineId || (draft.serviceMode !== 'CARPOOL' && !draft.selectedDistrict))}}">{{draft.serviceMode === 'CARPOOL' ? '先选顺风车线路，再填写乘车地址' : '先选线路和行政区，再填写范围内的发货与收货地址'}}</view>

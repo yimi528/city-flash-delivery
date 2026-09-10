@@ -1,9 +1,11 @@
+const serviceAvailability = require('./service-availability')
+
 const PRIMARY_TASKS = [
   {
     id: 'send_parcel',
     name: '寄货配送',
     icon: '🚐',
-    subtitle: '货物寄送 · 顺风出行',
+    subtitle: '跨城捎带 · 顺风出行',
     desc: '去程/返程固定线路，按物品和重量配置',
     vehicleType: 'small_car',
     vehicleName: '面包车',
@@ -24,13 +26,13 @@ const PRIMARY_TASKS = [
   },
   {
     id: 'cargo_haul',
-    name: '运货',
-    icon: '🚚',
-    subtitle: '货三轮车',
-    desc: '市场拉货、商家补货',
+    name: '三轮车服务',
+    icon: '🛻',
+    subtitle: '三轮车',
+    desc: '市场代采、商家补货',
     vehicleType: 'cargo_tricycle',
-    vehicleName: '货三轮车',
-    priceSummary: '货三轮4公里内33元，超出3元/公里',
+    vehicleName: '三轮车',
+    priceSummary: '三轮车4公里内33元，超出3元/公里',
     pricingMode: 'distance',
     baseDistanceKm: 4,
     basePrice: 33,
@@ -168,7 +170,7 @@ function isRouteTask(taskId) {
 }
 
 const DEFAULT_ITEMS = {
-  send_parcel: '普通货物',
+  send_parcel: '普通物品',
   cargo_haul: '门店补货',
   urgent_delivery: '文件/小件',
   pickup: '快递包裹',
@@ -185,7 +187,10 @@ function normalizeTaskId(id) {
 
 function getTask(id) {
   const normalizedId = normalizeTaskId(id)
-  return ALL_TASKS.find((item) => item.id === normalizedId) || PRIMARY_TASKS[0]
+  const task = ALL_TASKS.find((item) => item.id === normalizedId)
+  if (task) return task
+  const fallbackId = serviceAvailability.firstEnabledTaskId(ALL_TASKS)
+  return ALL_TASKS.find((item) => item.id === fallbackId) || PRIMARY_TASKS[0]
 }
 
 function getDefaultItem(taskId) {
@@ -253,8 +258,8 @@ function applyRemoteConfigToDraft(draft, config) {
 
   if (remoteService) {
     if (draft.taskId === 'moving_handling') draft.priceSummary = '先电话沟通服务内容，商家协商后填写最终价格'
-    else if (remoteService.priceSummary) draft.priceSummary = remoteService.priceSummary
-    if (remoteService.vehicleName) draft.recommendedVehicleName = remoteService.vehicleName
+    else if (remoteService.priceSummary) draft.priceSummary = sanitizeServiceText(remoteService.priceSummary)
+    if (remoteService.vehicleName) draft.recommendedVehicleName = sanitizeServiceText(remoteService.vehicleName)
   }
   if (!remoteRule) return true
 
@@ -309,6 +314,21 @@ function applyRemoteConfigToDraft(draft, config) {
   return true
 }
 
+// 远端配置（旧版本 API 或历史数据）可能仍返回“运货 / 货三轮车”等旧文案，
+// 在客户端统一兜底替换，避免旧名称重新出现在用户界面。
+const LEGACY_LABEL_REPLACEMENTS = [
+  [/厢式货车/g, '厢式车'],
+  [/货三轮车/g, '三轮车'],
+  [/货三轮/g, '三轮'],
+  [/运货/g, '三轮车服务'],
+  [/拉货/g, '搬运']
+]
+
+function sanitizeServiceText(value) {
+  if (typeof value !== 'string' || !value) return value
+  return LEGACY_LABEL_REPLACEMENTS.reduce((text, pair) => text.replace(pair[0], pair[1]), value)
+}
+
 module.exports = {
   PRIMARY_TASKS,
   COMMON_TASKS,
@@ -320,5 +340,6 @@ module.exports = {
   getDefaultItem,
   applyHandlingType,
   buildDraftService,
-  applyRemoteConfigToDraft
+  applyRemoteConfigToDraft,
+  sanitizeServiceText
 }

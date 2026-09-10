@@ -8,9 +8,10 @@ import { CarpoolQuoteDto, HandlingQuoteDto, UpdatePricingRuleDto, UpdateServiceC
 import { ConfigCenterService } from '../config-center/config-center.service'
 
 const DEFAULT_SERVICES = [
-  { id: 'send_parcel', name: '寄货配送', sortOrder: 10, vehicleType: VehicleType.VAN, vehicleName: '面包车', passengerCapacity: 0 },
+  // 审核口径：寄货配送涉及货物运输服务，服务端保持关闭（enabled: false），数据与计价规则保留。
+  { id: 'send_parcel', name: '寄货配送', sortOrder: 10, vehicleType: VehicleType.VAN, vehicleName: '面包车', passengerCapacity: 0, enabled: false },
   { id: 'carpool_ride', name: '顺风车', sortOrder: 15, vehicleType: VehicleType.VAN, vehicleName: '小车', passengerCapacity: 6 },
-  { id: 'cargo_haul', name: '运货', sortOrder: 20, vehicleType: VehicleType.ETRIKE, vehicleName: '货三轮车', passengerCapacity: 0 },
+  { id: 'cargo_haul', name: '三轮车服务', sortOrder: 20, vehicleType: VehicleType.ETRIKE, vehicleName: '三轮车', passengerCapacity: 0 },
   { id: 'moving_handling', name: '搬运装卸', sortOrder: 30, vehicleType: VehicleType.MANUAL, vehicleName: '人力服务', passengerCapacity: 0 },
   { id: 'urgent_delivery', name: '急送', sortOrder: 40, vehicleType: VehicleType.EBIKE, vehicleName: '二轮车', passengerCapacity: 0 },
   { id: 'pickup', name: '帮取', sortOrder: 50, vehicleType: VehicleType.EBIKE, vehicleName: '二轮车', passengerCapacity: 0 },
@@ -53,7 +54,7 @@ export class CatalogService implements OnModuleInit {
     try {
       await Promise.all(DEFAULT_SERVICES.map((service) => this.prisma.serviceCatalog.upsert({
         where: { id: service.id },
-        update: { name: service.name, vehicleName: service.vehicleName, enabled: true },
+        update: { name: service.name, vehicleName: service.vehicleName, enabled: service.enabled !== false },
         create: service,
       })))
       await Promise.all([

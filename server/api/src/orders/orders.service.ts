@@ -34,7 +34,7 @@ type Decimalish = Prisma.Decimal | number | string | null | undefined
 
 const TASK_VEHICLES: Record<string, { type: PrismaVehicleType; name: string }> = {
   carpool_ride: { type: PrismaVehicleType.VAN, name: '小车' },
-  cargo_haul: { type: PrismaVehicleType.ETRIKE, name: '货三轮车' },
+  cargo_haul: { type: PrismaVehicleType.ETRIKE, name: '三轮车' },
   moving_handling: { type: PrismaVehicleType.MANUAL, name: '人力服务' },
   send_parcel: { type: PrismaVehicleType.VAN, name: '面包车' },
   urgent_delivery: { type: PrismaVehicleType.EBIKE, name: '二轮车' },
@@ -661,6 +661,7 @@ export class OrdersService {
       顺风车: 'carpool_ride',
       拉货: 'cargo_haul',
       运货: 'cargo_haul',
+      三轮车服务: 'cargo_haul',
       搬家: 'moving_handling',
       '搬家/搬店': 'moving_handling',
       搬运装卸: 'moving_handling',
@@ -731,7 +732,7 @@ export class OrdersService {
       }
     }
     if (taskId === 'cargo_haul')
-      return { ...common, serviceType: 'CARGO', serviceName: '运货' }
+      return { ...common, serviceType: 'CARGO', serviceName: '三轮车服务' }
     if (taskId === 'urgent_delivery')
       return {
         ...common,
@@ -797,7 +798,7 @@ export class OrdersService {
     })
     const distanceKm = route.route.distanceKm
     if (configuredRule && distanceKm * 1000 > Number(configuredRule.maxDistanceMeters || 0)) {
-      throw new BadRequestException(taskId === 'cargo_haul' ? '运货超出距离上限' : '目的地超出当前服务距离')
+      throw new BadRequestException(taskId === 'cargo_haul' ? '用车超出距离上限' : '目的地超出当前服务距离')
     }
     if (!WEATHER_TASK_IDS.has(taskId)) return { distanceKm, badWeather: false }
     const risk = await this.weather.resolve({
@@ -838,14 +839,14 @@ export class OrdersService {
   }
 
   private vehicleCapacity(maxWeightKg: number) {
-    if (maxWeightKg <= 10) return '小件轻货'
+    if (maxWeightKg <= 10) return '小件轻量'
     if (maxWeightKg <= 30) return '30kg内小车配送'
-    return '大件/多件货物'
+    return '大件/多件物品'
   }
 
   private serviceLabel(serviceType: PrismaServiceType) {
     if (serviceType === PrismaServiceType.PICKUP) return '帮取'
-    if (serviceType === PrismaServiceType.CARGO) return '送货'
+    if (serviceType === PrismaServiceType.CARGO) return '三轮车服务'
     if (serviceType === PrismaServiceType.BUY_FOR_ME) return '帮买'
     if (serviceType === PrismaServiceType.CARPOOL) return '顺风车'
     if (serviceType === PrismaServiceType.MOVING) return '搬家'
@@ -867,7 +868,7 @@ export class OrdersService {
     const labels: Record<string, string> = {
       carpool_ride: '顺风车',
       send_parcel: '寄货配送',
-      cargo_haul: '运货',
+      cargo_haul: '三轮车服务',
       urgent_delivery: '急送',
       pickup: '帮取',
       buy_for_me: '帮买',

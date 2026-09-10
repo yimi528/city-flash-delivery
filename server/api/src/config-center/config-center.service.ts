@@ -258,9 +258,9 @@ export class ConfigCenterService implements OnModuleInit {
     }
     if (dto.taskId === 'send_parcel' || rule.pricingMode === 'parcel_category') {
       if (!route) throw new BadRequestException('线路不存在或已停用')
-      const item = String(dto.item || '普通货物')
+      const item = String(dto.item || '普通物品')
       const weightKg = Math.max(1, Number(dto.weightKg || 1))
-      if (item !== '宠物' && weightKg > 30) throw new BadRequestException('普通货物重量不能超过30kg')
+      if (item !== '宠物' && weightKg > 30) throw new BadRequestException('普通物品重量不能超过30kg')
       const itemType = item === '宠物' ? 'PET' : 'NORMAL'
       const weightBand = itemType === 'PET' ? 'ANY' : (weightKg <= 10 ? 'UP_TO_10' : 'UP_TO_30')
       const parcelPricing = normalizeParcelPricing(rule.parcelPricing, [route])
@@ -291,7 +291,7 @@ export class ConfigCenterService implements OnModuleInit {
       distanceMeters = Math.round(routeResult.route.distanceKm * 1000)
     }
     if (distanceMeters > rule.maxDistanceMeters) {
-      throw new BadRequestException(dto.taskId === 'cargo_haul' ? '运货超出距离上限' : '目的地超出当前服务距离')
+      throw new BadRequestException(dto.taskId === 'cargo_haul' ? '用车超出距离上限' : '目的地超出当前服务距离')
     }
     const excessKm = Math.ceil(Math.max(0, distanceMeters - rule.includedDistanceMeters) / 1000)
     const distanceFeeFen = excessKm * rule.perKmFen
@@ -528,7 +528,7 @@ export class ConfigCenterService implements OnModuleInit {
 
   private vehicleName(taskId: string, item?: string) {
     if (taskId === 'moving_handling' && item === '叉车') return '叉车服务'
-    const labels: Record<string, string> = { carpool_ride: '小车', send_parcel: '面包车', cargo_haul: '货三轮车', urgent_delivery: '二轮车', pickup: '二轮车', buy_for_me: '二轮车', pedicab_delivery: '人力三轮车', moving_handling: '人力服务' }
+    const labels: Record<string, string> = { carpool_ride: '小车', send_parcel: '面包车', cargo_haul: '三轮车', urgent_delivery: '二轮车', pickup: '二轮车', buy_for_me: '二轮车', pedicab_delivery: '人力三轮车', moving_handling: '人力服务' }
     return labels[taskId] || '配送车辆'
   }
 

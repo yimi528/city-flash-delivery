@@ -5,8 +5,8 @@ import type { OperationsApi } from '../../services/api'
 type WorkspaceProps = { api: OperationsApi; onToast: (message: string) => void }
 
 const SERVICE_CATALOG = [
-  { id: 'send_parcel', name: '寄货配送', icon: '🚐', subtitle: '货物寄送 · 顺风出行' },
-  { id: 'cargo_haul', name: '运货', icon: '🚚', subtitle: '货三轮车' },
+  { id: 'send_parcel', name: '寄货配送', icon: '🚐', subtitle: '跨城捎带 · 顺风出行' },
+  { id: 'cargo_haul', name: '三轮车服务', icon: '🛻', subtitle: '三轮车' },
   { id: 'moving_handling', name: '搬运装卸', icon: '🏗️', subtitle: '搬家 · 搬店 · 装卸' },
   { id: 'urgent_delivery', name: '急送', icon: '⚡', subtitle: '二轮急送' },
   { id: 'pickup', name: '帮取', icon: '📥', subtitle: '二轮车' },

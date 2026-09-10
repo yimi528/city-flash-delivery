@@ -20,8 +20,9 @@ if has_scope mini; then
   printf '\n[质量检查] 小程序测试与脚本语法\n'
   printf '[质量检查] 共享契约测试\n'
   npm run test:shared
-  node --test "$MINI_DIR"/tests/*.test.js
-  while IFS= read -r -d '' file; do node --check "$file"; done < <(find "$MINI_DIR" -name '*.js' -print0)
+  # 必须在小程序目录内用相对路径调用 node：Windows 上原生 node 无法解析 MSYS 风格绝对路径
+  # （/e/xxx 会被解析成 E:\\e\\xxx），bash 版本不受影响。
+  (cd "$MINI_DIR" && node --test tests/*.test.js && find . -name '*.js' -print0 | xargs -0 -n1 node --check)
 fi
 
 if has_scope api; then

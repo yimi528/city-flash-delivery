@@ -553,7 +553,7 @@ export class RidersService {
   private vehicleNameForType(vehicleType: VehicleType) {
     const labels: Record<VehicleType, string> = {
       [VehicleType.EBIKE]: '二轮车',
-      [VehicleType.ETRIKE]: '货三轮车',
+      [VehicleType.ETRIKE]: '三轮车',
       [VehicleType.VAN]: '小车',
       [VehicleType.MANUAL]: '人力服务',
     }

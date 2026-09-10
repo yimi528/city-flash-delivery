@@ -5,7 +5,7 @@
       <view class="brand-seal">速</view>
       <view>
         <view class="brand">鼎温榕同城配送</view>
-        <view class="brand-caption">福鼎本地生活运力</view>
+        <view class="brand-caption">福鼎本地生活服务</view>
       </view>
     </view>
     <view class="city-chip">
@@ -16,8 +16,8 @@
 
   <view class="hero-card">
     <view class="hero-copy">
-      <view class="hero-kicker">鼎温榕 · 本地运力</view>
-      <view class="hero-title">从福鼎出发，<br/>人和货都准时到。</view>
+      <view class="hero-kicker">鼎温榕 · 本地服务</view>
+      <view class="hero-title">从福鼎出发，<br/>大事小事都准时办。</view>
       <view class="hero-meta">
         <view><text>1</text> 分钟响应</view>
         <view class="meta-divider"></view>

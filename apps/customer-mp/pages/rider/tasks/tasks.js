@@ -83,7 +83,7 @@ Page({
 
   reportException(event) {
     const id = event.currentTarget.dataset.id
-    const reasons = ['无法联系用户', '地址或货物不符', '车辆故障', '其他异常']
+    const reasons = ['无法联系用户', '地址或物品不符', '车辆故障', '其他异常']
     wx.showActionSheet({
       itemList: reasons,
       success: (result) => api.reportException(id, reasons[result.tapIndex])
