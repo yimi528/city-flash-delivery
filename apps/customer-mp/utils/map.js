@@ -1,5 +1,6 @@
 const cloudRequest = require('./cloud-request')
 const mockLocation = require('./mock-location')
+const runtimeConfig = require('../config/runtime')
 
 const QQ_MAP_HOST = 'https://apis.map.qq.com'
 const DEFAULT_REGION = '福鼎市'
@@ -168,6 +169,10 @@ function requestMap(path, data) {
 
 function getBackendMapBaseUrl() {
   const globalData = getGlobalData()
+  // 与 utils/api.js 共用同一个基址出口，避免地图请求单独回落到 http://127.0.0.1。
+  if (typeof runtimeConfig.resolveBackendBaseUrl === 'function') {
+    return runtimeConfig.resolveBackendBaseUrl(globalData, typeof wx === 'undefined' ? null : wx)
+  }
   return String(globalData.apiBaseUrl || '').replace(/\/$/, '')
 }
 

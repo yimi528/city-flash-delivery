@@ -8,7 +8,7 @@
 
 部署前必须保留并核对以下边界：
 
-- 小程序版本通道（`develop`、`trial`、`release`）与 API/云托管运行环境（本机、`test`、`prod`）是两个独立维度，不能把“体验版”等同于“测试环境”。当前映射为 `develop → 本机`、`trial → prod`、`release → prod`；切换其中一个维度不会自动切换另一个。
+- 小程序版本通道（`develop`、`trial`、`release`）与 API/云托管运行环境（本机、`test`、`prod`）是两个独立维度，不能把“体验版”等同于“测试环境”。当前映射为 `develop` + 微信开发者工具 → 本机、`develop` 真机/预览/审核容器 → `prod`、`trial → prod`、`release → prod`；切换其中一个维度不会自动切换另一个。本机 API 只允许微信开发者工具使用：其他环境（含审核容器）一律走线上地址，回环地址会被微信以 `request:fail url not in domain list` 拒绝。
 - API 和商家端都是微信云托管服务，当前分别为 `city-flash-api:3000` 和 `city-flash-merchant:80`；静态资源存储只能作为后续可选替代方案。每个服务必须保持“一服务一端口”。
 - 不同云托管环境的 API 和商家后台公网域名按环境分别生成；商家端构建时的 `VITE_API_BASE_URL`、API 的 `CORS_ORIGINS` 和小程序的云环境 ID 必须指向同一环境，不能交叉使用 `test` 与 `prod` 的域名。
 - API 使用微信云托管提供的 MySQL 8.0；MySQL GIS 用于服务区域边界查询，普通地址/订单坐标仍保留经纬度字段。Redis 不再作为项目依赖，限流使用单实例内存实现。

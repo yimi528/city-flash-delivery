@@ -97,12 +97,19 @@ function getAppRole() {
 }
 
 function getBaseUrl() {
+  let globalData = null
   try {
     const app = getApp()
-    return (app.globalData && app.globalData.apiBaseUrl) || DEFAULT_BASE_URL
+    globalData = app && app.globalData ? app.globalData : null
   } catch (error) {
-    return DEFAULT_BASE_URL
+    globalData = null
   }
+  // 基址统一由 runtime 解析：非微信开发者工具环境不会回落到 http://127.0.0.1，
+  // 否则微信会以 request:fail url not in domain list 直接拒绝请求。
+  if (typeof runtimeConfig.resolveBackendBaseUrl === 'function') {
+    return runtimeConfig.resolveBackendBaseUrl(globalData, wx)
+  }
+  return (globalData && globalData.apiBaseUrl) || DEFAULT_BASE_URL
 }
 
 function getAuthToken() {
@@ -132,10 +139,10 @@ function request(path, options) {
   const config = options || {}
   const headers = buildHeaders()
   if (config.header) Object.assign(headers, config.header)
-  if (cloudRequest.hasEnvironment()) {
-    if (!cloudRequest.isConfigured()) {
-      return Promise.reject(new Error('微信云托管调用不可用，请升级微信基础库并确认小程序已关联云环境'))
-    }
+  // 优先走微信云托管 callContainer：它不需要配置 request 合法域名。
+  // 只有在云托管通道确实不可用时，才回落到公网域名（需在公众平台登记 request 合法域名），
+  // 而不是直接抛错——否则审核容器一旦缺少 callContainer，整个首页都会失败。
+  if (cloudRequest.hasEnvironment() && cloudRequest.isConfigured()) {
     return cloudRequest.requestCloud(path, {
       method: config.method || 'GET',
       data: config.data || {},

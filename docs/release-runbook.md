@@ -315,7 +315,8 @@ CLI 可能在发布过程中显示 `ResourceNotFound.TopicNotExist`，或重复�
 | 只传部分 `--envParams` 后服务变量消失 | 当前 CLI 会用传入集合替换服务环境变量 | 传完整审计后的集合，或不传该参数 |
 | 商家页面正常但接口失败 | `VITE_API_BASE_URL` 是旧值，或 API CORS 未包含商家域名 | 先查询域名，再构建并检查 CORS |
 | `npm ci` 长时间无输出 | 依赖安装仍在进行，或网络较慢 | 先检查进程和网络，不要并发重复安装 |
-| 体验版被误认为测试环境 | 版本通道和云环境是两个维度 | 按 `develop→local`、`trial→prod`、`release→prod` 核对 |
+| 体验版被误认为测试环境 | 版本通道和云环境是两个维度 | 按 `develop`（仅开发者工具）`→local`、其余 `develop`/`trial`/`release` `→prod` 核对 |
+| 审核反馈「打开首页报错」，日志为 `request:fail url not in domain list` | 审核容器把 `envVersion` 报成 `develop`，构建把请求打到了 `http://127.0.0.1:3000/api` | 本机 API 只允许开发者工具使用；`config/runtime.js` 的 `resolveBackendBaseUrl` 已强制非开发者工具环境走线上地址，发布前用 `npm run test:mini` 的回归用例确认 |
 | zsh 中定义 `path` 后命令异常 | zsh 的 `path` 与 `PATH` 绑定 | 使用 `endpoint_path` 等其他变量名 |
 | 凭证拿错用途 | 云托管、支付、小程序上传使用不同密钥 | 按命令用途选择对应密钥，任何凭证都不入 Git |
 | 把 `tcb` 当成 `wxcloud` | 混用了 CloudBase CLI 和微信云托管 CLI | 本项目统一使用官方 `@wxcloud/cli` 的 `wxcloud` 命令 |

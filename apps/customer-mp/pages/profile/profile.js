@@ -158,7 +158,10 @@ Page({
         if (riderFeature.isEnabled(app)) this.loadRiderState()
         wx.showToast({ title: '登录成功', icon: 'success' })
       }).catch((error) => {
-        wx.showToast({ title: error.message || '微信登录失败', icon: 'none' })
+        // 不把 request:fail url not in domain list 之类的原始英文错误甩给用户和审核员，
+        // 细节只写入日志。
+        console.warn('[profile] 微信登录失败', error && (error.detail || error.message))
+        wx.showToast({ title: '登录失败，请检查网络后重试', icon: 'none' })
       }).finally(() => {
         this.setData({ isLoggingIn: false })
       })
