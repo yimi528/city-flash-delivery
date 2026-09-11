@@ -71,7 +71,7 @@ wxcloud env:list --region ap-shanghai --json
 | 小程序版本通道 | `develop` / `trial` / `release` | `wx.getAccountInfoSync().miniProgram.envVersion` |
 | API 运行环境 | 本机 / `test` / `prod` | `runtime.js` 的地址和 `wx.cloud.callContainer({ config: { env } })` |
 
-当前项目的有意映射是：`develop → 本机`（开发联调时可显式切到 `test`），`trial → prod`，`release → prod`。因此，“体验版”不是“测试环境”的另一种叫法；体验版当前会访问生产 API，产生真实生产订单和支付。反过来，创建或切换云托管环境也不会自动改变小程序版本，必须同时检查小程序运行时映射。
+当前项目的有意映射是：开发者工具 `develop → 本机`（开发联调时可显式切到 `test`），`trial → prod`，`release → prod`。如果微信审核/真机运行时暂时无法返回 `envVersion`，但提供了 `wx.cloud.callContainer`，客户端会安全地按 `prod` 处理，避免把 `127.0.0.1` 或未配置白名单的公网地址交给 `wx.request`。因此，“体验版”不是“测试环境”的另一种叫法；体验版当前会访问生产 API，产生真实生产订单和支付。反过来，创建或切换云托管环境也不会自动改变小程序版本，必须同时检查小程序运行时映射。
 
 ## 3. 创建 API 服务
 
@@ -155,7 +155,7 @@ const WX_CLOUD_PROD_ENV_ID = 'ding-delivery-prod-d8c1eea132b4c'
 const WX_CLOUD_SERVICE_NAME = 'city-flash-api'
 ```
 
-开发版默认不初始化云托管、访问本机 API；如需云端联调，应显式切换到 `WX_CLOUD_TEST_ENV_ID`；体验版和正式版均初始化 `WX_CLOUD_PROD_ENV_ID`。当前小程序只开放用户端，用户请求通过 `wx.cloud.callContainer` 访问 `/api/...`；骑手页面未注册，骑手 API 由 `RIDER_FEATURE_ENABLED=false` 默认关闭。体验版产生的订单、支付和业务数据均属于生产数据。小程序基础库最低版本要满足官方文档要求（当前项目配置为 3.16.2）。修改后用微信开发者工具真机预览，再按现有 `miniprogram-ci` 流程上传正式 AppID 的代码版本。
+开发者工具开发版默认不初始化云托管、访问本机 API；如需云端联调，应显式切换到 `WX_CLOUD_TEST_ENV_ID`；体验版和正式版均初始化 `WX_CLOUD_PROD_ENV_ID`。审核/真机环境若缺少 `envVersion`，只要 `wx.cloud.callContainer` 可用也会初始化生产云环境。当前小程序只开放用户端，用户请求通过 `wx.cloud.callContainer` 访问 `/api/...`；骑手页面未注册，骑手 API 由 `RIDER_FEATURE_ENABLED=false` 默认关闭。体验版产生的订单、支付和业务数据均属于生产数据。小程序基础库最低版本要满足官方文档要求（当前项目配置为 3.16.2）。修改后用微信开发者工具真机预览，再按现有 `miniprogram-ci` 流程上传正式 AppID 的代码版本。
 
 通过 `wx.cloud.callContainer` 访问时，微信云托管会把当前微信用户身份注入 `x-wx-openid`/`x-wx-unionid` 请求头；API 优先使用这组身份完成小程序登录，不再依赖容器主动访问 `api.weixin.qq.com`。本地开发版直连 API 时没有这些请求头，才回退到 `wx.login` + `jscode2session`，因此本地仍需配置正确的 AppSecret。具体以[官方小程序调用云托管文档](https://developers.weixin.qq.com/miniprogram/dev/wxcloudservice/wxcloudrun/src/development/call/mini.html)为准。
 

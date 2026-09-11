@@ -13,9 +13,17 @@ function getCloudConfig() {
     app = typeof getApp === 'function' ? getApp() : null
   } catch (error) {}
   const globalData = app && app.globalData ? app.globalData : {}
-  const hasRuntimeEnv = Boolean(globalData && Object.prototype.hasOwnProperty.call(globalData, 'wxCloudEnvId'))
+  let resolvedEnvId = ''
+  try {
+    if (typeof wx !== 'undefined' && typeof runtime.resolveCloudEnvId === 'function') {
+      resolvedEnvId = runtime.resolveCloudEnvId(wx) || ''
+    }
+  } catch (error) {}
   return {
-    envId: hasRuntimeEnv ? globalData.wxCloudEnvId : '',
+    // Use the app value when onLaunch has already initialized it, but derive it
+    // from runtime as a safe fallback for the first request in review/real-device
+    // runtimes where getAccountInfoSync is not available during app startup.
+    envId: globalData.wxCloudEnvId || resolvedEnvId,
     serviceName: globalData.wxCloudServiceName || runtime.WX_CLOUD_SERVICE_NAME || 'city-flash-api'
   }
 }

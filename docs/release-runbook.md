@@ -35,9 +35,11 @@
 
 | 小程序版本 | API/云托管环境 |
 | --- | --- |
-| `develop` | 本机 |
+| `develop`（开发者工具） | 本机 |
 | `trial` | `prod` |
 | `release` | `prod` |
+
+审核/真机运行时若无法读取 `envVersion`，但微信基础库提供 `wx.cloud.callContainer`，客户端会按 `prod` 云环境处理，避免回退到未配置合法域名的 `wx.request`。
 
 因此，“体验版”不等于名为 `test` 的云环境；只有代码显式配置为测试环境时才使用测试环境。
 
