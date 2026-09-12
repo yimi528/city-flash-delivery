@@ -1,346 +1,146 @@
-# 微信云托管下一次发布 Runbook
+# 当前发布 Runbook
 
-本文是本项目下一次发布的主入口，记录已经验证过的微信云托管发布顺序、验收条件和常见故障。命令以当前仓库和本机 `wxcloud` CLI 1.1.8 的实际帮助为准；正式操作前仍要重新执行帮助和查询命令。
+本文是当前仓库的发布入口。一次完整发布包含 GitHub 代码、微信云托管 API、微信云托管商家端和微信公众平台小程序代码。生产目标统一为微信云托管；不使用旧服务器、SSH、Quick Tunnel、Redis 或 PostgreSQL 运行生产。
 
-官方入口：
+## 当前版本状态
 
-- [微信云托管文档](https://developers.weixin.qq.com/miniprogram/dev/wxcloudservice/wxcloudrun/src/)
-- [微信云托管 CLI](https://cloud.weixin.qq.com/cli/)
-- [云托管部署细节](deploy-wxcloud.md)
-- [小程序上传说明](../deploy/miniprogram-ci.md)
-
-## 1. 先理解一次发布包含什么
-
-一次本地发布包含四个阶段，GitHub tag 只用于版本留痕，不触发生产部署：
-
-1. Git 提交、推送和打 tag：保存代码与文档版本，`vX.Y.Z` 是本次发布的统一标识，推送 `main` 只触发 CI。
-2. 本地质量门禁：`npm run release:local` 根据当前 tag 与上一个发布 tag 的差异，只执行受影响范围的生产配置、测试、构建和依赖审计。
-3. 本地云托管发布：只发布发生变化的 API 或商家后台服务；两者同时变化时并行提交，并执行对应健康检查。
-4. 本地小程序上传：只有小程序代码或配置发生变化时，才上传同一 tag 对应的小程序版本。
-
-默认范围规则：
-
-| 变更范围 | 本地动作 |
+| 项目 | 当前值 |
 | --- | --- |
-| `server/api/` | API 质量门禁、依赖审计、云托管部署和 readiness 检查 |
-| `apps/merchant-web/` | 商家端构建、依赖审计、云托管部署和健康检查 |
-| `apps/customer-mp/`、小程序配置或上传脚本 | 小程序测试、语法检查和上传 |
-| 仅文档或发布工具 | 不部署运行服务，不上传小程序 |
-
-需要完整重新发布时使用 `RELEASE_FORCE_ALL=true npm run release:local -- vX.Y.Z`。
-
-云托管 API 和商家后台的内部版本号由微信云托管平台生成，不能通过当前 `wxcloud run:deploy` 直接指定为 `X.Y.Z`；发布命令会把 `vX.Y.Z` 和 Git SHA 写入版本备注。小程序版本则使用同一个 tag 去掉 `v` 后的 `X.Y.Z`。
-
-当前版本通道与 API 运行环境的映射是两个独立维度：
-
-| 小程序版本 | API/云托管环境 |
-| --- | --- |
-| `develop`（开发者工具） | 本机 |
-| `trial` | `prod` |
-| `release` | `prod` |
-
-审核/真机运行时若无法读取 `envVersion`，但微信基础库提供 `wx.cloud.callContainer`，客户端会按 `prod` 云环境处理，避免回退到未配置合法域名的 `wx.request`。
-
-因此，“体验版”不等于名为 `test` 的云环境；只有代码显式配置为测试环境时才使用测试环境。
-
-## 2. 当前目标快照与动态核验
-
-下面是 2026-09-04 最近一次成功发布使用的快照，仅用于定位，不是永久配置。每次发布必须以 `wxcloud service:list` 和控制台返回的当前值为准。
-
-| 项目 | 当前快照 |
-| --- | --- |
-| 微信 AppID | `wxee631108a5a95efc` |
+| GitHub main | `3c392ec` |
+| Git tag | `v1.0.10` |
+| 小程序上传版本 | `1.0.10` |
 | 云托管环境 | `ding-delivery-prod-d8c1eea132b4c` |
 | API 服务 | `city-flash-api:3000` |
 | 商家服务 | `city-flash-merchant:80` |
-| API 公网域名 | `city-flash-api-298025-11-1469830209.sh.run.tcloudbase.com` |
-| 商家公网域名 | `city-flash-merchant-298025-11-1469830209.sh.run.tcloudbase.com` |
 
-域名必须从服务查询结果的 `DefaultPublicDomain` 或控制台复制，不能根据环境名、服务名或历史记录自行拼接。API、商家端构建时的 `VITE_API_BASE_URL`、API 的 `CORS_ORIGINS` 和小程序云环境 ID 必须属于同一环境。
+域名必须每次通过 `wxcloud service:list --json` 查询，不要从历史文档或服务名自行拼接。
 
-## 3. 发布前静态检查
+## 1. 发布前检查
 
-从仓库根目录开始，先确认当前代码、版本和 CLI：
-
-~~~sh
-cd /Users/shun/Projects/city-flash-delivery
-set -Eeuo pipefail
-
-PROJECT_APP_ID="$(node -p "require('./project.config.json').appid")"
-CLOUD_ENV_ID="$(node -p "require('./apps/customer-mp/config/runtime.js').WX_CLOUD_PROD_ENV_ID")"
-CLOUD_REGION="ap-shanghai"
-API_SERVICE_NAME="city-flash-api"
-MERCHANT_SERVICE_NAME="city-flash-merchant"
-RELEASE_SHA="$(git rev-parse --short HEAD)"
-
-git status --short
+```bash
+git status --short --branch
 git diff --check
+git fetch origin main --tags
+git rev-list --left-right --count HEAD...origin/main
 wxcloud --version
 wxcloud login --help
 wxcloud env:list --help
 wxcloud service:list --help
 wxcloud run:deploy --help
-~~~
+```
 
-如果依赖尚未安装，再执行安装和质量门禁：
+工作区必须干净，当前提交必须已经推送到 `origin/main`。代码、云托管 CLI 私钥、微信上传私钥、AppSecret、支付证书和数据库密码分开管理，凭证只放在仓库外安全目录或 GitHub/云平台 Secret 中。
 
-~~~sh
+质量门禁：
+
+```bash
 npm ci
 npm --prefix server/api ci
 npm --prefix apps/merchant-web ci
 npm run check:quality
-~~~
+npm run test:security
+```
 
-`npm run check:quality` 必须完整通过，当前覆盖共享包测试、小程序测试与语法检查、API Jest/lint/build/Prisma 校验，以及商家端 TypeScript/Vite 构建。检查失败时不要进入发布步骤。
+## 2. 发布版本
 
-当前小程序仅开放用户端，不注册骑手页面；骑手代码和数据模型保留但由 `RIDER_FEATURE_ENABLED=false` 默认关闭。用户通过地址搜索或地图拖动选点，当前版本不申请微信设备定位权限。重新开放骑手端前，必须重新核对 `apps/customer-mp/app.json` 的页面注册、隐私说明、骑手定位和接口审核状态。
+版本使用 annotated tag，当前小程序版本为 `1.0.10`。下一次发布必须使用微信后台允许的更高版本：
 
-寄货配送（`send_parcel`）因货物运输类目审核未通过，由客户端 `PARCEL_SERVICE_ENABLED=false` 与服务端 `serviceCatalog.enabled=false` 默认关闭；运货已改名为「三轮车服务」。整改范围、开关恢复方式与再次提审自查项见 [`review-remediation-parcel.md`](review-remediation-parcel.md)。
-
-只要本次提交包含 `apps/customer-mp/`、根目录 `project.config.json` 或小程序配置，就要额外确认小程序门禁和版本号：
-
-~~~sh
-npm run test:mini
-find apps/customer-mp -name '*.js' -print0 | xargs -0 -n1 node --check
-git diff --check
-~~~
-
-然后在微信公众平台确认“当前已上传版本”，选择严格递增的新 `x.y.z` 版本；不要沿用工作流里过期的默认版本，也不要把云托管版本号当作小程序版本号。
-
-## 4. 登录和目标服务核验
-
-### 4.1 分清云托管密钥和小程序上传密钥
-
-真实凭证不属于仓库；本机发布在 macOS 默认从 `~/Library/Application Support/city-flash-delivery/secrets/` 读取，Linux/其他环境默认从 `~/.config/city-flash-delivery/secrets/` 读取，脚本不会回退读取仓库内的凭证。云托管 CLI 私钥、小程序代码上传私钥、微信支付私钥用途不同，不能按文件名或扩展名猜用途，也不能相互替代。尤其不要把小程序上传用的 PEM 私钥传给 `wxcloud login`；云托管密钥应从云托管控制台/官方 CLI 配置取得，并与目标 AppID 和租户匹配。具体目录和跨项目规则见 [`docs/credentials.md`](credentials.md)。
-
-~~~sh
-# 这里只能填云托管 CLI 私钥内容，不是小程序代码上传私钥路径
-CLOUD_PRIVATE_KEY="$(<"/安全位置/cloud-cli-private-key")"
-test -n "$CLOUD_PRIVATE_KEY"
-
-wxcloud login --appId "$PROJECT_APP_ID" --privateKey "$CLOUD_PRIVATE_KEY"
-wxcloud env:list --region "$CLOUD_REGION" --json
-wxcloud service:list --envId "$CLOUD_ENV_ID" --region "$CLOUD_REGION" --json
-~~~
-
-将上一条服务查询结果中的当前 `DefaultPublicDomain` 手工复制到后续变量；不要从历史快照或环境名推测：
-
-~~~sh
-# 以下两个值必须替换为当前 service:list/控制台返回的域名
-API_DOMAIN="<current-api-DefaultPublicDomain>"
-MERCHANT_DOMAIN="<current-merchant-DefaultPublicDomain>"
-~~~
-
-登录成功后核对：
-
-- 环境确实是目标 `prod` 环境；
-- `city-flash-api` 和 `city-flash-merchant` 都存在，状态为正常且已开启公网访问；
-- 两个服务各自只有一个端口，分别为 3000 和 80；
-- API 的生产变量满足 `scripts/validate-production.sh` 和 API 生产配置校验；
-- `RUN_MIGRATIONS_ON_STARTUP=true`，`RUN_OPERATOR_INITIALIZATION_ON_STARTUP=false`；
-- 登录和支付 Mock 均关闭，生产环境没有默认 JWT、默认运营员密码或 Redis 依赖；
-- API 的 CORS 已包含当前商家公网域名，商家端构建使用当前 API HTTPS 域名。
-
-如果出现 AppID 与密钥不匹配，先停止并重新选择匹配当前 AppID 的密钥。出现 `Tenant not found` 时，这是租户或权限边界，不能靠重复发布解决，应先修复账号或项目权限。
-
-## 5. 提交和推送代码
-
-只暂存本次确认过的明确路径，并在提交前检查密钥排除规则：
-
-~~~sh
-git add -- <本次确认过的代码、配置和文档路径>
-git diff --cached --check
-git diff --cached --name-status
-! git diff --cached --name-only | rg -i '(^|/)(deploy/secrets|\.env($|\.)|.*\.(pem|key|p12|pfx|crt|cer))'
-git commit -m "说明本次发布内容"
-
-git fetch origin main
-git rev-list --left-right --count HEAD...origin/main
+```bash
+npm run release -- --dry-run
+npm run release -- <next-version>
 git push origin main
+git push origin v<next-version>
+```
 
-git rev-parse HEAD
-git ls-remote origin refs/heads/main
+`npm run release:local -- v<next-version>` 是本机发布编排入口，会根据 tag 差异决定是否发布 API、商家端和小程序；它要求生产配置位于仓库外安全目录。生产配置校验命令为：
 
-# 先推送已经提交的 main，再创建本地 tag。首次没有 Git 发布 tag 时必须手动指定版本；
-# 新项目可以从 1.0.0 开始。如果微信后台已有更高版本，应填写实际允许上传的下一个版本。
-# 首次发布（二选一）：
-# npm run release -- --dry-run 1.0.0
-# npm run release -- 1.0.0
-# 已有发布 tag（二选一）：
-# npm run release -- --dry-run
-# npm run release
-# 也可以手动指定更高版本：npm run release -- 2.0.0
+```bash
+npm run release:check -- /secure/path/production.env
+```
 
-# tag 创建后直接在本机按变更范围发布；命令不会触发 GitHub Actions。
-RELEASE_TAG="$(git describe --tags --exact-match HEAD)"
-npm run release:local -- "$RELEASE_TAG"
+## 3. 微信云托管环境核验
 
-# 本地发布成功后，再推送 tag 做版本留痕。
-git push origin "$RELEASE_TAG"
-~~~
+```bash
+wxcloud env:list --region ap-shanghai --json
+wxcloud service:list \
+  --envId ding-delivery-prod-d8c1eea132b4c \
+  --region ap-shanghai \
+  --json
+```
 
-如果 `origin/main` 在本地提交之后又有新提交，先停止发布，按项目协作约定处理 rebase 或合并并重新跑质量门禁。推送 `main` 只会触发 `.github/workflows/ci.yml`；推送 tag 不再触发生产部署。GitHub 的 `.github/workflows/wxcloud-deploy.yml` 仅保留手动 `workflow_dispatch` 备用入口。
+必须确认：
 
-## 6. 发布 API：必须使用精简临时上下文
+- `city-flash-api` 状态正常、端口 3000、开启公网访问；
+- `city-flash-merchant` 状态正常、端口 80、开启公网访问；
+- 两个服务来自同一个 `prod` 环境；
+- API 使用 MySQL 8.0，服务区域边界使用 MySQL GIS；
+- 生产 Mock 关闭、运营员自动初始化关闭、迁移开关开启；
+- API `CORS_ORIGINS` 包含当前商家域名。
 
-`wxcloud run:deploy` 会打包目标目录中的内容。`.dockerignore` 只影响 Docker 构建上下文，不是 CLI 上传过滤器；如果直接把本地带有 `node_modules` 的 `server/api` 作为上传目录，可能触发 `ERR_FR_MAX_BODY_LENGTH_EXCEEDED`。
+## 4. 发布 API
 
-使用只包含 Docker 构建所需文件的临时目录：
+CLI 上传包不得包含 `node_modules`、`dist`、`coverage`、`.env`、PEM、KEY 或其他密钥。使用只包含 `package.json`、lockfile、Dockerfile、Docker ignore、Nest/TypeScript 配置、`src`、`prisma` 和必要 `scripts` 的临时目录：
 
-~~~sh
-RELEASE_ROOT="$(mktemp -d -t city-flash-release.XXXXXX)"
-API_CONTEXT="$RELEASE_ROOT/api"
-mkdir -p "$API_CONTEXT"
+```bash
+release_root="$(mktemp -d -t city-flash-api-release.XXXXXX)"
+api_context="$release_root/api"
+mkdir -p "$api_context/scripts"
+cp server/api/package.json server/api/package-lock.json server/api/Dockerfile \
+  server/api/.dockerignore server/api/nest-cli.json server/api/tsconfig.json \
+  server/api/tsconfig.build.json "$api_context/"
+cp -R server/api/src server/api/prisma "$api_context/"
+cp server/api/scripts/create-operator.mjs "$api_context/scripts/"
 
-cp server/api/package.json \
-  server/api/package-lock.json \
-  server/api/Dockerfile \
-  server/api/.dockerignore \
-  server/api/nest-cli.json \
-  server/api/tsconfig.json \
-  server/api/tsconfig.build.json \
-  "$API_CONTEXT/"
-cp -R server/api/src server/api/prisma "$API_CONTEXT/"
-mkdir -p "$API_CONTEXT/scripts"
-cp server/api/scripts/create-operator.mjs "$API_CONTEXT/scripts/"
-
-if find "$API_CONTEXT" -type f | rg -q '(^|/)(node_modules|dist)/|(^|/)\.env($|\.)|.*\.(pem|key|p12|pfx|crt|cer)$'; then
-  echo "发布上下文包含依赖、构建产物、环境文件或证书"
-  exit 1
-fi
-
-wxcloud run:deploy "$API_CONTEXT" \
+wxcloud run:deploy "$api_context" \
   --targetDir . \
   --dockerfile Dockerfile \
   --containerPort 3000 \
-  --envId "$CLOUD_ENV_ID" \
-  --serviceName "$API_SERVICE_NAME" \
-  --region "$CLOUD_REGION" \
+  --envId ding-delivery-prod-d8c1eea132b4c \
+  --serviceName city-flash-api \
+  --region ap-shanghai \
   --releaseType FULL \
-  --remark "Git $RELEASE_SHA API" \
   --override \
+  --remark "Release v<version> <git-sha> API" \
   --noConfirm
-~~~
+```
 
-`--override` 的含义是版本参数缺省时沿用旧版本配置，不是回滚，也不会自动修正服务环境变量。当前 CLI 的 `--envParams` 会把传入的键值同步为服务环境变量；不要只传一两个变量覆盖完整配置。必须传环境变量时，应先导出并审计完整集合，再一次性传入；不需要修改服务变量时省略 `--envParams`。
+服务环境变量由云托管现有生产配置提供，必须在控制台确认 `RUN_MIGRATIONS_ON_STARTUP=true`。当前 CLI 1.1.8 对部分已有服务同步环境参数可能返回 `UnknownParameter: Conf.OperationMode`；遇到该错误时不要重复覆盖服务参数，保留已核验配置并用独立 readiness 验收代码版本。
 
-API 镜像启动时仅在 `RUN_MIGRATIONS_ON_STARTUP=true` 时执行 `prisma migrate deploy`。禁止使用 `prisma migrate reset`、删除数据库或执行破坏性初始化。运营员初始化保持关闭，按项目的显式运维流程单独处理。
+## 5. 发布商家端
 
-## 7. 构建和发布商家后台
+先使用当前 API 公网域名构建：
 
-`VITE_API_BASE_URL` 是构建时注入值，不是容器启动时动态读取。先从服务查询结果取得 `API_DOMAIN`，确认 CORS 后再构建：
+```bash
+VITE_API_BASE_URL="https://<current-api-domain>/api" \
+VITE_TENCENT_MAP_JS_KEY="" \
+npm --prefix apps/merchant-web ci
+VITE_API_BASE_URL="https://<current-api-domain>/api" \
+VITE_TENCENT_MAP_JS_KEY="" \
+npm --prefix apps/merchant-web run build
+```
 
-~~~sh
-cd /Users/shun/Projects/city-flash-delivery/apps/merchant-web
-npm ci
-VITE_API_BASE_URL="https://$API_DOMAIN/api" \
-VITE_TENCENT_MAP_JS_KEY="${VITE_TENCENT_MAP_JS_KEY:-}" \
-npm run build
+将 `Dockerfile.cloud`、`nginx.conf`、`dist` 放入临时目录，发布到 `city-flash-merchant:80`。构建结果必须包含当前 API HTTPS 地址，不能把 `test` 域名编译进 `prod` 商家端。
 
-MERCHANT_CONTEXT="$(mktemp -d -t city-flash-merchant-release.XXXXXX)"
-cp Dockerfile.cloud "$MERCHANT_CONTEXT/Dockerfile"
-cp nginx.conf "$MERCHANT_CONTEXT/nginx.conf"
-cp -R dist "$MERCHANT_CONTEXT/dist"
+## 6. 上传小程序
 
-if find "$MERCHANT_CONTEXT" -type f | rg -q '(^|/)(node_modules|coverage)/|(^|/)\.env($|\.)|.*\.(pem|key|p12|pfx|crt|cer)$'; then
-  echo "商家发布上下文包含不应上传的文件"
-  exit 1
-fi
+小程序使用当前 AppID 的代码上传密钥，不使用云托管 CLI 私钥：
 
-cd /Users/shun/Projects/city-flash-delivery
-wxcloud run:deploy "$MERCHANT_CONTEXT" \
-  --targetDir . \
-  --dockerfile Dockerfile \
-  --containerPort 80 \
-  --envId "$CLOUD_ENV_ID" \
-  --serviceName "$MERCHANT_SERVICE_NAME" \
-  --region "$CLOUD_REGION" \
-  --releaseType FULL \
-  --remark "Git $RELEASE_SHA merchant" \
-  --noConfirm
-~~~
+```bash
+WECHAT_PRIVATE_KEY_PATH=/secure/path/private.wxee631108a5a95efc.key \
+WECHAT_VERSION=<next-version> \
+npm run miniprogram:upload
+```
 
-上面 `VITE_TENCENT_MAP_JS_KEY` 的值来自当前 shell 或本地安全存储；不要把真实值写入脚本、日志或 Git。发布后必须重新查询商家服务版本，确认状态正常、流量 100%、至少有一个副本。
+上传脚本会校验根目录与 `apps/customer-mp/project.config.json` 的 AppID。当前运行时规则是：开发者工具 `develop` 可用本机 API；真机、预览、审核容器以及 `trial`、`release` 使用 `wx.cloud.callContainer` 和 `prod` 环境。上传成功后必须在微信公众平台手动设为体验版并重新进行登录验证。
 
-如果商家首页能打开但 API 请求失败，优先检查构建产物中的 API 域名是否是当前值，以及 API `CORS_ORIGINS` 是否包含商家域名。若商家域名发生变化，先把完整的 CORS 环境变量集合更新到 API，再重新发布 API。
+## 7. 发布后验收
 
-## 8. 发布小程序（小程序有变化时必做）
+```bash
+curl -fsS https://<current-api-domain>/api/health/ready
+curl -fsS -o /dev/null -w '%{http_code}\n' https://<current-merchant-domain>/healthz
+curl -fsS -o /dev/null -w '%{http_code}\n' https://<current-merchant-domain>/
+```
 
-单独执行 `wxcloud run:deploy` 不会上传小程序代码；`npm run release:local` 只在检测到小程序代码或配置变化时调用小程序上传脚本。上传动作本身会先校验根目录与 `apps/customer-mp/project.config.json` 的 AppID，并通过微信项目属性接口校验上传密钥，因此不再额外重复执行一次 `validate`。
+API readiness 必须返回 200 且 `database:true`；商家 `/healthz` 与首页必须返回 200。小程序体验版必须人工验证：个人中心登录、配置/地址读取、一个允许的服务下单流程；「寄货配送」及顺风车模式当前保持关闭。
 
-~~~sh
-# API、商家后台和小程序统一由本地发布入口执行
-npm run release:local -- v1.0.5
-~~~
-
-本地上传应使用 Node 22–24 运行 `miniprogram-ci@2.1.31`；如果系统 Node 版本更高，先切换到项目已验证的兼容 Node，再执行上面的脚本。上传成功后记录微信返回的 AppID、版本号、Git SHA 和包大小，并在微信公众平台手动点击“设为体验版”。上传本身不会自动切换体验版入口。
-
-若确需使用 GitHub Actions 备用发布：
-
-1. 先把当前 AppID 对应的小程序代码上传密钥更新到仓库 Secret `WECHAT_PRIVATE_KEY`；该 Secret 不能使用旧 AppID 密钥、云托管 CLI 密钥或支付私钥。
-2. 将代码和 tag 推送到 GitHub 后，在 `wxcloud-deploy.yml` 中手动执行 `workflow_dispatch`，填写本次 `vX.Y.Z` tag；工作流会执行完整质量检查、云托管部署和健康检查。
-3. 小程序上传子工作流会执行 JS 语法检查、密钥格式检查和远端 AppID 校验，并用并发锁避免重复上传。
-4. 上传失败时先看微信错误码和工作流打印的 Runner 出口 IP。`invalid ip` 表示微信公众平台“小程序代码上传 IP 白名单”拒绝了当前出口；GitHub 托管 Runner 的 IP 会变化。本次验证采用关闭上传 IP 白名单的配置；如果必须启用白名单，应先改用固定出口的自托管 Runner，再把固定 IP 加入微信白名单。
-
-体验版和正式版都按当前运行时代码访问 `prod`，不要把版本通道名称当作云环境名称。
-
-## 9. 发布后验收
-
-从 `wxcloud service:list` 或控制台复制最新服务域名和版本信息，不要只看 CLI 终端最后一行：
-
-~~~sh
-curl -fsS "https://$API_DOMAIN/api/health/ready"
-curl -fsS -o /dev/null -w '%{http_code}\n' "https://$MERCHANT_DOMAIN/healthz"
-curl -fsS -o /dev/null -w '%{http_code}\n' "https://$MERCHANT_DOMAIN/"
-rg -n --fixed-strings "https://$API_DOMAIN/api" apps/merchant-web/dist
-~~~
-
-验收必须同时满足：
-
-- API `/api/health/ready` 返回 HTTP 200，响应中的 `database` 为 `true`；
-- 商家 `/healthz` 和 `/` 都返回 HTTP 200；
-- API 和商家最新版本均为正常状态、流量 100%、至少一个副本；
-- 商家构建产物包含当前 API 域名；
-- 生产变量仍满足 Mock 关闭、迁移开启、运营员启动初始化关闭等约束；
-- 本次若改动了小程序，微信平台已存在对应 Git SHA 的新版本，AppID 正确，并已按需要手动设为体验版；`trial → prod`、`release → prod` 的目标环境记录一致。
-
-CLI 可能在发布过程中显示 `ResourceNotFound.TopicNotExist`，或重复打印历史日期的日志。这类输出不能单独作为失败依据；先检查任务是否 `finished`、最新版本状态/流量/副本和独立 HTTP 健康检查。只有任务未完成、版本异常或健康检查失败时才按失败处理，避免立即重复发布。
-
-## 10. 常见坑速查
-
-| 现象 | 原因 | 正确处理 |
-| --- | --- | --- |
-| CLI 登录失败，提示 AppID/密钥不匹配 | 选中了旧 AppID、支付或小程序上传密钥 | 使用云托管控制台提供的 CLI 私钥，并核对 AppID 与租户 |
-| `Tenant not found` | 当前账号没有目标租户或项目权限 | 停止操作，核对账号和权限 |
-| `TopicNotExist` 或旧日志反复出现 | CLI 任务日志观察器可能返回陈旧或无关日志 | 查任务、版本详情、健康检查，不要仅凭日志重跑 |
-| `ERR_FR_MAX_BODY_LENGTH_EXCEEDED` | CLI 把本地 `node_modules` 一起上传 | 使用本 Runbook 的精简临时上下文 |
-| 只传部分 `--envParams` 后服务变量消失 | 当前 CLI 会用传入集合替换服务环境变量 | 传完整审计后的集合，或不传该参数 |
-| 商家页面正常但接口失败 | `VITE_API_BASE_URL` 是旧值，或 API CORS 未包含商家域名 | 先查询域名，再构建并检查 CORS |
-| `npm ci` 长时间无输出 | 依赖安装仍在进行，或网络较慢 | 先检查进程和网络，不要并发重复安装 |
-| 体验版被误认为测试环境 | 版本通道和云环境是两个维度 | 按 `develop`（仅开发者工具）`→local`、其余 `develop`/`trial`/`release` `→prod` 核对 |
-| 审核反馈「打开首页报错」，日志为 `request:fail url not in domain list` | 审核容器把 `envVersion` 报成 `develop`，构建把请求打到了 `http://127.0.0.1:3000/api` | 本机 API 只允许开发者工具使用；`config/runtime.js` 的 `resolveBackendBaseUrl` 已强制非开发者工具环境走线上地址，发布前用 `npm run test:mini` 的回归用例确认 |
-| zsh 中定义 `path` 后命令异常 | zsh 的 `path` 与 `PATH` 绑定 | 使用 `endpoint_path` 等其他变量名 |
-| 凭证拿错用途 | 云托管、支付、小程序上传使用不同密钥 | 按命令用途选择对应密钥，任何凭证都不入 Git |
-| 把 `tcb` 当成 `wxcloud` | 混用了 CloudBase CLI 和微信云托管 CLI | 本项目统一使用官方 `@wxcloud/cli` 的 `wxcloud` 命令 |
-| 小程序上传返回 `invalid ip` | 当前本地或 GitHub Runner 出口不在微信上传白名单 | 当前白名单关闭时直接重试；若必须保留白名单，使用固定出口 Runner 并加入实际出口 IP |
-| 小程序上传提示私钥格式/项目属性错误 | Secret 是旧 AppID、云托管密钥或格式损坏 | 更新 `WECHAT_PRIVATE_KEY`，并先通过上传脚本的远端 AppID 校验 |
-| 工作流版本输入过期或重复 | 使用了静态默认版本或并发触发 | 填写高于平台当前版本的新版本，并等待已有上传完成 |
-
-## 11. 最近一次成功发布记录
-
-以下是用于比对流程的历史证据，下一次发布应替换为新的 SHA 和版本号：
-
-- Git：`4ff03fd7a971bbdba1cab1c6caa5aeca84c1b2c0`
-- API：任务 `2073404` 完成，版本 `city-flash-api-012`，状态正常，流量 100%，1 个副本；
-- 商家：版本 `city-flash-merchant-009`，状态正常，流量 100%，1 个副本；
-- API `/api/health/ready`、商家 `/healthz` 和首页均通过 HTTP 200，API 响应中的数据库状态为 `true`；
-- 生产变量核验通过：迁移开启、运营员启动初始化关闭、登录和支付 Mock 关闭；
-- 发布后工作树不应包含真实凭证；凭证应保留在仓库外的安全目录中，没有把凭证提交到 Git。
-
-2026-09-04 小程序上传记录：
-
-- 本地先在 Git `ee02f7d8c90034ce16e3037dc284c0bf48a7aee8` 上传 `1.0.1` 成功，使用当前 AppID 的上传私钥和兼容 Node 24.19.0，包大小约 334 KB；
-- 随后 GitHub Actions 运行 `33862695099` 在 Git `e54a61cbf4263153a3dc4270420798e19ce8757e` 上通过远端 AppID/密钥校验，并上传当前小程序代码 `1.0.2` 成功，包大小 `333714` bytes；
-- 当前最新已上传版本是 `1.0.2`，AppID 为 `wxee631108a5a95efc`；后续仍需在微信公众平台手动确认并设置为体验版；这条记录不代表云托管服务版本号。
-
-只有 Git 版本、两个云托管服务版本、独立健康检查和生产变量都通过，才算发布完成；“任务创建成功”或“首页能打开”都不够。
+CLI 若输出 `ResourceNotFound.TopicNotExist` 或重复历史日志，以云托管版本状态、流量、副本和独立 HTTP 健康检查为准。只有代码、服务版本、健康检查和小程序上传版本均对应本次 Git tag，才算发布完成。

@@ -1,8 +1,10 @@
-# 货物运输类目审核整改与本地发布
+# 货物运输类目审核整改与发布说明
+
+当前代码基线为 `3c392ec`，小程序已上传版本为 `1.0.10`。本文只记录当前有效的整改开关和验收要求；具体版本号以后续 Git tag 与微信后台为准。
 
 本次整改针对微信小程序「鼎温榕同城配送」的代码发布审核驳回：
 
-> 你的小程序「鼎温榕同城配送」，提审时间：2026-09-07 16:54:57，版本审核未通过。
+> 历史审核反馈：小程序打开后涉及货物运输服务，要求补充物流服务—货物运输类目。
 > 1：你好，你的小程序内涉及提供货物运输服务，请补充：物流服务—货物运输类目。
 
 该补充类目需要道路运输经营许可证等资质，短期内不具备。整改目标是**让小程序在运行期不再对外提供货物运输服务**，同时保留代码、数据模型和计价规则，便于后续拿到资质后恢复。
@@ -70,7 +72,7 @@ npm --prefix apps/merchant-web ci
 npm run check:quality
 ```
 
-`check:quality` 覆盖共享包测试、小程序 72 项测试与全量 JS 语法检查、API Jest/lint/build/Prisma 校验、商家端构建。任一失败都不要进入发布步骤。
+`check:quality` 覆盖共享契约、小程序测试与全量 JS 语法检查、API Jest/lint/build/Prisma 校验、商家端构建。任一失败都不要进入发布步骤。
 
 小程序单项校验（只改了小程序时可先跑这一段）：
 
@@ -85,7 +87,7 @@ find apps/customer-mp -name '*.js' -print0 | xargs -0 -n1 node --check
 
 ```bash
 WECHAT_PRIVATE_KEY_PATH=/安全位置/miniprogram-upload.private.key \
-WECHAT_VERSION=1.0.3 \
+WECHAT_VERSION=<next-version> \
 npm run miniprogram:upload
 ```
 
@@ -93,13 +95,13 @@ Windows / git-bash 下同样可用（脚本是纯 Node，无 shell 依赖）；�
 
 ```bash
 WECHAT_PRIVATE_KEY_PATH=/安全位置/miniprogram-upload.private.key \
-WECHAT_VERSION=1.0.3 \
+WECHAT_VERSION=<next-version> \
 npm run miniprogram:preview
 ```
 
 注意事项：
 
-- `WECHAT_VERSION` 必须高于微信平台当前已上传版本（当前为 `1.0.2`），不要沿用文档里的历史值。
+- `WECHAT_VERSION` 必须高于微信平台当前已上传版本（当前仓库已上传 `1.0.10`），不要沿用旧版本号。
 - 若返回 `invalid ip`，说明公众平台的「小程序代码上传 IP 白名单」拒绝了当前出口 IP；本次验证采用关闭白名单的配置。
 - 上传成功后仍需在微信公众平台手动点击「设为体验版」，上传本身不会切换体验版入口。
 

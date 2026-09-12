@@ -1,5 +1,7 @@
 # NestJS API
 
+生产服务名为 `city-flash-api`，监听容器端口 `3000`，运行在微信云托管 MySQL 8.0 环境；当前代码基线由根目录 Git tag 管理。
+
 This is the backend for the city flash delivery project. All customer, rider, operations, pricing, payment, and configuration flows use this NestJS + MySQL 8.0 GIS service.
 
 ## Stack

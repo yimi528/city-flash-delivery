@@ -8,7 +8,8 @@
 
 ### 用户小程序
 
-- 寄货、急送、帮取、帮买、运货、搬运、顺风车等服务
+- 急送、帮取、帮买、三轮车服务、搬运装卸等已开放服务
+- 「寄货配送」及其顺风车模式当前因货物运输类目整改处于关闭状态
 - 地图选点、地址搜索、地址簿和文本地址识别
 - 服务端统一计价，支持车型、重量、线路和天气风险规则
 - 下单、报价确认、支付、取消、退款和订单进度查询
@@ -154,9 +155,9 @@ npm run dev
 
 用微信开发者工具导入仓库根目录。project.config.json 已将 miniprogramRoot 指向 apps/customer-mp/。
 
-- 开发版默认访问本地 API：http://127.0.0.1:3000/api
-- 体验版通过 wx.cloud.callContainer 访问微信云托管 `prod` 环境
-- 正式版通过 wx.cloud.callContainer 访问微信云托管 `prod` 环境；只有显式切换运行时配置时才使用 `test` 环境
+- 微信开发者工具内的 `develop` 默认访问本地 API：`http://127.0.0.1:3000/api`
+- 真机、预览、审核容器以及 `trial`、`release` 通过 `wx.cloud.callContainer` 访问微信云托管 `prod` 环境
+- 只有显式开发配置才使用 `test` 环境；非开发者工具环境不会回落到 `127.0.0.1`
 
 真机开发版不能访问手机自身的 127.0.0.1。联调时可在小程序运行时配置手机可访问的局域网 API 地址；体验版和正式版使用微信云托管。
 
@@ -253,7 +254,7 @@ node --test apps/customer-mp/tests/*.test.js
 
 1. 按官方文档完成云托管环境和 MySQL 8.0 准备。
 2. 查询并确认 API 服务的 HTTPS 地址，再构建商家后台。
-3. 使用 npm run release:check -- .env.cloud 验证生产配置。
+3. 使用 `npm run release:check -- /secure/path/production.env` 验证生产配置。
 4. 发布 API 和商家后台，依次验收健康检查、CORS、商家登录、小程序登录和测试订单闭环。
 5. 验收通过后再启用 CI/CD 发布开关。
 
@@ -264,7 +265,7 @@ node --test apps/customer-mp/tests/*.test.js
 仓库工作流包括：
 
 - .github/workflows/ci.yml：Pull Request 和 main 分支的质量检查、构建验证
-- .github/workflows/wxcloud-deploy.yml：仅供手动备用发布，不响应 tag push
+- .github/workflows/wxcloud-deploy.yml：手动指定 tag 的备用发布入口，不响应 tag push
 - .github/workflows/miniprogram-release.yml：由统一发布工作流调用的小程序上传子工作流
 - `npm run release`：手动指定版本或根据最新 tag 自动递增 patch，创建本地发布 tag；不会自动推送
 - `npm run release:local`：按当前 tag 与上一个 tag 的变更范围，在本机执行必要的质量门禁、云托管部署、健康检查和小程序上传；不会触发 GitHub Actions

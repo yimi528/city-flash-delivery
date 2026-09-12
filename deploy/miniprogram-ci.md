@@ -12,7 +12,7 @@
 
 ```bash
 WECHAT_PRIVATE_KEY_PATH=/secure/path/private.key \\
-WECHAT_VERSION=1.0.0 \\
+WECHAT_VERSION=<next-version> \\
 npm run miniprogram:preview
 ```
 
@@ -20,7 +20,7 @@ npm run miniprogram:preview
 
 ```bash
 WECHAT_PRIVATE_KEY_PATH=/secure/path/miniprogram-upload.private.key \\
-WECHAT_VERSION=1.0.0 \\
+WECHAT_VERSION=<next-version> \\
 npm run miniprogram:preview
 ```
 
@@ -33,7 +33,7 @@ npm run miniprogram:preview
 ## GitHub Actions
 
 工作流文件为 `.github/workflows/miniprogram-release.yml`，由
-`.github/workflows/wxcloud-deploy.yml` 在发布 tag 通过云托管健康检查后自动调用。工作流自动将 Git 发布标签
+`.github/workflows/wxcloud-deploy.yml` 在手动发布 tag 并通过云托管健康检查后调用。工作流自动将 Git 发布标签
 `vX.Y.Z` 解析为微信所需的 `X.Y.Z` 版本号，并校验 tag 指向当前发布提交。项目会自动读取根目录
 `project.config.json` 中的 AppID，因此只需要设置以下仓库 Secret：
 
@@ -55,7 +55,7 @@ Runner，再将该固定 IP 加入白名单；不要把某一次 GitHub 托管 R
 
 运行时规则：`develop` 在微信开发者工具内默认使用本地 Docker/本地数据库，开发联调时可通过 `developerApiBaseUrl` 或专门的测试配置切换到 `test`；`develop` 的真机、预览和审核容器，以及 `trial`、`release`，一律使用客户正式云托管环境。本机地址（`http://127.0.0.1`）只允许开发者工具请求，其他环境回落到它会被微信以 `request:fail url not in domain list` 拒绝。体验版产生的订单、支付和业务数据都属于生产数据。
 
-注意不要混淆两个维度：`develop`、`trial`、`release` 是小程序版本通道；本机、`test`、`prod` 是 API/云托管运行环境。当前映射为：微信开发者工具内的 `develop → 本机`，真机、预览、审核容器与 `trial`、`release → prod`。切换小程序版本不会自动切换云托管环境，修改云托管环境也不会自动改变已上传的小程序版本。
+注意不要混淆两个维度：`develop`、`trial`、`release` 是小程序版本通道；本机、`test`、`prod` 是 API/云托管运行环境。当前映射为：微信开发者工具内的 `develop → 本机`，真机、预览、审核容器与 `trial`、`release → prod`。当前已上传版本为 `1.0.10`；下一次上传必须使用更高版本号。
 
 商家后台也按云托管环境分配公网域名。`test` 和 `prod` 的 API 域名、商家后台域名原则上不同；商家后台构建时必须把 `VITE_API_BASE_URL` 指向同一环境的 API，API 的 `CORS_ORIGINS` 也必须登记同一环境的商家域名。当前生产地址记录在 [`docs/deploy-wxcloud.md`](../docs/deploy-wxcloud.md)；测试地址以对应云托管服务详情为准。
 

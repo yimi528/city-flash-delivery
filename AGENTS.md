@@ -1,6 +1,6 @@
 # City Flash Delivery 项目约定
 
-## 下一阶段：迁移到微信云托管
+## 当前部署阶段：微信云托管
 
 后续部署目标是微信云托管，不再把 osako 上的 Quick Tunnel 作为长期正式入口。微信云托管使用官方 CLI `@wxcloud/cli`，命令为 `wxcloud`；不要把它与另一套 CloudBase CLI 的 `tcb` 命令混用。
 

@@ -33,7 +33,7 @@ npm run build
 npm run preview
 ```
 
-The built website is generated in `dist/` and can later be deployed behind a domain such as `ops.example.com`.
+The built website is generated in `dist/`. In production it is published as the `city-flash-merchant` service in the same WeChat Cloud Hosting environment as the API; use `wxcloud service:list` for the current public domain.
 
 ## Source layout
 

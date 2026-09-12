@@ -1,260 +1,174 @@
 # 微信云托管部署说明
 
-本项目的正式部署目标是微信云托管，不再依赖 osako、Quick Tunnel、Sealos 或其他服务器。
+本文只记录当前生产发布方式。正式入口是微信云托管；仓库不再使用 SSH 服务器、旧 Compose、Quick Tunnel、Sealos 或 Redis 作为生产依赖。
 
-## 正式发布参数
-
-当前已确定的客户正式发布目标如下：
-
-```text
-微信小程序 AppID：wxee631108a5a95efc
-微信云托管环境 ID：ding-delivery-prod-d8c1eea132b4c
-API 服务名：city-flash-api
-商家端服务名：city-flash-merchant
-```
-
-当前仓库的 `project.config.json` 已切换为客户正式 AppID；体验版和正式版均通过 `runtime.js` 使用客户生产云环境。
-
-官方资料必须优先于本文件：
+官方资料和 CLI：
 
 - [微信云托管文档](https://developers.weixin.qq.com/miniprogram/dev/wxcloudservice/wxcloudrun/src/)
 - [微信云托管 CLI](https://cloud.weixin.qq.com/cli/)
-- [调用云托管服务](https://developers.weixin.qq.com/miniprogram/dev/wxcloudservice/wxcloudrun/src/development/call/)
-- [MySQL 数据库](https://developers.weixin.qq.com/miniprogram/dev/wxcloudservice/wxcloudrun/src/guide/mysql/)
-- [静态资源托管](https://developers.weixin.qq.com/miniprogram/dev/wxcloudservice/wxcloudrun/src/guide/resource/)
-- [下一次发布 Runbook](release-runbook.md)
+- 小程序调用云托管：[官方文档](https://developers.weixin.qq.com/miniprogram/dev/wxcloudservice/wxcloudrun/src/development/call/mini.html)
 
-## 1. 资源关系
+所有 `wxcloud` 参数必须以官方文档和本机 `wxcloud --help` 为准。当前本机 CLI 版本为 `@wxcloud/cli@1.1.8`。
 
-微信云托管环境中需要创建以下资源：
+## 当前发布基线
 
-```text
-微信云托管环境
-├── MySQL 8.0（持久化业务数据）
-├── city-flash-api（NestJS API，容器端口 3000）
-└── city-flash-merchant（商家后台，Nginx 容器端口 80）
-```
+| 项目 | 当前值 |
+| --- | --- |
+| 小程序 AppID | `wxee631108a5a95efc` |
+| 云托管环境 | `ding-delivery-prod-d8c1eea132b4c` |
+| API 服务 | `city-flash-api`，端口 `3000` |
+| 商家端服务 | `city-flash-merchant`，端口 `80` |
+| API 公网域名 | `https://city-flash-api-298025-11-1469830209.sh.run.tcloudbase.com` |
+| 商家端公网域名 | `https://city-flash-merchant-298025-11-1469830209.sh.run.tcloudbase.com` |
+| 当前 Git 发布 tag | `v1.0.10` |
+| 当前 Git 提交 | `3c392ec` |
+| 当前小程序上传版本 | `1.0.10` |
 
-MySQL 是微信云托管里的云资源，不是另外租一台服务器，也不是外部数据库。它需要在云托管控制台中开通/创建，费用以控制台当前套餐、免费额度和实际用量为准。项目不再使用 Redis；当前限流使用 API 单实例内存实现。
-
-请选择 MySQL 8.0。API 使用 MySQL GIS 保存服务区域边界，普通地址和订单仍保存 `latitude`、`longitude` 两个字段。云托管不提供容器本地磁盘持久化，因此业务数据不能写入容器目录。
-
-## 2. CLI 安装和登录
-
-涉及 `wxcloud` 的命令前，先查阅上面的官方 CLI 文档，并以本机 `wxcloud <command> --help` 为准。
+域名和服务状态以实时查询为准：
 
 ```bash
-npm install -g @wxcloud/cli
-wxcloud --help
-```
-
-在微信云托管控制台的“设置 → CLI 密钥”生成密钥。私钥只保存到本机安全位置，不提交 Git，也不要粘贴到聊天或文档中。登录示例：
-
-```bash
-WX_CLOUD_PRIVATE_KEY="$(< /绝对路径/cloud-cli-private-key.pem)"
-wxcloud login \
-  --appId "$WX_CLOUD_APP_ID" \
-  --privateKey "$WX_CLOUD_PRIVATE_KEY"
 wxcloud env:list --region ap-shanghai --json
+wxcloud service:list \
+  --envId ding-delivery-prod-d8c1eea132b4c \
+  --region ap-shanghai \
+  --json
 ```
 
-当前 CLI 的 `--privateKey` 接收私钥内容，不是文件路径；上面的 shell 变量只存在于当前终端，不要写入仓库或 shell 脚本。
+## 小程序运行环境
 
-当前账号下已创建独立的体验测试环境 `ding-delivery-test-d8clg2024ea54`；客户正式环境为 `ding-delivery-prod-d8c1eea132b4c`。正式环境已完成 MySQL 8.0、服务、环境变量、数据库迁移和基础业务数据初始化，避免测试数据和真实业务数据混用。
+小程序版本通道和后端运行环境是两个独立维度：
 
-### 重要概念边界：小程序版本不是 API 环境
+| 小程序通道 | API 环境 |
+| --- | --- |
+| 微信开发者工具内的 `develop` | 本机 API |
+| 真机、预览、审核容器中的 `develop` | `prod` |
+| `trial` | `prod` |
+| `release` | `prod` |
 
-小程序版本通道和后端运行环境是两套独立概念，不能把它们当成同义词：
+开发者工具可通过 `developerApiBaseUrl` 做本地或测试联调覆盖。真机、预览和审核容器不得使用 `127.0.0.1`；如果运行时提供 `wx.cloud.callContainer`，客户端优先通过云托管调用 `/api/...`，避免微信合法域名限制。
 
-| 概念 | 取值 | 由什么决定 |
-| --- | --- | --- |
-| 小程序版本通道 | `develop` / `trial` / `release` | `wx.getAccountInfoSync().miniProgram.envVersion` |
-| API 运行环境 | 本机 / `test` / `prod` | `runtime.js` 的地址和 `wx.cloud.callContainer({ config: { env } })` |
+体验版和正式版都访问生产 API，会产生生产数据；“体验版”不等于名为 `test` 的云环境。
 
-当前项目的有意映射是：开发者工具 `develop → 本机`（开发联调时可显式切到 `test`），`trial → prod`，`release → prod`。如果微信审核/真机运行时暂时无法返回 `envVersion`，但提供了 `wx.cloud.callContainer`，客户端会安全地按 `prod` 处理，避免把 `127.0.0.1` 或未配置白名单的公网地址交给 `wx.request`。因此，“体验版”不是“测试环境”的另一种叫法；体验版当前会访问生产 API，产生真实生产订单和支付。反过来，创建或切换云托管环境也不会自动改变小程序版本，必须同时检查小程序运行时映射。
+## 生产安全边界
 
-## 3. 创建 API 服务
+生产环境必须满足：
 
-商家后台是浏览器页面，API 作为一个独立的云托管容器服务。API 服务需要开通外网访问，供商家后台浏览器通过 HTTPS 调用。小程序则使用 `wx.cloud.callContainer`，不依赖 API 公网 IP。
+- `NODE_ENV=production`；
+- `WECHAT_LOGIN_MOCK_ENABLED=false`；
+- `WECHAT_PAY_MOCK_ENABLED=false`，并使用正式支付凭证；
+- `ENABLE_SWAGGER=false`；
+- `OPERATOR_BOOTSTRAP_ENABLED=false`；
+- `RUN_MIGRATIONS_ON_STARTUP=true`；
+- `DATABASE_URL` 使用微信云托管 MySQL 8.0；
+- `CORS_ORIGINS` 只包含同一环境的 HTTPS 商家域名；
+- 不配置 `REDIS_URL`；
+- CLI 私钥、AppSecret、支付证书、数据库密码和小程序上传私钥不进入 Git。
+
+数据库迁移只能执行：
 
 ```bash
-wxcloud service:create \
-  --envId "$WX_CLOUD_ENV_ID" \
+npm run prisma:deploy
+```
+
+禁止 `prisma migrate reset`、删库、破坏性初始化或把 PostgreSQL 历史迁移复制回活动迁移目录。
+
+## 发布 API
+
+`wxcloud run:deploy` 会上传目标目录内容；`.dockerignore` 不是 CLI 上传过滤器。因此必须创建精简临时上下文，只放 Docker 构建所需文件：
+
+```bash
+release_root="$(mktemp -d -t city-flash-api-release.XXXXXX)"
+api_context="$release_root/api"
+mkdir -p "$api_context/scripts"
+
+cp server/api/package.json \
+  server/api/package-lock.json \
+  server/api/Dockerfile \
+  server/api/.dockerignore \
+  server/api/nest-cli.json \
+  server/api/tsconfig.json \
+  server/api/tsconfig.build.json \
+  "$api_context/"
+cp -R server/api/src server/api/prisma "$api_context/"
+cp server/api/scripts/create-operator.mjs "$api_context/scripts/"
+
+wxcloud run:deploy "$api_context" \
+  --targetDir . \
+  --dockerfile Dockerfile \
+  --containerPort 3000 \
+  --envId ding-delivery-prod-d8c1eea132b4c \
   --serviceName city-flash-api \
-  --isPublic \
-  --region ap-shanghai
+  --region ap-shanghai \
+  --releaseType FULL \
+  --override \
+  --remark "Release vX.Y.Z <git-sha> API" \
+  --noConfirm
 ```
 
-服务只监听一个端口 `3000`。本机发布时不要直接把已经安装依赖的 `server/api` 作为 CLI 上传根目录；`wxcloud run:deploy` 会把目标目录中的 `node_modules` 一并打包。请按[下一次发布 Runbook 的 API 发布章节](release-runbook.md#6-发布-api必须使用精简临时上下文)创建精简临时上下文后再发布。GitHub Actions 使用全新 checkout，不会遇到本机已安装依赖的同一包体问题。
+如果需要同步完整服务环境变量，使用 `--envParams` 时必须传入完整、审计过的集合，不能只传一个键覆盖掉其他生产变量。当前 CLI 1.1.8 在部分已存在服务上同步环境参数可能返回 `UnknownParameter: Conf.OperationMode`；此时不要反复重试参数同步，使用 `--override` 沿用已核验的服务配置，并在控制台确认 `RUN_MIGRATIONS_ON_STARTUP=true`。
 
-本项目 Dockerfile 在 `RUN_MIGRATIONS_ON_STARTUP=true` 时执行幂等的 `prisma migrate deploy`，随后启动 API；不会执行 `migrate reset`。数据库连接串、JWT、微信 Secret、地图 Key、支付证书等通过云托管服务环境变量/密钥配置，不写进镜像和 Git。
+## 发布商家后台
 
-生产环境发布前至少核对以下关键值：
-
-```text
-NODE_ENV=production
-WECHAT_LOGIN_MOCK_ENABLED=false
-OPERATOR_BOOTSTRAP_ENABLED=false
-ENABLE_SWAGGER=false
-RUN_MIGRATIONS_ON_STARTUP=true
-RUN_OPERATOR_INITIALIZATION_ON_STARTUP=false
-```
-
-同时应确认支付模式为 `wechat` 或 `disabled`，`mock` 只能用于测试环境。测试环境可以暂时保留 Mock 登录/支付，但不能把测试密钥当正式密钥使用。
-
-真实微信支付使用 API v3：商户私钥负责请求签名，微信支付公钥或平台证书负责验签，API v3 密钥负责解密回调。验签二选一：
-
-```text
-# 推荐：微信支付公钥模式
-WECHAT_PAY_PUBLIC_KEY_ID=微信支付公钥 ID
-WECHAT_PAY_PUBLIC_KEY_PATH=/run/secrets/wechatpay_public_key.pem
-
-# 或：平台证书模式
-WECHAT_PAY_PLATFORM_CERT_SERIAL=平台证书序列号
-WECHAT_PAY_PLATFORM_CERT_PATH=/run/secrets/wechatpay_platform.pem
-```
-
-`WECHAT_PAY_PRIVATE_KEY_PATH` 必须指向商户 API 私钥，不能使用微信云托管 CLI 私钥。内联 `WECHAT_PAY_PRIVATE_KEY` 可以是 PEM，或完整的 Base64-DER 私钥；如果环境文件把 Base64 分成多行，发布脚本会把连续行拼接后校验。`pub_key.pem` 只有在确认它是该商户的微信支付公钥并补齐对应 `WECHAT_PAY_PUBLIC_KEY_ID` 后才能用于支付验签。微信支付的下单、回调验签和 API v3 密钥解密规则以[官方 API v3 签名说明](https://pay.wechatpay.cn/doc/v3/merchant/4012365342)为准。
-
-## 4. 发布商家后台
-
-商家后台和 API 分成两个服务是常见的部署方式：后台页面负责展示和交互，API 负责业务逻辑和数据库访问。当前实际部署使用第二个云托管容器服务，避免依赖未开通的静态资源存储。
-
-先从 API 服务详情中取得 HTTPS 公网访问地址，再确认 API CORS 已包含商家来源，最后按[下一次发布 Runbook 的商家发布章节](release-runbook.md#7-构建和发布商家后台)注入 `VITE_API_BASE_URL`、构建 `dist`，并用临时上下文发布 `Dockerfile.cloud`、`nginx.conf` 和 `dist`。不要复用固定的临时目录，也不要把本地 `.env` 或凭证复制进去。
-
-商家服务的默认公网地址形如 `https://<merchant-service-domain>.sh.run.tcloudbase.com`。发布前把这个地址加入 API 的 `CORS_ORIGINS`，保留 API 自身地址，然后再发布或重新发布 API。若云端服务域名发生变化，必须重新查询并更新完整环境变量集合；不要只用一个 `--envParams` 键覆盖原配置。当前环境已配置为：
-
-```text
-https://city-flash-api-298025-11-1469830209.sh.run.tcloudbase.com
-https://city-flash-merchant-298025-11-1469830209.sh.run.tcloudbase.com
-```
-
-### 环境与域名的对应关系
-
-是的，不同云托管环境下的后端服务通常使用不同的公网域名。域名由“云托管环境 + 服务名”共同决定；即使 API 服务名都叫 `city-flash-api`，`test` 和 `prod` 也不能共用同一套运行时地址。商家后台同理：每个环境的 `city-flash-merchant` 都应有自己的公网地址，并且商家后台构建时的 `VITE_API_BASE_URL` 必须指向同一环境的 API。
-
-当前已确认的生产域名是：
-
-| 运行环境 | API | 商家后台 |
-| --- | --- | --- |
-| 本机 | `http://127.0.0.1:3000` | 本机开发服务器 |
-| `test` | 以云托管服务详情返回的地址为准 | 只有部署了测试商家服务后才有对应域名 |
-| `prod` | `https://city-flash-api-298025-11-1469830209.sh.run.tcloudbase.com` | `https://city-flash-merchant-298025-11-1469830209.sh.run.tcloudbase.com` |
-
-不能把生产商家域名配置到测试 API，也不能把测试 API 域名编译进生产商家包。每次切换环境都要同步检查：商家端 `VITE_API_BASE_URL`、API 的 `CORS_ORIGINS`、小程序的云环境 ID/服务名，以及数据库和支付模式。
-
-如果以后开通静态资源存储，也可以按[官方静态资源文档](https://developers.weixin.qq.com/miniprogram/dev/wxcloudservice/wxcloudrun/src/guide/resource/)把 `dist` 上传到静态资源；但那是可选替代方案，不是当前持续交付链路。
-
-## 5. 小程序调用
-
-`apps/customer-mp/config/runtime.js` 中按小程序版本配置微信云托管环境 ID 和服务名：
-
-```js
-const WX_CLOUD_TEST_ENV_ID = 'ding-delivery-test-d8clg2024ea54'
-const WX_CLOUD_PROD_ENV_ID = 'ding-delivery-prod-d8c1eea132b4c'
-const WX_CLOUD_SERVICE_NAME = 'city-flash-api'
-```
-
-开发者工具开发版默认不初始化云托管、访问本机 API；如需云端联调，应显式切换到 `WX_CLOUD_TEST_ENV_ID`；体验版和正式版均初始化 `WX_CLOUD_PROD_ENV_ID`。审核/真机环境若缺少 `envVersion`，只要 `wx.cloud.callContainer` 可用也会初始化生产云环境。当前小程序只开放用户端，用户请求通过 `wx.cloud.callContainer` 访问 `/api/...`；骑手页面未注册，骑手 API 由 `RIDER_FEATURE_ENABLED=false` 默认关闭。体验版产生的订单、支付和业务数据均属于生产数据。小程序基础库最低版本要满足官方文档要求（当前项目配置为 3.16.2）。修改后用微信开发者工具真机预览，再按现有 `miniprogram-ci` 流程上传正式 AppID 的代码版本。
-
-通过 `wx.cloud.callContainer` 访问时，微信云托管会把当前微信用户身份注入 `x-wx-openid`/`x-wx-unionid` 请求头；API 优先使用这组身份完成小程序登录，不再依赖容器主动访问 `api.weixin.qq.com`。本地开发版直连 API 时没有这些请求头，才回退到 `wx.login` + `jscode2session`，因此本地仍需配置正确的 AppSecret。具体以[官方小程序调用云托管文档](https://developers.weixin.qq.com/miniprogram/dev/wxcloudservice/wxcloudrun/src/development/call/mini.html)为准。
-
-商家后台走 API 的 HTTPS 公网地址，因此 API 服务必须配置 CORS；小程序的 `callContainer` 不需要把容器内网地址写入代码。
-
-## 5.1 微信登录故障复盘：`DEPTH_ZERO_SELF_SIGNED_CERT`
-
-2026-08-23 体验版真机登录曾持续提示“微信登录服务暂时不可用”。这次问题经过多轮排查和修复后解决，结论分为“直接故障”和“架构问题”两层。
-
-### 现象和证据
-
-API 健康检查、路由注册、数据库连接和配置接口均正常，但登录请求返回 502。API 日志最终记录为：
-
-```text
-WeChat login upstream request failed
-causeCode: DEPTH_ZERO_SELF_SIGNED_CERT
-causeMessage: self-signed certificate
-```
-
-这表示容器访问 `https://api.weixin.qq.com/sns/jscode2session` 时，在 TLS 握手阶段收到了 Node.js 不信任的自签名证书，请求尚未进入微信的 AppID/AppSecret 业务校验。因此，真实 AppSecret 正确、数据库正常，也不能消除这个错误。
-
-### 排查过程中排除的原因
-
-- 检查了 API 服务启动日志、路由和数据库连接，服务本身正常。
-- 检查了 AppID、AppSecret、云托管环境和服务配置，没有发现身份不匹配。
-- 确认云托管“公网出口”已经开启。
-- 在 API 镜像中补充 `ca-certificates` 后重新发布，错误仍然存在；因此不是单纯缺少系统 CA 包。
-- 回滚到此前曾经工作的旧版本后，旧版本仍出现同样的 TLS 错误；因此不是当天新增业务代码直接破坏了登录。
-
-### 根因
-
-云托管容器访问微信接口的出网链路或中间代理证书链发生异常，导致 Node.js 拒绝自签名证书。这也解释了为什么之前可以登录、后来突然失败：外部出网链路可能变化，而源代码和 AppSecret 不一定发生变化。
-
-同时，原实现存在一个架构上的放大因素：小程序已经通过 `wx.cloud.callContainer` 调用 API，微信云托管会注入 `x-wx-openid`/`x-wx-unionid`，但 API 仍然强制调用 `jscode2session`。这让本来可以在云托管内部完成的登录，额外依赖了一次外网 HTTPS 请求；一旦出网证书异常，整个登录链路就会失败。
-
-### 最终修复
-
-API 现在按调用来源处理身份：
-
-- 通过微信云托管 `callContainer` 调用：优先使用云托管注入的 `x-wx-openid`/`x-wx-unionid`，不再请求微信 `jscode2session`。
-- 本机开发版直接访问 API：因为没有云托管身份请求头，继续使用 `wx.login` + `jscode2session` 作为本地开发 fallback。
-
-修复后已完成构建、测试和云端部署，并通过体验版真机登录验证。不能通过关闭 TLS 校验（例如设置 `NODE_TLS_REJECT_UNAUTHORIZED=0`）规避证书问题，因为这会降低生产环境安全性。
-
-后续遇到登录失败时，应先按以下顺序判断：
-
-1. 是否通过 `wx.cloud.callContainer` 调用，以及请求是否带有云托管身份头；
-2. API 是否优先使用 `x-wx-openid`，而不是无条件调用 `jscode2session`；
-3. 只有本地直连 fallback 失败时，才检查 AppID、AppSecret、微信接口连通性和 TLS 证书链。
-
-参考：[微信小程序调用云托管官方文档](https://developers.weixin.qq.com/miniprogram/dev/wxcloudservice/wxcloudrun/src/development/call/mini.html)。
-
-## 6. 验收顺序
+商家端必须在构建时注入同环境 API HTTPS 地址：
 
 ```bash
-curl --fail "https://<api-service-domain>/api/health/ready"
-curl --fail "https://<merchant-service-domain>/healthz"
-curl --fail "https://<merchant-service-domain>/"
+VITE_API_BASE_URL="https://<current-api-domain>/api" \
+VITE_TENCENT_MAP_JS_KEY="" \
+npm --prefix apps/merchant-web ci
+
+VITE_API_BASE_URL="https://<current-api-domain>/api" \
+VITE_TENCENT_MAP_JS_KEY="" \
+npm --prefix apps/merchant-web run build
 ```
 
-除 HTTP 检查外，还要在服务详情中确认 API 和商家最新版本均为正常状态、流量 100%、至少一个副本；API readiness 响应中的 `database` 必须为 `true`，商家构建产物必须包含当前 API 域名。CLI 若显示 `TopicNotExist` 或重复历史日志，不能单独据此判定失败，应以任务状态、版本详情和独立健康检查为准。随后依次验证：商家首页、运营员登录、订单列表、配置中心、地图代理、用户小程序登录和一个用户订单闭环；骑手端当前不作为发布验收项，直到显式重新启用。确认云端 MySQL 表已创建并且 API 日志没有 Prisma/连接错误后，才可以停止 osako 上的旧 Compose 环境。
-
-## 7. 持续交付
-
-微信云托管官方 CLI 支持在本机或自定义 CI/CD 中发布版本。本项目默认使用本机发布：macOS 上 `npm run release:local` 读取仓库外 `~/Library/Application Support/city-flash-delivery/secrets/production.env`，Linux/其他环境读取 `~/.config/city-flash-delivery/secrets/production.env`。也可以通过 `RELEASE_SECRETS_DIR` 或 `RELEASE_ENV_FILE` 指定其他安全目录；脚本不会回退读取仓库内的凭证。GitHub 只保留手动备用工作流，推送合法的 `vX.Y.Z` tag 不再触发生产发布。完整规则见 [`docs/credentials.md`](credentials.md)。
-
-`.github/workflows/wxcloud-deploy.yml` 使用以下 GitHub Actions Secret：
-
-```text
-WX_CLOUD_ENV_ID
-WX_CLOUD_APP_ID
-WX_CLOUD_PRIVATE_KEY
-WX_CLOUD_API_SERVICE_NAME
-WX_CLOUD_MERCHANT_SERVICE_NAME
-WX_CLOUD_API_PUBLIC_DOMAIN
-WX_CLOUD_MERCHANT_PUBLIC_DOMAIN
-```
-
-`WX_CLOUD_MERCHANT_MAP_KEY` 可以作为可选的商家地图前端 Key；`WX_CLOUD_API_ENV_PARAMS` 只有在需要同步更新 API 环境变量时才设置，不能把私钥或密码提交到仓库。
-
-GitHub 备用工作流仍可使用仓库变量 `WX_CLOUD_DEPLOY_ENABLED`：
-
-- 不设置或设置为 `false`：手动备用工作流在配置门禁处失败，不发布云端服务，也不上传小程序；
-- 设置为 `true`：手动选择 tag 并通过生产环境审批后，备用工作流才发布 API、商家后台和小程序。
-
-常规代码变更由 `.github/workflows/ci.yml` 在 Pull Request 和 `main` 分支上执行质量检查；本地发布复用同一套质量门禁。GitHub 生产发布工作流不响应 `main` 或 `v*` tag push，仅支持人工 `workflow_dispatch`。
-
-本机手动发布的完整命令（包括 API 精简上传上下文、商家构建时 API 域名注入和发布后验收）见[下一次发布 Runbook](release-runbook.md)；入口统一为 `npm run release:local`。实际 CLI 参数以官方文档和当前 CLI 帮助为准。
-
-## 8. 云端接管后的旧环境清理（仅迁移收尾）
-
-以下内容只用于迁移完成后的历史环境收尾，不是新的部署方式。只有在 API、商家后台、MySQL 就绪检查、CORS 和小程序链路验收通过后，才由有权限的运维人员停止旧 Compose 环境：
+将 `Dockerfile.cloud`、`nginx.conf` 和 `dist` 放进临时上下文，再发布：
 
 ```bash
-ssh osako-macbookair
-cd /Users/osako/Projects/city-flash-delivery
-export PATH=/usr/local/bin:$PATH
-docker compose --profile tunnel --profile quick-tunnel down --remove-orphans
-docker compose down --remove-orphans
+merchant_context="$(mktemp -d -t city-flash-merchant-release.XXXXXX)"
+cp apps/merchant-web/Dockerfile.cloud "$merchant_context/Dockerfile"
+cp apps/merchant-web/nginx.conf "$merchant_context/nginx.conf"
+cp -R apps/merchant-web/dist "$merchant_context/dist"
+
+wxcloud run:deploy "$merchant_context" \
+  --targetDir . \
+  --dockerfile Dockerfile \
+  --containerPort 80 \
+  --envId ding-delivery-prod-d8c1eea132b4c \
+  --serviceName city-flash-merchant \
+  --region ap-shanghai \
+  --releaseType FULL \
+  --override \
+  --remark "Release vX.Y.Z <git-sha> merchant" \
+  --noConfirm
 ```
 
-确认 `city-flash-api`、`city-flash-merchant-web`、`postgres`、`redis` 和两个 `cloudflared` 容器都已停止后，再决定是否处理旧镜像。不要执行 `docker compose down -v`：旧 PostgreSQL/Redis 卷可能包含配置或历史数据，删除前必须另行完成备份和数据迁移确认。
+## 发布后验收
+
+```bash
+curl -fsS https://<current-api-domain>/api/health/ready
+curl -fsS -o /dev/null -w '%{http_code}\n' https://<current-merchant-domain>/healthz
+curl -fsS -o /dev/null -w '%{http_code}\n' https://<current-merchant-domain>/
+```
+
+必须同时满足：
+
+- API readiness 返回 HTTP 200 且 `database` 为 `true`；
+- 商家 `/healthz` 和首页返回 HTTP 200；
+- 两个服务状态正常、流量 100%、至少一个副本；
+- 商家构建产物包含当前 API HTTPS 地址；
+- API 的 `CORS_ORIGINS` 包含当前商家域名；
+- 小程序使用同一云托管环境 ID。
+
+CLI 出现 `ResourceNotFound.TopicNotExist` 或重复历史日志时，以服务版本状态和独立 HTTP 健康检查为准，不要只根据日志观察器重发。
+
+## 小程序上传
+
+小程序上传不是 `wxcloud run:deploy` 的一部分。使用当前 AppID 对应的代码上传私钥：
+
+```bash
+WECHAT_PRIVATE_KEY_PATH=/secure/path/private.wxee631108a5a95efc.key \
+WECHAT_VERSION=<next-version> \
+npm run miniprogram:upload
+```
+
+上传成功后必须在微信公众平台手动将版本设为体验版，再进行真机登录和业务验收；上传不会自动切换体验版，也不会自动提交审核。
