@@ -48,6 +48,27 @@ function isDevTools(wxApi) {
   }
 }
 
+function hasCloudContainer(wxApi) {
+  return Boolean(wxApi && wxApi.cloud && typeof wxApi.cloud.callContainer === 'function')
+}
+
+function getDeveloperApiOverride(wxApi) {
+  try {
+    const override = wxApi && wxApi.getStorageSync ? wxApi.getStorageSync('developerApiBaseUrl') : ''
+    return override && /^https?:\/\//.test(String(override)) ? String(override).replace(/\/$/, '') : ''
+  } catch (error) {
+    return ''
+  }
+}
+
+// 审核容器可能把 platform/envVersion 报成 develop。只要 callContainer 可用，
+// 即使 platform 看起来像 devtools 也应走云托管；本机调试需要显式设置 developerApiBaseUrl。
+function shouldUseCloudRuntime(wxApi) {
+  const version = environmentVersion(wxApi)
+  if (version === 'trial' || version === 'release') return true
+  return version === 'develop' && hasCloudContainer(wxApi) && !getDeveloperApiOverride(wxApi)
+}
+
 // 回环地址永远进不了微信「request 合法域名」白名单，一旦被请求就必然报
 // `request:fail url not in domain list`（审核已因此被驳回一次），所以必须能识别出来。
 function isLoopbackApiBaseUrl(url) {
@@ -71,17 +92,20 @@ function resolveDeveloperWxOpenid(wxApi) {
 function resolveApiBaseUrl(wxApi) {
   const version = environmentVersion(wxApi)
   if (version !== 'develop') return API_BASE_URLS[version] || API_BASE_URLS.release
-  try {
-    const override = wxApi && wxApi.getStorageSync ? wxApi.getStorageSync('developerApiBaseUrl') : ''
-    if (override && /^https?:\/\//.test(String(override))) return String(override).replace(/\/$/, '')
-  } catch (error) {}
+  const override = getDeveloperApiOverride(wxApi)
+  if (override) return override
+  if (shouldUseCloudRuntime(wxApi)) return WX_CLOUD_PROD_API_BASE_URL
   if (isDevTools(wxApi)) return LOCAL_API_BASE_URL
   return WX_CLOUD_PROD_API_BASE_URL
 }
 
 function resolveCloudEnvId(wxApi) {
   const version = environmentVersion(wxApi)
-  if (version === 'develop') return isDevTools(wxApi) ? '' : WX_CLOUD_PROD_ENV_ID
+  if (version === 'develop') {
+    if (getDeveloperApiOverride(wxApi)) return ''
+    if (isDevTools(wxApi) && !hasCloudContainer(wxApi)) return ''
+    return WX_CLOUD_PROD_ENV_ID
+  }
   if (version === 'trial' || version === 'release') return WX_CLOUD_PROD_ENV_ID
   // 环境未知（例如审核容器）时按线上处理，不回落到本机地址。
   return WX_CLOUD_PROD_ENV_ID
@@ -90,8 +114,9 @@ function resolveCloudEnvId(wxApi) {
 // 请求基址的唯一出口：保证非开发者工具环境永远不会把请求打到回环地址上。
 function resolveBackendBaseUrl(globalData, wxApi) {
   const configured = String((globalData && globalData.apiBaseUrl) || '').replace(/\/$/, '')
-  if (!configured) return isDevTools(wxApi) ? LOCAL_API_BASE_URL : WX_CLOUD_PROD_API_BASE_URL
-  if (isLoopbackApiBaseUrl(configured) && !isDevTools(wxApi)) return WX_CLOUD_PROD_API_BASE_URL
+  const cloudRuntime = shouldUseCloudRuntime(wxApi) || !isDevTools(wxApi)
+  if (!configured) return cloudRuntime ? WX_CLOUD_PROD_API_BASE_URL : LOCAL_API_BASE_URL
+  if (isLoopbackApiBaseUrl(configured) && cloudRuntime) return WX_CLOUD_PROD_API_BASE_URL
   return configured
 }
 
@@ -107,6 +132,9 @@ module.exports = {
   environmentVersion,
   isRealDevice,
   isDevTools,
+  hasCloudContainer,
+  getDeveloperApiOverride,
+  shouldUseCloudRuntime,
   isLoopbackApiBaseUrl,
   resolveDeveloperWxOpenid,
   resolveCloudEnvId,

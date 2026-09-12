@@ -75,7 +75,7 @@ test('cloud runtime remains identifiable when callContainer is unavailable', () 
 })
 
 test('development runtime has no cloud environment', () => {
-  const cloudRequest = loadCloudRequest({ envId: '', callContainer: () => {} })
+  const cloudRequest = loadCloudRequest({ envId: '', callContainer: undefined })
   assert.equal(cloudRequest.hasEnvironment(), false)
   assert.equal(cloudRequest.isConfigured(), false)
 })

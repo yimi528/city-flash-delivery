@@ -31,6 +31,13 @@ function deviceFor(envVersion, override = '') {
   }
 }
 
+function devToolsWithCloud() {
+  return {
+    ...wxFor('develop'),
+    cloud: { callContainer: () => {} }
+  }
+}
+
 function brokenAccountApi(override = '') {
   return {
     getAccountInfoSync: () => { throw new Error('getAccountInfoSync is unavailable') },
@@ -43,6 +50,13 @@ test('development in DevTools uses the local API and allows a developer-only ove
   assert.equal(runtime.resolveApiBaseUrl(wxFor('develop')), runtime.LOCAL_API_BASE_URL)
   assert.equal(runtime.resolveApiBaseUrl(wxFor('develop', 'https://dev.example.com/api/')), 'https://dev.example.com/api')
   assert.equal(runtime.resolveCloudEnvId(wxFor('develop')), '')
+})
+
+test('a DevTools-shaped review runtime uses cloud hosting when callContainer is available', () => {
+  const wxApi = devToolsWithCloud()
+  assert.equal(runtime.shouldUseCloudRuntime(wxApi), true)
+  assert.equal(runtime.resolveApiBaseUrl(wxApi), PROD_API_BASE_URL)
+  assert.equal(runtime.resolveCloudEnvId(wxApi), PROD_ENV_ID)
 })
 
 test('development outside DevTools never targets the loopback API', () => {
@@ -108,6 +122,7 @@ test('resolveBackendBaseUrl keeps the local API in DevTools and blocks it elsewh
   const localGlobalData = { apiBaseUrl: runtime.LOCAL_API_BASE_URL }
 
   assert.equal(runtime.resolveBackendBaseUrl(localGlobalData, wxFor('develop')), runtime.LOCAL_API_BASE_URL)
+  assert.equal(runtime.resolveBackendBaseUrl(localGlobalData, devToolsWithCloud()), PROD_API_BASE_URL)
   // 真机 / 审核容器：即使 globalData 里带着本机地址，也必须改走线上地址。
   assert.equal(runtime.resolveBackendBaseUrl(localGlobalData, deviceFor('develop')), PROD_API_BASE_URL)
   // 地址缺失时按环境给出安全默认值。
