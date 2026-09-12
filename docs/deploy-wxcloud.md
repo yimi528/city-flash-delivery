@@ -21,7 +21,7 @@
 | API 公网域名 | `https://city-flash-api-298025-11-1469830209.sh.run.tcloudbase.com` |
 | 商家端公网域名 | `https://city-flash-merchant-298025-11-1469830209.sh.run.tcloudbase.com` |
 | 当前 Git 发布 tag | `v1.0.10` |
-| 当前 Git 提交 | `3c392ec` |
+| 当前运行时代码提交 | `3c392ec` |
 | 当前小程序上传版本 | `1.0.10` |
 
 域名和服务状态以实时查询为准：

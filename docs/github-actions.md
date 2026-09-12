@@ -12,7 +12,7 @@
 
 ## 当前发布基线
 
-- GitHub 当前发布提交：`3c392ec`；当前 tag：`v1.0.10`；
+- 当前运行时代码发布提交：`3c392ec`；当前 tag：`v1.0.10`；文档提交可继续推进 `main`，不会改变该运行时版本；
 - 小程序当前上传版本：`1.0.10`；
 - 云托管环境：`ding-delivery-prod-d8c1eea132b4c`；
 - API：`city-flash-api:3000`；商家端：`city-flash-merchant:80`；

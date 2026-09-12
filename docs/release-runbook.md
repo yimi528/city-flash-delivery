@@ -6,7 +6,7 @@
 
 | 项目 | 当前值 |
 | --- | --- |
-| GitHub main | `3c392ec` |
+| 运行时代码发布提交 | `3c392ec` |
 | Git tag | `v1.0.10` |
 | 小程序上传版本 | `1.0.10` |
 | 云托管环境 | `ding-delivery-prod-d8c1eea132b4c` |
