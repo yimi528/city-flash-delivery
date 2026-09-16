@@ -156,8 +156,11 @@ Page({
   },
 
   onShow() {
-    const order = app.globalData.orders.find((item) => item.id === this.orderId) || app.globalData.orders[0]
-    this.applyOrder(order)
+    const cached = app.globalData.orders.find((item) => item.id === this.orderId)
+    // 只有 id 对得上的缓存订单可以先渲染。id 对不上时宁可不画，等 syncOrder 拉真实订单——
+    // 否则会把上一单的坐标画在本单的地图上，而同步失败时会一直错下去。
+    if (cached) this.applyOrder(cached)
+    else if (!app.globalData.useBackend) this.applyOrder(app.globalData.orders[0])
     navigation.afterVisible(() => {
       this.syncOrder({ silent: false })
       this.startOrderPolling()

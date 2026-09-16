@@ -31,6 +31,12 @@ function mapDataForDraft(draft) {
   }
 }
 
+// 用于判断 draft 的起终点有没有变：变了才重算地图和路线，避免每次 onShow 都重新请求。
+function mapDataKey(mapData) {
+  const key = (point) => (point ? `${point.latitude},${point.longitude}` : '')
+  return `${key(mapData.mapStartPoint)}|${key(mapData.mapEndPoint)}`
+}
+
 Page({
   data: {
     statusBarHeight: 24,
@@ -54,17 +60,38 @@ Page({
   onLoad(query) {
     const draft = app.globalData.draftOrder || {}
     const selectedVehicle = vehicleConfig.recommendVehicleId(draft)
-    const mapData = mapDataForDraft(draft)
+    this.mapDataKey = ''
+    this.pendingMapData = null
     this.setData({
       statusBarHeight: app.globalData.statusBarHeight,
       from: query.from || '',
       selectedVehicle,
-      selectedVehicleName: vehicleConfig.findVehicle(selectedVehicle).name,
+      selectedVehicleName: vehicleConfig.findVehicle(selectedVehicle).name
+    })
+    this.pendingMapData = this.syncDraftMap(draft)
+  },
+
+  onShow() {
+    // 地址是回填到 globalData.draftOrder 的（地址簿 / 地图选点），本页没有别的事件能感知；
+    // 少了这一步，选好或改完地址再回到本页时地图会停在进页面那一刻的起终点。
+    const mapData = this.syncDraftMap(app.globalData.draftOrder || {})
+    if (!mapData) return
+    this.pendingMapData = mapData
+    navigation.afterVisible(() => this.loadTencentRoute(mapData))
+  },
+
+  // 把 draft 的起终点同步到地图；起终点没变时返回 null，避免重复请求腾讯地图路线。
+  syncDraftMap(draft) {
+    const mapData = mapDataForDraft(draft)
+    const key = mapDataKey(mapData)
+    if (key === this.mapDataKey) return null
+    this.mapDataKey = key
+    this.setData({
       taskName: draft.taskName || draft.service || '当前服务',
       routeText: formatLine(draft),
       ...mapData
     })
-    this.pendingMapData = mapData
+    return mapData
   },
 
   onReady() {
@@ -72,13 +99,14 @@ Page({
   },
 
   loadTencentRoute(mapData) {
-    if (!mapData.mapHasRoute || !mapData.mapStartPoint || !mapData.mapEndPoint) return Promise.resolve()
+    if (!mapData || !mapData.mapHasRoute || !mapData.mapStartPoint || !mapData.mapEndPoint) return Promise.resolve()
     const routeKey = [
       mapData.mapStartPoint.latitude,
       mapData.mapStartPoint.longitude,
       mapData.mapEndPoint.latitude,
       mapData.mapEndPoint.longitude
     ].join(',')
+    if (this.mapRouteKey === routeKey) return Promise.resolve()
     this.mapRouteKey = routeKey
     return map.route(mapData.mapStartPoint, mapData.mapEndPoint, {
       mode: app.globalData.mapConfig && app.globalData.mapConfig.distanceMode || 'bicycling'

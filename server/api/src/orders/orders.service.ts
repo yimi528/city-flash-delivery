@@ -146,8 +146,28 @@ export class OrdersService {
       throw new BadRequestException('寄货必须先获取线路、物品和重量报价')
     }
     const fixedVehicle = TASK_VEHICLES[taskId] || TASK_VEHICLES.urgent_delivery
+    const [pickupPoint, dropoffPoint] = await Promise.all([
+      this.resolveOrderPoint({
+        latitude: dto.pickupLat,
+        longitude: dto.pickupLng,
+        name: dto.pickupName,
+        detail: dto.pickupDetail,
+      }),
+      this.resolveOrderPoint({
+        latitude: dto.dropoffLat,
+        longitude: dto.dropoffLng,
+        name: dto.dropoffName,
+        detail: dto.dropoffDetail,
+      }),
+    ])
     const pricingInput = await this.serverPricingInput(dto, taskId, fixedVehicle)
-    const authoritative = await this.resolveAuthoritativeInputs(dto, taskId)
+    const authoritative = await this.resolveAuthoritativeInputs({
+      ...dto,
+      pickupLat: pickupPoint?.latitude,
+      pickupLng: pickupPoint?.longitude,
+      dropoffLat: dropoffPoint?.latitude,
+      dropoffLng: dropoffPoint?.longitude,
+    }, taskId)
     const estimate = this.pricingService.estimate({
       serviceType: pricingInput.serviceType,
       vehicleType: fixedVehicle.type,
@@ -192,14 +212,14 @@ export class OrdersService {
         pickupDetail: dto.pickupDetail,
         pickupContact: dto.pickupContact || '取货联系人',
         pickupPhone: dto.pickupPhone || '',
-        pickupLat: this.optionalNumber(dto.pickupLat),
-        pickupLng: this.optionalNumber(dto.pickupLng),
+        pickupLat: pickupPoint ? pickupPoint.latitude : null,
+        pickupLng: pickupPoint ? pickupPoint.longitude : null,
         dropoffName: dto.dropoffName,
         dropoffDetail: dto.dropoffDetail,
         dropoffContact: dto.dropoffContact || '收货联系人',
         dropoffPhone: dto.dropoffPhone || '',
-        dropoffLat: this.optionalNumber(dto.dropoffLat),
-        dropoffLng: this.optionalNumber(dto.dropoffLng),
+        dropoffLat: dropoffPoint ? dropoffPoint.latitude : null,
+        dropoffLng: dropoffPoint ? dropoffPoint.longitude : null,
         itemName: dto.item || '同城配送物品',
         buyItems: dto.buyItems || '',
         weightKg: estimate.weightKg,
@@ -271,6 +291,28 @@ export class OrdersService {
     const vehicle = await this.ensureVehicle(fixedVehicle.type, fixedVehicle.name)
     const pickup = this.quoteAddress(quote.pickup)
     const dropoff = this.quoteAddress(quote.dropoff)
+    // 报价单里存的坐标可能是客户端 `|| 0` 兜底出来的 0/0；这里按地址文本补齐，
+    // 保证商家端和订单详情地图拿到的是真实地点。
+    const [pickupPoint, dropoffPoint] = await Promise.all([
+      this.resolveOrderPoint({
+        latitude: pickup.latitude ?? dto.pickupLat,
+        longitude: pickup.longitude ?? dto.pickupLng,
+        name: pickup.name || dto.pickupName,
+        detail: pickup.detail || dto.pickupDetail,
+        city: pickup.city,
+        district: pickup.district,
+      }),
+      isHandling
+        ? Promise.resolve(null)
+        : this.resolveOrderPoint({
+            latitude: dropoff.latitude ?? dto.dropoffLat,
+            longitude: dropoff.longitude ?? dto.dropoffLng,
+            name: dropoff.name || dto.dropoffName,
+            detail: dropoff.detail || dto.dropoffDetail,
+            city: dropoff.city,
+            district: dropoff.district,
+          }),
+    ])
     const orderNo = this.generateOrderNo()
     const serviceType = isCarpool ? PrismaServiceType.CARPOOL : this.serviceTypeForTask(quote.serviceId)
     const serviceName = isCarpool ? '顺风车' : this.serviceNameForTask(quote.serviceId)
@@ -307,14 +349,14 @@ export class OrdersService {
           pickupDetail: dto.pickupDetail || pickup.detail,
           pickupContact: dto.pickupContact || '联系人',
           pickupPhone: dto.pickupPhone || '',
-          pickupLat: this.optionalNumber(pickup.latitude || dto.pickupLat),
-          pickupLng: this.optionalNumber(pickup.longitude || dto.pickupLng),
+          pickupLat: pickupPoint ? pickupPoint.latitude : null,
+          pickupLng: pickupPoint ? pickupPoint.longitude : null,
           dropoffName: isHandling ? '' : (dropoff.name || dto.dropoffName || ''),
           dropoffDetail: isHandling ? '' : (dto.dropoffDetail || dropoff.detail),
           dropoffContact: isHandling ? '' : (dto.dropoffContact || ''),
           dropoffPhone: isHandling ? '' : (dto.dropoffPhone || ''),
-          dropoffLat: isHandling ? null : this.optionalNumber(dropoff.latitude || dto.dropoffLat),
-          dropoffLng: isHandling ? null : this.optionalNumber(dropoff.longitude || dto.dropoffLng),
+          dropoffLat: dropoffPoint ? dropoffPoint.latitude : null,
+          dropoffLng: dropoffPoint ? dropoffPoint.longitude : null,
           itemName: dto.item || serviceName,
           weightKg: Number(dto.weightKg || 1),
           distanceKm: quote.distanceMeters / 1000,
@@ -634,14 +676,37 @@ export class OrdersService {
     return Number.isFinite(numberValue) ? numberValue : null
   }
 
-  private optionalNumber(value?: number) {
-    const numberValue = Number(value)
-    return Number.isFinite(numberValue) ? numberValue : undefined
+  /**
+   * 订单坐标解析：地址自带有效坐标就直接用；缺失或 0/0（客户端的兜底值）时用地址文本
+   * 回查腾讯地图地理编码。地图不可用或查不到时返回 null，绝不抛错，避免堵死下单。
+   */
+  private async resolveOrderPoint(input: {
+    latitude?: unknown
+    longitude?: unknown
+    name?: unknown
+    detail?: unknown
+    city?: unknown
+    district?: unknown
+  }) {
+    const direct = this.usableCoordinate(input.latitude, input.longitude)
+    if (direct) return direct
+    if (!this.maps || typeof this.maps.resolveAddressPoint !== 'function') return null
+    return this.maps.resolveAddressPoint(input)
+  }
+
+  /** 0 是客户端"没有坐标"的兜底值，不能当有效点用，否则距离会算到几内亚湾。 */
+  private usableCoordinate(latitude?: unknown, longitude?: unknown) {
+    const lat = Number(latitude)
+    const lng = Number(longitude)
+    const valid = Number.isFinite(lat) && Number.isFinite(lng) && lat !== 0 && lng !== 0
+    return valid ? { latitude: lat, longitude: lng } : null
   }
 
   private quoteAddress(value: Prisma.JsonValue | null): {
     name: string
     detail: string
+    city?: string
+    district?: string
     latitude?: number
     longitude?: number
   } {
@@ -650,6 +715,8 @@ export class OrdersService {
     return {
       name: typeof source.name === 'string' ? source.name : '',
       detail: typeof source.detail === 'string' ? source.detail : '',
+      city: typeof source.city === 'string' ? source.city : undefined,
+      district: typeof source.district === 'string' ? source.district : undefined,
       latitude: typeof source.latitude === 'number' ? source.latitude : undefined,
       longitude: typeof source.longitude === 'number' ? source.longitude : undefined,
     }
@@ -813,15 +880,11 @@ export class OrdersService {
   }
 
   private orderPoint(latitude: number | undefined, longitude: number | undefined, label: string) {
-    if (
-      latitude === undefined ||
-      longitude === undefined ||
-      !Number.isFinite(latitude) ||
-      !Number.isFinite(longitude)
-    ) {
+    const point = this.usableCoordinate(latitude, longitude)
+    if (!point) {
       throw new BadRequestException(`${label}必须包含有效坐标，无法使用普通距离计价`)
     }
-    return { latitude, longitude }
+    return point
   }
 
   private generateOrderNo() {

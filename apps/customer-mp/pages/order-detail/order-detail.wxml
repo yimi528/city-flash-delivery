@@ -188,3 +188,17 @@
     <button class="solid" bindtap="advanceMerchantOrder" wx:if="{{isMerchantMode && merchantActionText}}">{{merchantActionText}}</button>
   </view>
 </view>
+
+<!-- 订单还没到手时（正在同步 / 同步失败）不要拿别的订单数据顶上，给一个明确的空状态。 -->
+<view class="detail-page empty-page" wx:else>
+  <view style="height: {{statusBarHeight}}px"></view>
+  <view class="page-nav">
+    <view class="back floating-back" style="top: {{statusBarHeight + 12}}px;" bindtap="goBack" role="button" aria-label="返回">‹</view>
+    <view class="nav-title">订单详情</view>
+    <view class="nav-action sync-action" bindtap="manualSync">{{isSyncing ? '同步中' : '刷新'}}</view>
+  </view>
+  <view class="card empty-card">
+    <view class="empty-title">{{isSyncing ? '正在同步这一单…' : '暂时读不到这一单'}}</view>
+    <view class="empty-sub">{{isSyncing ? '正在从服务端拉取最新订单与地址坐标' : '订单已提交成功，不会因为这里读不到而丢失。请检查网络后点右上角刷新。'}}</view>
+  </view>
+</view>

@@ -363,3 +363,184 @@ describe('OrdersService quote confirmation', () => {
     }))
   })
 })
+
+describe('OrdersService coordinate backfill', () => {
+  const now = new Date('2026-09-16T02:00:00.000Z')
+
+  function persistedOrder(overrides: Record<string, unknown> = {}) {
+    return {
+      id: 'N202609160001',
+      orderNo: 'N202609160001',
+      userId: 'user-1',
+      serviceType: ServiceType.CARGO,
+      serviceName: '急送',
+      taskId: 'urgent_delivery',
+      status: OrderStatus.PENDING,
+      paymentStatus: PaymentStatus.UNPAID,
+      pickupName: '福鼎一中',
+      pickupDetail: '桐山街道1号',
+      pickupContact: '张三',
+      pickupPhone: '13800000001',
+      pickupLat: null,
+      pickupLng: null,
+      dropoffName: '福鼎万达',
+      dropoffDetail: '天湖路2号',
+      dropoffContact: '李四',
+      dropoffPhone: '13800000002',
+      dropoffLat: null,
+      dropoffLng: null,
+      itemName: '同城配送物品',
+      buyItems: '',
+      weightKg: 1,
+      distanceKm: 3.2,
+      vehicleType: VehicleType.EBIKE,
+      vehicleName: '二轮车',
+      vehicleId: null,
+      vehicle: null,
+      pricingMode: 'distance_weather',
+      isManualQuote: false,
+      quotedFee: 13,
+      quoteStatus: QuoteStatus.NONE,
+      quoteNote: '',
+      quoteUpdatedAt: null,
+      quoteRespondedAt: null,
+      baseFee: 13,
+      distanceFee: 0,
+      weightFee: 0,
+      vehicleFee: 0,
+      discountFee: 0,
+      productFee: 0,
+      deliveryFee: 13,
+      estimatedFee: 13,
+      totalFee: 13,
+      remark: '',
+      createdAt: now,
+      updatedAt: now,
+      ...overrides,
+    }
+  }
+
+  function quoteWith(addresses: { pickup: Record<string, unknown>; dropoff: Record<string, unknown> }) {
+    return {
+      id: 'quote-1',
+      userId: 'user-1',
+      serviceId: 'urgent_delivery',
+      routeId: null,
+      direction: 'OUTBOUND',
+      passengerCount: 1,
+      pickup: addresses.pickup,
+      dropoff: addresses.dropoff,
+      distanceMeters: 3200,
+      vehicleType: VehicleType.EBIKE,
+      vehicleName: '二轮车',
+      unitPriceFen: 0,
+      baseFeeFen: 1300,
+      distanceFeeFen: 0,
+      weatherFeeFen: 0,
+      productFeeFen: 0,
+      totalFen: 1300,
+      pricingRuleVersion: 1,
+      requiresDelivery: true,
+      usedAt: null,
+      expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+    }
+  }
+
+  function harness(maps: Record<string, unknown>) {
+    const created: Array<Record<string, unknown>> = []
+    const tx = {
+      quote: { updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
+      order: {
+        create: jest.fn(async (args: { data: Record<string, unknown> }) => {
+          created.push(args.data)
+          return persistedOrder(args.data)
+        }),
+      },
+    }
+    const prisma = {
+      quote: { findFirst: jest.fn() },
+      order: { findFirst: jest.fn(async () => persistedOrder(created[0] || {})) },
+      vehicleProfile: { upsert: jest.fn(async () => ({ id: 'vehicle-1' })) },
+      user: { upsert: jest.fn(async () => ({})) },
+      $transaction: jest.fn(async (callback: (client: typeof tx) => Promise<unknown>) => callback(tx)),
+    }
+    const service = new OrdersService(new PricingService(), prisma as never, maps as never)
+    return { created, prisma, service }
+  }
+
+  const baseDto = {
+    quoteId: 'quote-1',
+    taskId: 'urgent_delivery',
+    serviceType: ServiceType.CARGO,
+    vehicleType: VehicleType.EBIKE,
+    pickupName: '福鼎一中',
+    pickupDetail: '桐山街道1号',
+    dropoffName: '福鼎万达',
+    dropoffDetail: '天湖路2号',
+    dropoffContact: '李四',
+    dropoffPhone: '13800000002',
+    userId: 'user-1',
+  }
+
+  it('geocodes addresses whose coordinates arrived as the client 0 fallback', async () => {
+    const maps = {
+      resolveAddressPoint: jest.fn(async (address: { name?: string }) => (
+        address.name === '福鼎一中'
+          ? { latitude: 27.3325, longitude: 120.2165 }
+          : { latitude: 27.3011, longitude: 120.2381 }
+      )),
+    }
+    const { created, prisma, service } = harness(maps)
+    prisma.quote.findFirst.mockResolvedValue(quoteWith({
+      pickup: { name: '福鼎一中', detail: '桐山街道1号', city: '福鼎市', latitude: 0, longitude: 0 },
+      dropoff: { name: '福鼎万达', detail: '天湖路2号', city: '福鼎市', latitude: 0, longitude: 0 },
+    }))
+
+    await service.create(baseDto as never)
+
+    expect(maps.resolveAddressPoint).toHaveBeenCalledWith(expect.objectContaining({
+      name: '福鼎一中',
+      city: '福鼎市',
+      latitude: 0,
+    }))
+    expect(created[0].pickupLat).toBe(27.3325)
+    expect(created[0].pickupLng).toBe(120.2165)
+    expect(created[0].dropoffLat).toBe(27.3011)
+    expect(created[0].dropoffLng).toBe(120.2381)
+  })
+
+  it('keeps real coordinates and never stores the 0/0 placeholder', async () => {
+    const maps = {
+      resolveAddressPoint: jest.fn(async () => null),
+    }
+    const { created, prisma, service } = harness(maps)
+    prisma.quote.findFirst.mockResolvedValue(quoteWith({
+      pickup: { name: '福鼎一中', detail: '桐山街道1号', latitude: 27.3325, longitude: 120.2165 },
+      dropoff: { name: '福鼎万达', detail: '天湖路2号', latitude: 0, longitude: 0 },
+    }))
+
+    await service.create(baseDto as never)
+
+    // 已有有效坐标的地址不查地图；查不到的地址留空，而不是把 0/0 写进订单。
+    expect(maps.resolveAddressPoint).toHaveBeenCalledTimes(1)
+    expect(maps.resolveAddressPoint).toHaveBeenCalledWith(expect.objectContaining({ name: '福鼎万达' }))
+    expect(created[0].pickupLat).toBe(27.3325)
+    expect(created[0].pickupLng).toBe(120.2165)
+    expect(created[0].dropoffLat).toBeNull()
+    expect(created[0].dropoffLng).toBeNull()
+  })
+
+  it('still creates the order when the map service cannot resolve points', async () => {
+    // 地图服务没有地理编码能力（未配置 key）时：有效坐标照旧保留，缺坐标留空，下单不能因此失败。
+    const { created, prisma, service } = harness({})
+    prisma.quote.findFirst.mockResolvedValue(quoteWith({
+      pickup: { name: '福鼎一中', detail: '桐山街道1号', latitude: 27.3325, longitude: 120.2165 },
+      dropoff: { name: '福鼎万达', detail: '天湖路2号', latitude: 0, longitude: 0 },
+    }))
+
+    await service.create(baseDto as never)
+
+    expect(created[0].pickupLat).toBe(27.3325)
+    expect(created[0].dropoffLat).toBeNull()
+  })
+})

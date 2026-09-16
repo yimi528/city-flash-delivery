@@ -35,6 +35,23 @@ type TencentDirectionResult = {
   routes?: Array<{ distance?: number; duration?: number; polyline?: number[] }>
 }
 
+type TencentGeocodeResult = {
+  title?: string
+  address?: string
+  location?: { lat?: number; lng?: number }
+}
+
+export type AddressPointInput = {
+  name?: unknown
+  detail?: unknown
+  city?: unknown
+  district?: unknown
+  latitude?: unknown
+  longitude?: unknown
+}
+
+export type AddressPoint = { latitude: number; longitude: number }
+
 export type TencentWeatherResult = Record<string, unknown>
 
 @Injectable()
@@ -72,6 +89,58 @@ export class TencentMapService {
       get_poi: 1,
     })
     return { provider: 'tencent-map', configured: true, result }
+  }
+
+  async geocode(address: string, region?: string) {
+    const query = String(address || '').trim()
+    if (!this.isConfigured() || !query) {
+      return { provider: 'tencent-map', configured: this.isConfigured(), result: null as TencentGeocodeResult | null }
+    }
+    const result = await this.request<TencentGeocodeResult>('/ws/geocoder/v1/', {
+      address: query,
+      region: region ? String(region).trim() : undefined,
+    })
+    return { provider: 'tencent-map', configured: true, result }
+  }
+
+  /**
+   * 地址坐标的唯一可信入口：地址自带有效坐标就直接用；缺失（含客户端 `|| 0` 兜底出来的 0/0）
+   * 时按地址文本回查地理编码。查不到返回 null，由调用方决定是拒绝下单还是留空。
+   */
+  async resolveAddressPoint(address?: AddressPointInput): Promise<AddressPoint | null> {
+    const direct = this.usableAddressPoint(address?.latitude, address?.longitude)
+    if (direct) return direct
+    const query = this.geocodeQuery(address)
+    if (!query) return null
+    try {
+      const resolved = await this.geocode(query, this.addressRegion(address))
+      return this.usableAddressPoint(resolved.result?.location?.lat, resolved.result?.location?.lng)
+    } catch {
+      // 地理编码失败不能让下单和报价直接挂掉：交回 null，调用方按"没有坐标"处理。
+      return null
+    }
+  }
+
+  usableAddressPoint(latitude?: unknown, longitude?: unknown): AddressPoint | null {
+    const lat = Number(latitude)
+    const lng = Number(longitude)
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null
+    // 0 在本项目里等同于"没有坐标"（经度/纬度 0 都不在服务范围内），避免把点画到几内亚湾。
+    if (lat === 0 || lng === 0) return null
+    if (Math.abs(lat) > 90 || Math.abs(lng) > 180) return null
+    return { latitude: lat, longitude: lng }
+  }
+
+  private geocodeQuery(address?: AddressPointInput) {
+    const parts = [address?.city, address?.district, address?.name, address?.detail]
+      .map((value) => String(value || '').trim())
+      .filter(Boolean)
+    return Array.from(new Set(parts)).join('')
+  }
+
+  private addressRegion(address?: AddressPointInput) {
+    const region = String(address?.city || address?.district || '').trim()
+    return region || undefined
   }
 
   async distance(

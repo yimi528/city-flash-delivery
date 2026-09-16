@@ -857,3 +857,23 @@
   background: #f39a72;
   box-shadow: none;
 }
+
+/* 订单未就绪时的空状态：和详情页同一套背景与卡片语言，不引入新的色板。 */
+.empty-card {
+  margin-top: 40rpx;
+  padding: 48rpx 36rpx;
+  text-align: center;
+}
+
+.empty-title {
+  font-size: 32rpx;
+  font-weight: 800;
+  color: #121c34;
+}
+
+.empty-sub {
+  margin-top: 14rpx;
+  font-size: 25rpx;
+  line-height: 1.6;
+  color: #6b7793;
+}

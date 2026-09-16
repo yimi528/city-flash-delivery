@@ -236,6 +236,10 @@ export class ConfigCenterService implements OnModuleInit {
     if (settings && (!settings.acceptingOrders || !this.isWithinHours(settings.weeklyHours))) throw new ServiceUnavailableException(settings.closureReason || '当前不在营业时间，暂不接受新订单')
     const rule = await this.prisma.pricingRule.findFirst({ where: { serviceId: dto.taskId, enabled: true } })
     if (!rule) throw new BadRequestException('该业务尚未配置价格规则')
+    // 地址坐标缺失（客户端 `|| 0` 兜底、地址簿里手填的地址）时先补齐，
+    // 否则报价会按 0/0 去算距离、报价单也把 0/0 传给订单，订单详情地图只能退回默认中心。
+    dto.pickup = await this.withResolvedCoordinates(dto.pickup)
+    dto.dropoff = await this.withResolvedCoordinates(dto.dropoff)
     const pickup = point(dto.pickup)
     const dropoff = point(dto.dropoff)
     const requiresDropoff = dto.taskId !== 'moving_handling'
@@ -339,6 +343,20 @@ export class ConfigCenterService implements OnModuleInit {
           ? adcode.startsWith('3501') || /福州市|福州/.test(text)
           : false
     if (!valid) throw new BadRequestException('所选地址与顺风车线路不匹配')
+  }
+
+  /**
+   * 报价单里的地址必须是带可用坐标的：缺失或 0/0（客户端兜底值）时按地址文本回查地理编码。
+   * 查不到就原样返回，由后续的距离校验决定是否拒绝，不在这里抛错。
+   */
+  private async withResolvedCoordinates(value?: Record<string, unknown>) {
+    if (!value) return value
+    const source = record(value)
+    const current = point(source)
+    if (current && current.latitude !== 0 && current.longitude !== 0) return value
+    const resolved = await this.maps.resolveAddressPoint(source)
+    if (!resolved) return value
+    return { ...source, latitude: resolved.latitude, longitude: resolved.longitude }
   }
 
   private async createQuote(userId: string, dto: PricingQuoteDto, version: number, input: { route: any; unitPriceFen?: number; distanceMeters: number; baseFeeFen: number; distanceFeeFen: number; weatherFeeFen: number; productFeeFen: number; totalFen: number; vehicleName: string }) {

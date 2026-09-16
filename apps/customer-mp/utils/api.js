@@ -400,6 +400,17 @@ function firstNumber() {
   return 0
 }
 
+// 0 在本项目里等同于"没有坐标"（服务端会按地址文本重新地理编码），不要把 0 当成真坐标发出去。
+function coordinateNumber() {
+  for (let index = 0; index < arguments.length; index += 1) {
+    const value = arguments[index]
+    if (value === undefined || value === null || value === '') continue
+    const numberValue = Number(value)
+    if (Number.isFinite(numberValue) && numberValue !== 0) return numberValue
+  }
+  return undefined
+}
+
 function buildNestPricePayload(payload) {
   const source = payload || {}
   const cargoOptions = source.cargoOptions || {}
@@ -464,14 +475,14 @@ function buildNestOrderPayload(payload) {
     pickupDetail: source.pickupDetail || pickup.detail || '',
     pickupContact: source.pickupContact || pickup.contact || '',
     pickupPhone: source.pickupPhone || pickup.phone || '',
-    pickupLat: Number(source.pickupLat || pickup.latitude || 0),
-    pickupLng: Number(source.pickupLng || pickup.longitude || 0),
+    pickupLat: coordinateNumber(source.pickupLat, pickup.latitude),
+    pickupLng: coordinateNumber(source.pickupLng, pickup.longitude),
     dropoffName: isHandling ? '' : (source.dropoffName || dropoff.name || '收货地址'),
     dropoffDetail: isHandling ? '' : (source.dropoffDetail || dropoff.detail || ''),
     dropoffContact: isHandling ? '' : (source.dropoffContact || dropoff.contact || ''),
     dropoffPhone: isHandling ? '' : (source.dropoffPhone || dropoff.phone || ''),
-    dropoffLat: isHandling ? 0 : Number(source.dropoffLat || dropoff.latitude || 0),
-    dropoffLng: isHandling ? 0 : Number(source.dropoffLng || dropoff.longitude || 0),
+    dropoffLat: isHandling ? undefined : coordinateNumber(source.dropoffLat, dropoff.latitude),
+    dropoffLng: isHandling ? undefined : coordinateNumber(source.dropoffLng, dropoff.longitude),
     item: source.item || source.itemName || source.buyItems || '同城配送物品',
     buyItems: source.buyItems || '',
     distanceKm: Number(source.distanceKm || source.distance || 2.6),
